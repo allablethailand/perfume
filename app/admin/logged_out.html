@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Logged out</title>
+</head>
+<body>
+    <script>
+        // ลบ JWT ที่ค้างอยู่ใน sessionStorage
+        sessionStorage.removeItem("jwt");
+
+        // หรือใช้ sessionStorage.clear(); ถ้ามีหลายตัวแปร
+
+        // จากนั้น redirect ไปหน้าแรก
+        window.location.href = "../index.php"; // หรือเปลี่ยนเป็น path ที่ต้องการ
+    </script>
+</body>
+</html>

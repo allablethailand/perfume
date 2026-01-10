@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "spatial-vision-470405-u2",
+  "private_key_id": "1572283a8a60bbb0f939b8cbb57f6d6ee508ceef",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCgDKMCHhdBcCCn\nr4AgV0/sBLMY5ha1n5t/u0wE22ouQhfcMUxrHbGbfLtzoHoboPfblac88VXDYVQO\nXcSXVnlzE91lbaIJC5/hsvZRvdS99XLVuII8JeOfoHZPSZrt+XyiN2p9RB3OTD+E\nZnngO4ZYJozcYaqbr6xap1XTwIGzrvGW1NUA14kFox7C97F5uki9KdZX7ulMlT5m\nMSUd4tqmtxCgFGRMZ4ad62sYjIVYAwHSTEI6xiOU15M0u9JluVIsGsMnVeEUFHhJ\n9RhP5OXaOf5kp6WLyICa15hLu9zdRUI7PFzNxd03+xOWEUZPMx8uTSe/RjAzUKqz\nVSDDasSfAgMBAAECggEABknY0cl64nBUaCJGJ38mvcBFhTHtLH+z7WXfi8VPO7gP\nFfC97uuAwfo5p0Zj5dgCRRdxNbzJwN5/Hf1jLwsPxIzAQy72keJqCsUsVnPd+wS8\n2VbhjxlyAyCb5Wuf8b++vOTugzN89FEcocgg+8V69tW07SfNO0bAv+MZRTOoJPYn\nxYUbenA0YH4X5U5qI0ccq4dtl49RguEgC6QBN+w1jRhWCNI1sDZ7xCXOFgEB8pN6\nAt88fwWJTI/iVgZ/0HOyAC0Dzy2XBP6k5QbbFnGBYsvrGL4cj8Xp26O7LSCuaPSv\nQ+HfLRjq39Y+u5yDwWuMOLWYPf8TOUbc/jBD8LKmsQKBgQDax/wfaH0JpyD3krNU\nymVXR5bdZ+taA5GJbQQV+MSxDe5ICfB5j3Dvypch9ri5Os14aaEJ4Fa7FaHthumb\nU6tFOLdWLqN8RZbLgoWNSFJ8Pmfr0e7nk03Xm4QTuJAlNvkufgtApjvfpLK1vMqu\nrc7SDq9ou+NSbGYIS2nfqk//eQKBgQC7Rtr/AqmNhD2ENB0MSWdwpmDanc33dH79\n+BPSNZQfuWeKVeRwHUgdE2WPo1vnmD7sS2pdAz4qJwIPRPO8GJDWx/D/ZOw8L6e9\nUKgZqfYLuoKmCv7//stsfx5ZC0f/dxCBCrlOXQQta2eG7CP1YznJRTbal69+zGA3\n7LcMHLlm1wKBgQCtbWA3yY1szHY+qqTLrxE8abx20DzpgvCoXqmhfSz2KVPc+TwO\nMJ3XB+JcAwcVlj5wmFMW0CYQcaqF7q9Z+K5I1hfHEnt4NHW/5zxU7aKtaI7aifT2\nz3ciVd4R//kL9xL6PuJOojfOJfGgTQLiC1dqfkegH2io2tLa+mT37zsxCQKBgCGC\nwUcmY86V3igc5yG+tMq8itIzsJpZ9ytcy7curS2sEHH5gqHpK3FAekjkk1pyrLe9\nmu+/18zVJBI1ZWPABZLZPi+FEJyIbnx6xUmqVwOsQRqTFyQZpK7qZDTMxvpYhNSC\nZbw2+rth36mN8bVEJx/zyaf9woJu8bywF+UL8sULAoGAMgyTuxjMCFqIV2QKX9vq\nKaeSxWffpESmPRxy0SgMBXdtgzC2g7v5dYYhbFrMDEni2Dog86jMqiDIbVPsirfw\nAT7EDR0CkKKV/gWngoMKSs89xT+LtZDdM/rtw6y/TU0eQNako2Rd64thGAZqZpwj\nRGbnUZWO12mMfVB9tFkNp9I=\n-----END PRIVATE KEY-----\n",
+  "client_email": "analytics-dashboard-api@spatial-vision-470405-u2.iam.gserviceaccount.com",
+  "client_id": "108947914474835002323",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/analytics-dashboard-api%40spatial-vision-470405-u2.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

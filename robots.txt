@@ -1,0 +1,9 @@
+# อนุญาตให้ Bot ทุกตัวเข้าถึงได้ทุกส่วนของเว็บไซต์
+User-agent: *
+Disallow: 
+# บรรทัด Disallow ว่าง หมายถึงอนุญาตทั้งหมด
+ 
+# (คุณอาจเพิ่ม Disallow: /admin/ หรือ /temp/ ในภายหลัง)
+ 
+# คำสั่งสำคัญ: ระบุตำแหน่งของ XML Sitemap
+Sitemap: https://www.perfume.com/sitemap.xml 

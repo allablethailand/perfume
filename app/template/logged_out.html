@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>Logged out</title>
+</head>
+
+<body>
+    <script>
+        sessionStorage.removeItem("jwt");
+        window.location.href = "../index.php";
+    </script>
+</body>
+
+</html>
