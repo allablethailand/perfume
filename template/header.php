@@ -660,6 +660,8 @@ $languages = [
                             $currentPage = '?product';
                         } elseif (isset($_GET['news'])) {
                             $currentPage = '?news';
+                        } elseif (isset($_GET['news_detail'])) {
+                            $currentPage = '?news_detail';
                         } elseif (isset($_GET['about'])) {
                             $currentPage = '?about';
                         } elseif (isset($_GET['contact'])) {

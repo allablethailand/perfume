@@ -217,26 +217,10 @@ function ht($key, $lang) {
         background: white;
     }
 
-    .hero-counter {
-        position: absolute;
-        bottom: 60px;
-        right: 80px;
-        color: white;
-        font-size: 14px;
-        font-weight: 300;
-        letter-spacing: 0.1em;
-        z-index: 10;
-    }
-
     /* Responsive */
     @media (max-width: 768px) {
         .hero-title {
             font-size: 48px;
-        }
-
-        .hero-counter {
-            right: 40px;
-            bottom: 40px;
         }
 
         .hero-nav {
@@ -291,10 +275,6 @@ function ht($key, $lang) {
             <span class="hero-dot <?= ($index === 0) ? 'active' : '' ?>"></span>
         <?php endforeach; ?>
     </div>
-
-    <!-- <div class="hero-counter">
-        <span class="current">01</span> / <span class="total"><?= str_pad(count($imagesItems), 2, '0', STR_PAD_LEFT) ?></span>
-    </div> -->
 </section>
 
 <script>
