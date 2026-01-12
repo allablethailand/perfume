@@ -351,10 +351,11 @@ if (!isset($_SESSION['guest_session_id'])) {
             }
         }
     </style>
+     <?php include 'template/header.php' ?>
 </head>
 
 <body>
-    <?php include 'template/header.php' ?>
+   
 
     <div class="checkout-container">
         <div class="checkout-header">

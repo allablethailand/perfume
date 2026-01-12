@@ -531,10 +531,10 @@ $page_title = $product['product_name'];
             background: rgba(0, 0, 0, 0.3);
         }
     </style>
-
+<?php include 'template/header.php'; ?>
 </head>
 <body>
-<?php include 'template/header.php'; ?>
+
 
     <!-- Notification Container -->
     <div id="notification" class="notification">

@@ -13,6 +13,7 @@ $order_id = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
 <html lang="th">
 
 <head>
+    <?php include 'template/header.php' ?>
     <?php include 'inc_head.php' ?>
     <link href="app/css/index_.css?v=<?php echo time(); ?>" rel="stylesheet">
     <style>
@@ -325,7 +326,6 @@ $order_id = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
 </head>
 
 <body>
-    <?php include 'template/header.php' ?>
 
     <div class="payment-container">
         <div id="paymentContent">

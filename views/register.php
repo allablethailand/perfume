@@ -754,10 +754,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
     </style>
+    <?php include 'template/header.php'; ?>
 </head>
 <body>
 
-    <?php include 'template/header.php'; ?>
+
 
     <div class="register-container">
         <div class="register-card">

@@ -9,7 +9,7 @@ global $conn;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>OTP Verification</title>
-
+    <?php include 'template/header.php' ?>
     <?php include 'inc_head.php' ?>
     <link href="css/index_.css?v=<?php echo time(); ?>" rel="stylesheet">
 
@@ -174,7 +174,6 @@ global $conn;
 </head>
 
 <body>
-     <?php include 'template/header.php'; ?>
     <!-- Loading Overlay -->
     <div id="loading-overlay">
         <div class="spinner"></div>

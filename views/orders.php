@@ -17,6 +17,7 @@ if (!isset($_SESSION['guest_session_id'])) {
 
 <head>
     <?php include 'inc_head.php' ?>
+    <?php include 'template/header.php' ?>
     <link href="app/css/index_.css?v=<?php echo time(); ?>" rel="stylesheet">
     <style>
         body {
@@ -406,7 +407,6 @@ if (!isset($_SESSION['guest_session_id'])) {
 </head>
 
 <body>
-    <?php include 'template/header.php' ?>
 
     <div class="orders-container">
         <div class="orders-header">

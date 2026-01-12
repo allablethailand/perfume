@@ -23,6 +23,7 @@ if ($order_id <= 0) {
 <!DOCTYPE html>
 <html lang="th">
 <head>
+    <?php include 'template/header.php' ?>
     <?php include 'inc_head.php' ?>
     <link href="app/css/index_.css?v=<?php echo time(); ?>" rel="stylesheet">
     <style>
@@ -321,7 +322,6 @@ if ($order_id <= 0) {
     </style>
 </head>
 <body>
-    <?php include 'template/header.php' ?>
 
     <div class="order-detail-container">
         <a href="?profile" class="back-link">
