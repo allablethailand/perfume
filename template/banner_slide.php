@@ -2,12 +2,12 @@
 // Static images and videos for hero banner
 $imagesItems = [
     [
-        'type' => 'image',
-        'src' => 'http://localhost/origami_website/perfume//public/product_images/696089dc2fa56_1767934428.jpg'
-    ],
-    [
         'type' => 'video',
         'src' => 'http://localhost/origami_website/perfume//public/product_images/freepik_ultrarealistic_cinematic_commercial_video_based_on_kling.mp4'
+    ],
+    [
+        'type' => 'image',
+        'src' => 'http://localhost/origami_website/perfume//public/product_images/696089dc2fa56_1767934428.jpg'
     ],
     [
         'type' => 'image',
@@ -292,9 +292,9 @@ function ht($key, $lang) {
         <?php endforeach; ?>
     </div>
 
-    <div class="hero-counter">
+    <!-- <div class="hero-counter">
         <span class="current">01</span> / <span class="total"><?= str_pad(count($imagesItems), 2, '0', STR_PAD_LEFT) ?></span>
-    </div>
+    </div> -->
 </section>
 
 <script>
