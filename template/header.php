@@ -654,21 +654,43 @@ $languages = [
                         <?php
                         // ตรวจสอบว่าอยู่หน้าไหน
                         $currentPage = '';
+                        $queryParams = [];
+                        
                         if (isset($_GET['product'])) {
-                            $currentPage = '?product&';
+                            $currentPage = '?product';
                         } elseif (isset($_GET['news'])) {
-                            $currentPage = '?news&';
+                            $currentPage = '?news';
                         } elseif (isset($_GET['about'])) {
-                            $currentPage = '?about&';
+                            $currentPage = '?about';
                         } elseif (isset($_GET['contact'])) {
-                            $currentPage = '?contact&';
+                            $currentPage = '?contact';
                         } elseif (isset($_GET['cart'])) {
-                            $currentPage = '?cart&';
+                            $currentPage = '?cart';
+                        } elseif (isset($_GET['profile'])) {
+                            $currentPage = '?profile';
+                        } elseif (isset($_GET['checkout'])) {
+                            $currentPage = '?checkout';
+                        } elseif (isset($_GET['payment'])) {
+                            $currentPage = '?payment';
+                            // เก็บ order_id ถ้ามี
+                            if (isset($_GET['order_id'])) {
+                                $queryParams['order_id'] = $_GET['order_id'];
+                            }
+                        } elseif (isset($_GET['orders'])) {
+                            $currentPage = '?orders';
+                        } elseif (isset($_GET['order_detail'])) {
+                            $currentPage = '?order_detail';
+                            // ⭐ เก็บ id ของ order_detail
+                            if (isset($_GET['id'])) {
+                                $queryParams['id'] = $_GET['id'];
+                            }
                         } else {
                             $currentPage = '?';
                         }
                         
-                        $langUrl = $currentPage . 'lang=' . $code;
+                        // สร้าง URL โดยรวม parameters ทั้งหมด
+                        $queryParams['lang'] = $code;
+                        $langUrl = $currentPage . '&' . http_build_query($queryParams);
                         ?>
                         <a href="<?= $langUrl ?>"
                         class="language-option <?= $code === $lang ? 'active' : '' ?>">
