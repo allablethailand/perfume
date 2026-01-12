@@ -3,7 +3,7 @@
 $imagesItems = [
     [
         'type' => 'image',
-        'src' => 'http://localhost/origami_website/perfume//public/product_images/695df1d5afe5d_1767764437.jpg'
+        'src' => 'http://localhost/origami_website/perfume//public/product_images/696089dc2fa56_1767934428.jpg'
     ],
     [
         'type' => 'video',
@@ -15,9 +15,8 @@ $imagesItems = [
     ],
     [
         'type' => 'image',
-        'src' => 'http://localhost/origami_website/perfume//public/product_images/696089dc2fa56_1767934428.jpg'
+        'src' => 'http://localhost/origami_website/perfume//public/product_images/695df1d5afe5d_1767764437.jpg'
     ],
-    
 ];
 
 // Preload first image for LCP optimization
