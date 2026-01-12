@@ -45,24 +45,26 @@ if ($cart_id <= 0) {
 }
 
 try {
-    // Verify cart ownership and delete
+    // ✅ แก้ไข: ใช้ soft delete โดยตั้ง status = 0 แทนการลบจริง
     if ($user_id) {
-        $delete_stmt = $conn->prepare("
-            DELETE FROM cart 
-            WHERE cart_id = ? AND user_id = ?
+        $update_stmt = $conn->prepare("
+            UPDATE cart 
+            SET status = 0, date_updated = NOW()
+            WHERE cart_id = ? AND user_id = ? AND status = 1
         ");
-        $delete_stmt->bind_param('ii', $cart_id, $user_id);
+        $update_stmt->bind_param('ii', $cart_id, $user_id);
     } else {
-        $delete_stmt = $conn->prepare("
-            DELETE FROM cart 
-            WHERE cart_id = ? AND session_id = ? AND (user_id IS NULL OR user_id = 0)
+        $update_stmt = $conn->prepare("
+            UPDATE cart 
+            SET status = 0, date_updated = NOW()
+            WHERE cart_id = ? AND session_id = ? AND (user_id IS NULL OR user_id = 0) AND status = 1
         ");
-        $delete_stmt->bind_param('is', $cart_id, $session_id);
+        $update_stmt->bind_param('is', $cart_id, $session_id);
     }
     
-    $delete_stmt->execute();
+    $update_stmt->execute();
     
-    if ($delete_stmt->affected_rows === 0) {
+    if ($update_stmt->affected_rows === 0) {
         echo json_encode([
             'status' => 'error',
             'message' => 'Cart item not found or already removed'
@@ -70,21 +72,21 @@ try {
         exit;
     }
     
-    $delete_stmt->close();
+    $update_stmt->close();
     
-    // Get updated cart count
+    // ✅ นับจำนวนสินค้าในตะกร้า (เฉพาะที่ status=1)
     if ($user_id) {
         $count_stmt = $conn->prepare("
             SELECT SUM(quantity) as count 
             FROM cart 
-            WHERE user_id = ?
+            WHERE user_id = ? AND status = 1
         ");
         $count_stmt->bind_param('i', $user_id);
     } else {
         $count_stmt = $conn->prepare("
             SELECT SUM(quantity) as count 
             FROM cart 
-            WHERE session_id = ? AND (user_id IS NULL OR user_id = 0)
+            WHERE session_id = ? AND (user_id IS NULL OR user_id = 0) AND status = 1
         ");
         $count_stmt->bind_param('s', $session_id);
     }

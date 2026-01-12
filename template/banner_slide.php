@@ -7,7 +7,7 @@ $imagesItems = [
     ],
     [
         'type' => 'video',
-        'src' => 'https://gm-prd-resource.gentlemonster.com/main/banner/770800970997325499/f1a65902-5d2e-4b77-97f2-1563ac82cdf1/main_0_mo_1080*1556.mp4'
+        'src' => 'http://localhost/origami_website/perfume//public/product_images/freepik_ultrarealistic_cinematic_commercial_video_based_on_kling.mp4'
     ],
     [
         'type' => 'image',
@@ -88,6 +88,7 @@ function ht($key, $lang) {
         position: relative;
         overflow: hidden;
         background: var(--luxury-black);
+        margin-top: 5em;
     }
 
     .hero-slider {

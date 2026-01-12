@@ -52,13 +52,13 @@ if (!isset($_SESSION['guest_session_id'])) {
 $session_id = $_SESSION['guest_session_id'];
 
 try {
-    // Get cart count
+    // ✅ แก้ไข: นับเฉพาะรายการที่ status=1
     if ($user_id) {
         $count_stmt = $conn->prepare("
             SELECT SUM(c.quantity) as count 
             FROM cart c
             INNER JOIN products p ON c.product_id = p.product_id
-            WHERE c.user_id = ? AND p.del = 0
+            WHERE c.user_id = ? AND c.status = 1 AND p.del = 0
         ");
         $count_stmt->bind_param('i', $user_id);
     } else {
@@ -68,6 +68,7 @@ try {
             INNER JOIN products p ON c.product_id = p.product_id
             WHERE c.session_id = ? 
             AND (c.user_id IS NULL OR c.user_id = 0)
+            AND c.status = 1
             AND p.del = 0
         ");
         $count_stmt->bind_param('s', $session_id);
