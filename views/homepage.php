@@ -234,7 +234,7 @@ function tt($key, $lang) {
 
     <div class="products-grid">
         <?php
-        // Fetch products from database
+        // Fetch products from database - เพิ่มเงื่อนไข stock_quantity > 0
         $name_col = "name_" . $lang;
         
         $products_query = "
@@ -247,7 +247,9 @@ function tt($key, $lang) {
                 pi.api_path as image_path
             FROM products p
             LEFT JOIN product_images pi ON p.product_id = pi.product_id AND pi.is_primary = 1 AND pi.del = 0
-            WHERE p.status = 1 AND p.del = 0
+            WHERE p.status = 1 
+                AND p.del = 0 
+                AND p.stock_quantity > 0
             ORDER BY p.created_at DESC
             LIMIT 8
         ";

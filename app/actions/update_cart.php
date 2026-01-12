@@ -34,7 +34,7 @@ $session_id = $_SESSION['guest_session_id'];
 
 // Get POST data
 $cart_id = isset($_POST['cart_id']) ? intval($_POST['cart_id']) : 0;
-$quantity = isset($_POST['quantity']) ? intval($_POST['quantity']) : 0;
+$quantity = isset($_POST['quantity']) ? intval($_POST['quantity']) : 1;
 
 // Validate input
 if ($cart_id <= 0) {
@@ -54,72 +54,81 @@ if ($quantity < 0) {
 }
 
 try {
-    // Verify cart ownership
-    if ($user_id) {
-        $verify_stmt = $conn->prepare("
-            SELECT cart_id, product_id 
-            FROM cart 
-            WHERE cart_id = ? AND user_id = ?
-        ");
-        $verify_stmt->bind_param('ii', $cart_id, $user_id);
-    } else {
-        $verify_stmt = $conn->prepare("
-            SELECT cart_id, product_id 
-            FROM cart 
-            WHERE cart_id = ? AND session_id = ? AND (user_id IS NULL OR user_id = 0)
-        ");
-        $verify_stmt->bind_param('is', $cart_id, $session_id);
-    }
-    
-    $verify_stmt->execute();
-    $verify_result = $verify_stmt->get_result();
-    
-    if ($verify_result->num_rows === 0) {
-        echo json_encode([
-            'status' => 'error',
-            'message' => 'Cart item not found'
-        ]);
-        exit;
-    }
-    
-    $cart_item = $verify_result->fetch_assoc();
-    $verify_stmt->close();
-    
-    // If quantity is 0, delete the item
+    // ✅ ถ้าจำนวนเป็น 0 ให้ทำ soft delete
     if ($quantity === 0) {
-        $delete_stmt = $conn->prepare("DELETE FROM cart WHERE cart_id = ?");
-        $delete_stmt->bind_param('i', $cart_id);
-        $delete_stmt->execute();
-        $delete_stmt->close();
+        if ($user_id) {
+            $update_stmt = $conn->prepare("
+                UPDATE cart 
+                SET status = 0, date_updated = NOW()
+                WHERE cart_id = ? AND user_id = ? AND status = 1
+            ");
+            $update_stmt->bind_param('ii', $cart_id, $user_id);
+        } else {
+            $update_stmt = $conn->prepare("
+                UPDATE cart 
+                SET status = 0, date_updated = NOW()
+                WHERE cart_id = ? AND session_id = ? AND (user_id IS NULL OR user_id = 0) AND status = 1
+            ");
+            $update_stmt->bind_param('is', $cart_id, $session_id);
+        }
         
+        $update_stmt->execute();
+        
+        if ($update_stmt->affected_rows === 0) {
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Cart item not found'
+            ]);
+            exit;
+        }
+        
+        $update_stmt->close();
         $message = 'Item removed from cart';
     } else {
-        // Update quantity
-        $update_stmt = $conn->prepare("
-            UPDATE cart 
-            SET quantity = ?, date_updated = NOW() 
-            WHERE cart_id = ?
-        ");
-        $update_stmt->bind_param('ii', $quantity, $cart_id);
-        $update_stmt->execute();
-        $update_stmt->close();
+        // ✅ อัพเดทจำนวนปกติ (เฉพาะรายการที่ status=1)
+        if ($user_id) {
+            $update_stmt = $conn->prepare("
+                UPDATE cart 
+                SET quantity = ?, date_updated = NOW()
+                WHERE cart_id = ? AND user_id = ? AND status = 1
+            ");
+            $update_stmt->bind_param('iii', $quantity, $cart_id, $user_id);
+        } else {
+            $update_stmt = $conn->prepare("
+                UPDATE cart 
+                SET quantity = ?, date_updated = NOW()
+                WHERE cart_id = ? AND session_id = ? AND (user_id IS NULL OR user_id = 0) AND status = 1
+            ");
+            $update_stmt->bind_param('iis', $quantity, $cart_id, $session_id);
+        }
         
+        $update_stmt->execute();
+        
+        if ($update_stmt->affected_rows === 0) {
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Cart item not found or no changes made'
+            ]);
+            exit;
+        }
+        
+        $update_stmt->close();
         $message = 'Cart updated successfully';
     }
     
-    // Get updated cart count
+    // ✅ นับจำนวนสินค้าในตะกร้า (เฉพาะที่ status=1)
     if ($user_id) {
         $count_stmt = $conn->prepare("
             SELECT SUM(quantity) as count 
             FROM cart 
-            WHERE user_id = ?
+            WHERE user_id = ? AND status = 1
         ");
         $count_stmt->bind_param('i', $user_id);
     } else {
         $count_stmt = $conn->prepare("
             SELECT SUM(quantity) as count 
             FROM cart 
-            WHERE session_id = ? AND (user_id IS NULL OR user_id = 0)
+            WHERE session_id = ? AND (user_id IS NULL OR user_id = 0) AND status = 1
         ");
         $count_stmt->bind_param('s', $session_id);
     }
@@ -134,7 +143,9 @@ try {
     echo json_encode([
         'status' => 'success',
         'message' => $message,
-        'cart_count' => $cart_count
+        'cart_count' => $cart_count,
+        'cart_id' => $cart_id,
+        'quantity' => $quantity
     ]);
     
 } catch (Exception $e) {

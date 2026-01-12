@@ -97,6 +97,23 @@ $name_col = "name_" . $lang;
             color: #1a1a1a;
         }
 
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            grid-column: 1/-1;
+            padding: 60px 20px;
+        }
+
+        .empty-state h3 {
+            font-size: 24px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .empty-state p {
+            color: #999;
+        }
+
         /* Responsive */
         @media (max-width: 768px) {
             .products-grid {
@@ -119,7 +136,7 @@ $name_col = "name_" . $lang;
 
         <div class="products-grid">
             <?php
-            // ดึงสินค้าทั้งหมด (เอา LIMIT ออก หรือทำ Pagination ถ้าสินค้าเยอะมาก)
+            // ดึงสินค้าทั้งหมด - เพิ่มเงื่อนไข stock_quantity > 0
             $products_query = "
                 SELECT 
                     p.product_id,
@@ -130,7 +147,9 @@ $name_col = "name_" . $lang;
                     pi.api_path as image_path
                 FROM products p
                 LEFT JOIN product_images pi ON p.product_id = pi.product_id AND pi.is_primary = 1 AND pi.del = 0
-                WHERE p.status = 1 AND p.del = 0
+                WHERE p.status = 1 
+                    AND p.del = 0 
+                    AND p.stock_quantity > 0
                 ORDER BY p.created_at DESC
             ";
             
@@ -159,7 +178,12 @@ $name_col = "name_" . $lang;
                     <?php
                 }
             } else {
-                echo "<p style='text-align:center; grid-column: 1/-1;'>No products found.</p>";
+                ?>
+                <div class="empty-state">
+                    <h3>ไม่พบสินค้า</h3>
+                    <p>ขณะนี้ยังไม่มีสินค้าที่พร้อมขาย</p>
+                </div>
+                <?php
             }
             ?>
         </div>

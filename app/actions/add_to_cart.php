@@ -94,9 +94,9 @@ try {
         exit;
     }
     
-    // Check if item already exists in cart (สำหรับ logged-in user เท่านั้น)
+    // ✅ แก้ไข: ตรวจสอบทั้งรายการที่ active (status=1) และที่ถูกลบ (status=0)
     $check_stmt = $conn->prepare("
-        SELECT cart_id, quantity 
+        SELECT cart_id, quantity, status 
         FROM cart 
         WHERE user_id = ? AND product_id = ?
     ");
@@ -105,28 +105,43 @@ try {
     $check_result = $check_stmt->get_result();
     
     if ($check_result->num_rows > 0) {
-        // Update existing cart item
         $existing = $check_result->fetch_assoc();
         $new_quantity = $existing['quantity'] + $quantity;
         
-        $update_stmt = $conn->prepare("
-            UPDATE cart 
-            SET quantity = ?, 
-                price = ?,
-                vat_percentage = ?,
-                date_updated = NOW() 
-            WHERE cart_id = ?
-        ");
-        $update_stmt->bind_param('iddi', $new_quantity, $product['price'], $product['vat_percentage'], $existing['cart_id']);
+        // ✅ ถ้ารายการถูกลบไปแล้ว (status=0) ให้กู้คืนและอัพเดท
+        if ($existing['status'] == 0) {
+            $update_stmt = $conn->prepare("
+                UPDATE cart 
+                SET quantity = ?, 
+                    price = ?,
+                    vat_percentage = ?,
+                    status = 1,
+                    date_updated = NOW() 
+                WHERE cart_id = ?
+            ");
+            $update_stmt->bind_param('iddi', $new_quantity, $product['price'], $product['vat_percentage'], $existing['cart_id']);
+            $message = 'Product restored and updated in cart successfully';
+        } else {
+            // ✅ รายการยังใช้งานอยู่ (status=1) ให้เพิ่มจำนวน
+            $update_stmt = $conn->prepare("
+                UPDATE cart 
+                SET quantity = ?, 
+                    price = ?,
+                    vat_percentage = ?,
+                    date_updated = NOW() 
+                WHERE cart_id = ?
+            ");
+            $update_stmt->bind_param('iddi', $new_quantity, $product['price'], $product['vat_percentage'], $existing['cart_id']);
+            $message = 'Cart updated successfully';
+        }
+        
         $update_stmt->execute();
         $update_stmt->close();
-        
-        $message = 'Cart updated successfully';
     } else {
-        // Insert new cart item
+        // ✅ ไม่มีรายการเลย ให้สร้างใหม่พร้อม status=1
         $insert_stmt = $conn->prepare("
-            INSERT INTO cart (user_id, session_id, product_id, quantity, price, vat_percentage, date_created, date_updated) 
-            VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+            INSERT INTO cart (user_id, session_id, product_id, quantity, price, vat_percentage, status, date_created, date_updated) 
+            VALUES (?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
         ");
         $insert_stmt->bind_param('isiids', $user_id, $session_id, $product_id, $quantity, $product['price'], $product['vat_percentage']);
         
@@ -140,11 +155,11 @@ try {
     
     $check_stmt->close();
     
-    // Get updated cart count
+    // ✅ นับจำนวนสินค้าในตะกร้า (เฉพาะที่ status=1)
     $count_stmt = $conn->prepare("
         SELECT SUM(quantity) as count 
         FROM cart 
-        WHERE user_id = ?
+        WHERE user_id = ? AND status = 1
     ");
     $count_stmt->bind_param('i', $user_id);
     $count_stmt->execute();

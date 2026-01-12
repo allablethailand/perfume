@@ -42,7 +42,7 @@ if (!in_array($lang, ['th', 'en', 'cn', 'jp', 'kr'])) {
 $name_col = "name_" . $lang;
 
 try {
-    // Get cart items with product details and images
+    // ✅ แก้ไข: ดึงเฉพาะรายการที่ status=1 (ยังไม่ถูกลบ)
     if ($user_id) {
         $query = "
             SELECT 
@@ -63,6 +63,7 @@ try {
             FROM cart c
             INNER JOIN products p ON c.product_id = p.product_id
             WHERE c.user_id = ? 
+            AND c.status = 1
             AND p.del = 0
             ORDER BY c.date_created DESC
         ";
@@ -89,6 +90,7 @@ try {
             INNER JOIN products p ON c.product_id = p.product_id
             WHERE c.session_id = ? 
             AND (c.user_id IS NULL OR c.user_id = 0)
+            AND c.status = 1
             AND p.del = 0
             ORDER BY c.date_created DESC
         ";

@@ -5,13 +5,13 @@ require_once('../../lib/jwt_helper.php');
 
 global $conn;
 
-// ✅ แก้ไข: ใช้ requireAuth() อย่างเดียว
+// ✅ ใช้ requireAuth() เพื่อตรวจสอบการล็อกอิน
 $user_id = requireAuth();
 
 // รับข้อมูล
 $address_id = isset($_POST['address_id']) ? intval($_POST['address_id']) : 0;
 $payment_method = isset($_POST['payment_method']) ? $_POST['payment_method'] : 'bank_transfer';
-$selected_cart_ids = isset($_POST['selected_cart_ids']) ? $_POST['selected_cart_ids'] : ''; // ⭐ เพิ่ม: รับรายการที่เลือก
+$selected_cart_ids = isset($_POST['selected_cart_ids']) ? $_POST['selected_cart_ids'] : ''; // รับรายการที่เลือก
 
 if ($address_id <= 0) {
     echo json_encode(['status' => 'error', 'message' => 'Please select delivery address']);
@@ -22,7 +22,7 @@ try {
     // เริ่ม transaction
     $conn->begin_transaction();
     
-    // ⭐ ดึงข้อมูล Cart (ถ้ามีการเลือกเฉพาะบางรายการ)
+    // ✅ ดึงข้อมูล Cart (เฉพาะที่ status=1)
     if (!empty($selected_cart_ids)) {
         // กรณีเลือกเฉพาะบางรายการ
         $cart_ids_array = explode(',', $selected_cart_ids);
@@ -32,7 +32,7 @@ try {
                             p.name_th, p.name_en
                      FROM cart c
                      LEFT JOIN products p ON c.product_id = p.product_id
-                     WHERE c.user_id = ? AND c.cart_id IN ($placeholders)";
+                     WHERE c.user_id = ? AND c.status = 1 AND c.cart_id IN ($placeholders)";
         
         $cart_stmt = $conn->prepare($cart_sql);
         
@@ -46,7 +46,7 @@ try {
                             p.name_th, p.name_en
                      FROM cart c
                      LEFT JOIN products p ON c.product_id = p.product_id
-                     WHERE c.user_id = ?";
+                     WHERE c.user_id = ? AND c.status = 1";
         
         $cart_stmt = $conn->prepare($cart_sql);
         $cart_stmt->bind_param("i", $user_id);
@@ -60,7 +60,7 @@ try {
     }
     
     $cart_items = [];
-    $cart_ids_to_delete = []; // ⭐ เก็บ cart_id ที่จะลบ
+    $cart_ids_to_delete = []; // เก็บ cart_id ที่จะลบ
     $subtotal = 0;
     $vat_amount = 0;
     
@@ -78,7 +78,7 @@ try {
         $subtotal += $item_subtotal;
         $vat_amount += $item_vat;
         
-        // ⭐ เก็บ cart_id เพื่อลบภายหลัง
+        // เก็บ cart_id เพื่อลบภายหลัง
         $cart_ids_to_delete[] = $item['cart_id'];
         
         $cart_items[] = [
@@ -103,7 +103,7 @@ try {
     // สร้าง Order Number
     $order_number = 'ORD' . date('Ymd') . sprintf('%06d', rand(1, 999999));
     
-    // ✅ แก้ไข: เปลี่ยน payment_status จาก 'unpaid' เป็น 'pending'
+    // สร้างออเดอร์ใหม่
     $order_sql = "INSERT INTO orders (
                     order_number, user_id, address_id, subtotal, vat_amount, 
                     total_amount, shipping_fee, discount_amount, 
@@ -161,16 +161,16 @@ try {
     
     $item_stmt->close();
     
-    // ⭐ ลบสินค้าออกจาก Cart (เฉพาะที่สั่งซื้อ)
+    // ✅ แก้ไข: ใช้ soft delete โดยตั้ง status=0 แทนการลบจริง
     if (!empty($cart_ids_to_delete)) {
         $placeholders = str_repeat('?,', count($cart_ids_to_delete) - 1) . '?';
-        $delete_cart_sql = "DELETE FROM cart WHERE cart_id IN ($placeholders)";
-        $delete_cart_stmt = $conn->prepare($delete_cart_sql);
+        $update_cart_sql = "UPDATE cart SET status = 0, date_updated = NOW() WHERE cart_id IN ($placeholders)";
+        $update_cart_stmt = $conn->prepare($update_cart_sql);
         
         $types = str_repeat('i', count($cart_ids_to_delete));
-        $delete_cart_stmt->bind_param($types, ...$cart_ids_to_delete);
-        $delete_cart_stmt->execute();
-        $delete_cart_stmt->close();
+        $update_cart_stmt->bind_param($types, ...$cart_ids_to_delete);
+        $update_cart_stmt->execute();
+        $update_cart_stmt->close();
     }
     
     // Commit transaction

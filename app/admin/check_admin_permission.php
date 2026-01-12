@@ -4,19 +4,8 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// เช็คว่ามี role_id ใน session หรือไม่
-if (!isset($_SESSION['role_id'])) {
-    // ถ้าไม่มี redirect ไปหน้า login
-    header('Location: /origami_website/perfume/app/admin/login.php');
-    exit();
-}
-
-// กำหนด role ที่อนุญาตให้เข้า admin (role 1 และ 2)
-$allowed_admin_roles = [1, 2];
-
-// เช็คว่า role_id ปัจจุบันอยู่ใน array ที่อนุญาตหรือไม่
-if (!in_array($_SESSION['role_id'], $allowed_admin_roles)) {
-    // ถ้าไม่ใช่ role ที่อนุญาต ให้ redirect ไปหน้าหลักหรือแสดงข้อความ
+// เช็คว่ามี role_id ใน session หรือไม่ หรือ role_id ไม่ใช่ 1
+if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] !== 1) {
     ?>
     <!DOCTYPE html>
     <html lang="th">
@@ -85,10 +74,18 @@ if (!in_array($_SESSION['role_id'], $allowed_admin_roles)) {
             <h1>ไม่มีสิทธิ์เข้าถึง</h1>
             <p>คุณไม่มีสิทธิ์เข้าถึงหน้า Admin<br>เฉพาะผู้ดูแลระบบเท่านั้นที่สามารถเข้าถึงได้</p>
             <div class="role-info">
-                <strong>บทบาทของคุณ:</strong> Role ID <?php echo htmlspecialchars($_SESSION['role_id']); ?><br>
+                <strong>บทบาทของคุณ:</strong> 
+                <?php 
+                if (isset($_SESSION['role_id'])) {
+                    echo 'Role ID ' . htmlspecialchars($_SESSION['role_id']);
+                } else {
+                    echo 'ไม่ได้เข้าสู่ระบบ';
+                }
+                ?>
+                <br>
                 <strong>ต้องการ:</strong> Admin (Role 1) 
             </div>
-            <a href="/origami_website/perfume/?" class="btn">กลับไปหน้าหลัก</a>
+            <a href="/origami_website/perfume/" class="btn">กลับไปหน้าหลัก</a>
         </div>
     </body>
     </html>
@@ -96,6 +93,5 @@ if (!in_array($_SESSION['role_id'], $allowed_admin_roles)) {
     exit();
 }
 
-// ถ้า role ถูกต้อง ให้ดำเนินการต่อได้ปกติ
-// ไม่ต้องทำอะไร script จะทำงานต่อไป
+// ถ้า role ถูกต้อง (role = 1) ให้ดำเนินการต่อได้ปกติ
 ?>

@@ -382,7 +382,7 @@ $stmt_items->close();
                     </div>
                 </div>
 
-                <!-- Order Status -->
+                <!-- Order Status - ปรับลำดับ dropdown: Pending > Processing > Shipped > Completed > Cancelled -->
                 <div class="card-modern">
                     <div class="card-title">
                         <i class="fas fa-tasks" style="color: #667eea;"></i>
@@ -394,8 +394,8 @@ $stmt_items->close();
                             <select class="status-dropdown change-order-status" data-order-id="<?= $order['order_id'] ?>">
                                 <option value="pending" <?= $order['order_status'] === 'pending' ? 'selected' : '' ?>>🟡 Pending</option>
                                 <option value="processing" <?= $order['order_status'] === 'processing' ? 'selected' : '' ?>>🔵 Processing</option>
-                                <option value="confirmed" <?= $order['order_status'] === 'confirmed' ? 'selected' : '' ?>>🟢 confirmed</option>
                                 <option value="shipped" <?= $order['order_status'] === 'shipped' ? 'selected' : '' ?>>🚚 Shipped</option>
+                                <option value="completed" <?= $order['order_status'] === 'completed' ? 'selected' : '' ?>>🟢 Completed</option>
                                 <option value="cancelled" <?= $order['order_status'] === 'cancelled' ? 'selected' : '' ?>>🔴 Cancelled</option>
                             </select>
                         </div>
@@ -547,8 +547,8 @@ $stmt_items->close();
             const statusText = {
                 'pending': 'Pending',
                 'processing': 'Processing',
-                'confirmed': 'confirmed',
                 'shipped': 'Shipped',
+                'completed': 'Completed',
                 'cancelled': 'Cancelled'
             };
 

@@ -155,8 +155,8 @@ function getTextByLang($key) {
         .status-btn-all { background: #6c757d; color: white; }
         .status-btn-pending { background: #ffc107; color: #333; }
         .status-btn-processing { background: #17a2b8; color: white; }
-        .status-btn-confirmed { background: #28a745; color: white; }
         .status-btn-shipped { background: #007bff; color: white; }
+        .status-btn-completed { background: #28a745; color: white; }
         .status-btn-cancelled { background: #dc3545; color: white; }
 
         /* Table Styles */
@@ -372,7 +372,7 @@ function getTextByLang($key) {
                     </div>
                 </div>
 
-                <!-- Status Filter -->
+                <!-- Status Filter - ปรับลำดับใหม่: Pending > Processing > Shipped > Completed > Cancelled -->
                 <div class="status-filter-container">
                     <div class="d-flex flex-wrap align-items-center">
                         <span class="filter-title">
@@ -387,11 +387,11 @@ function getTextByLang($key) {
                         <button type="button" class="status-btn status-btn-processing" data-status="processing">
                             Processing <span class="badge badge-light" id="count-processing">0</span>
                         </button>
-                        <button type="button" class="status-btn status-btn-confirmed" data-status="confirmed">
-                            confirmed <span class="badge badge-light" id="count-confirmed">0</span>
-                        </button>
                         <button type="button" class="status-btn status-btn-shipped" data-status="shipped">
                             Shipped <span class="badge badge-light" id="count-shipped">0</span>
+                        </button>
+                        <button type="button" class="status-btn status-btn-completed" data-status="completed">
+                            Completed <span class="badge badge-light" id="count-completed">0</span>
                         </button>
                         <button type="button" class="status-btn status-btn-cancelled" data-status="cancelled">
                             Cancelled <span class="badge badge-light" id="count-cancelled">0</span>
