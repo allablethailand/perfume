@@ -77,6 +77,61 @@ if (!isset($_SESSION['guest_session_id'])) {
             border-bottom-color: #000;
         }
 
+        /* ⭐ Unpaid Badge - เครื่องหมายเตือนบนแท็บ */
+        .unpaid-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7);
+            }
+            50% {
+                box-shadow: 0 0 0 8px rgba(220, 53, 69, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+            }
+        }
+
+        /* ⭐ Order Card Badge - เครื่องหมายเตือนบนการ์ดออเดอร์ */
+        .order-alert-badge {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(220, 53, 69, 0.4);
+            animation: shake 3s infinite;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: rotate(0deg); }
+            10%, 30%, 50%, 70%, 90% { transform: rotate(-5deg); }
+            20%, 40%, 60%, 80% { transform: rotate(5deg); }
+        }
+
         .tab-content {
             display: none;
         }
@@ -291,12 +346,24 @@ if (!isset($_SESSION['guest_session_id'])) {
             padding: 24px;
             transition: all 0.3s;
             cursor: pointer;
+            position: relative;
         }
 
         .order-item:hover {
             border-color: #000;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
             transform: translateY(-2px);
+        }
+
+        /* ⭐ Highlight unpaid orders */
+        .order-item.unpaid {
+            border-color: #dc3545;
+            background: #fff8f8;
+        }
+
+        .order-item.unpaid:hover {
+            border-color: #dc3545;
+            box-shadow: 0 2px 12px rgba(220, 53, 69, 0.2);
         }
 
         .order-header-row {
@@ -481,8 +548,9 @@ if (!isset($_SESSION['guest_session_id'])) {
             <button class="tab-btn" onclick="switchTab('addresses')">
                 <i class="fas fa-map-marker-alt"></i> Addresses
             </button>
-            <button class="tab-btn" onclick="switchTab('orders')">
+            <button class="tab-btn" onclick="switchTab('orders')" style="position: relative;">
                 <i class="fas fa-shopping-bag"></i> Order History
+                <span id="unpaidBadge" class="unpaid-badge" style="display: none;">!</span>
             </button>
         </div>
 
@@ -919,7 +987,7 @@ if (!isset($_SESSION['guest_session_id'])) {
         });
 
         // =========================================
-        // ⭐ ORDERS
+        // ⭐ ORDERS - อัปเดตให้แสดงเครื่องหมายเตือน
         // =========================================
         function loadOrders() {
             const orderStatus = $('#orderStatusFilter').val();
@@ -970,10 +1038,14 @@ if (!isset($_SESSION['guest_session_id'])) {
                     </button>
                 </div>
             `);
+            
+            // ซ่อน badge เมื่อไม่มีออเดอร์
+            $('#unpaidBadge').hide();
         }
 
         function displayOrders(orders) {
             let html = '';
+            let unpaidCount = 0;
 
             orders.forEach(function(order) {
                 const orderDate = new Date(order.date_created).toLocaleDateString('en-GB', {
@@ -985,8 +1057,16 @@ if (!isset($_SESSION['guest_session_id'])) {
                 const itemCount = order.items ? order.items.length : 0;
                 const itemsText = itemCount === 1 ? '1 item' : `${itemCount} items`;
 
+                // ⭐ เช็คว่าออเดอร์นี้ยังไม่จ่ายเงินหรือไม่
+                const isUnpaid = (order.payment_status === 'pending');
+                if (isUnpaid) {
+                    unpaidCount++;
+                }
+
                 html += `
-                    <div class="order-item" onclick="viewOrderDetail(${order.order_id})">
+                    <div class="order-item ${isUnpaid ? 'unpaid' : ''}" onclick="viewOrderDetail(${order.order_id})">
+                        ${isUnpaid ? '<div class="order-alert-badge">!</div>' : ''}
+                        
                         <div class="order-header-row">
                             <div>
                                 <div class="order-number">
@@ -1015,10 +1095,42 @@ if (!isset($_SESSION['guest_session_id'])) {
             });
 
             $('#ordersList').html(html);
+
+            // ⭐ อัปเดต badge บนแท็บ Order History
+            if (unpaidCount > 0) {
+                $('#unpaidBadge').text(unpaidCount).show();
+            } else {
+                $('#unpaidBadge').hide();
+            }
         }
 
         function viewOrderDetail(orderId) {
             window.location.href = '?order_detail&id=' + orderId;
+        }
+
+        // ⭐ ฟังก์ชันตรวจสอบออเดอร์ที่ยังไม่จ่ายเงินทันทีเมื่อโหลดหน้า
+        function checkUnpaidOrders() {
+            $.ajax({
+                url: 'app/actions/get_user_orders.php',
+                type: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + jwt
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success') {
+                        const unpaidOrders = response.data.filter(order => 
+                            order.payment_status === 'pending'
+                        );
+                        
+                        if (unpaidOrders.length > 0) {
+                            $('#unpaidBadge').text(unpaidOrders.length).show();
+                        } else {
+                            $('#unpaidBadge').hide();
+                        }
+                    }
+                }
+            });
         }
 
         // =========================================
@@ -1027,6 +1139,7 @@ if (!isset($_SESSION['guest_session_id'])) {
         $(document).ready(function() {
             loadUserData();
             loadAddresses();
+            checkUnpaidOrders(); // ⭐ เช็คออเดอร์ที่ยังไม่จ่ายทันทีเมื่อโหลดหน้า
         });
 
         // ปิด modal เมื่อคลิกข้างนอก

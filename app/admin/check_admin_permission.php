@@ -21,7 +21,7 @@ if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] !== 1) {
                 align-items: center;
                 height: 100vh;
                 margin: 0;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                background: linear-gradient(135deg, #000000 0%, #764ba2 100%);
             }
             .error-container {
                 background: white;
