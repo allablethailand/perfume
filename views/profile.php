@@ -17,7 +17,6 @@ if (!isset($_SESSION['guest_session_id'])) {
 <head>
     <?php include 'inc_head.php' ?>
     <?php include 'template/header.php' ?>
-    <link href="app/css/index_.css?v=<?php echo time(); ?>" rel="stylesheet">
     <style>
         body {
             background: #f8f9fa;
