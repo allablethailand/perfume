@@ -224,7 +224,7 @@ $languages = [
 <meta property="og:description" content="<?= $meta['og_description'] ?? $meta['meta_description'] ?? 'สัมผัสประสบการณ์น้ำหอมพรีเมียมที่มี AI เป็นเพื่อนคู่ใจ ช่วยเลือกกลิ่นที่ใช่สำหรับไลฟ์สไตล์และตัวตนของคุณ' ?>">
 <meta property="og:type" content="website">
 <meta property="og:image" content="<?= $meta['og_image'] ?? 'public/img/TRANDAR-PERFUME.png' ?>">
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <!-- Favicon -->
 <link rel="icon" type="image/x-icon" href="/origami_website/perfume//public/product_images/696089dc2eba5_1767934428.jpg">
@@ -254,8 +254,10 @@ $languages = [
         justify-content: space-between;
         align-items: center;
         padding: 25px 80px;
+        position: relative;
     }
 
+    /* Logo - Centered on Mobile, Left on Desktop */
     .logo {
         font-family: 'Playfair Display', serif;
         font-size: 24px;
@@ -263,11 +265,52 @@ $languages = [
         letter-spacing: 0.15em;
         color: var(--luxury-black);
         text-decoration: none;
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
     }
 
+    .logo img {
+        height: 50px;
+        display: block;
+    }
+
+    /* Hamburger Menu */
+    .hamburger {
+        display: none;
+        flex-direction: column;
+        gap: 5px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 5px;
+        z-index: 1001;
+    }
+
+    .hamburger span {
+        width: 25px;
+        height: 2px;
+        background: var(--luxury-black);
+        transition: all 0.3s ease;
+    }
+
+    .hamburger.active span:nth-child(1) {
+        transform: rotate(45deg) translate(7px, 7px);
+    }
+
+    .hamburger.active span:nth-child(2) {
+        opacity: 0;
+    }
+
+    .hamburger.active span:nth-child(3) {
+        transform: rotate(-45deg) translate(7px, -7px);
+    }
+
+    /* Navigation */
     .nav {
         display: flex;
-        gap: 60px;
+        gap: 30px;
     }
 
     .nav-link {
@@ -305,7 +348,7 @@ $languages = [
     .action-btn {
         background: none;
         border: none;
-        font-size: 16px;
+        font-size: 14px;
         cursor: pointer;
         color: var(--luxury-black);
         transition: opacity 0.3s ease;
@@ -342,19 +385,20 @@ $languages = [
         gap: 8px;
         padding: 8px 12px;
         background: transparent;
-        border: 1px solid rgba(0, 0, 0, 0.1);
+        border: none;
         cursor: pointer;
         transition: all 0.3s ease;
     }
 
     .language-current:hover {
-        border-color: rgba(0, 0, 0, 0.3);
+        opacity: 0.6;
     }
 
     .language-flag {
-        width: 20px;
-        height: 15px;
+        width: 18px;
+        height: 13px;
         object-fit: cover;
+        border: none;
     }
 
     .language-name {
@@ -414,6 +458,10 @@ $languages = [
 
     .language-option.active {
         background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    .language-option .language-flag {
+        border: none;
     }
 
     .user-menu {
@@ -592,36 +640,139 @@ $languages = [
         color: var(--luxury-black);
     }
 
-    @media (max-width: 768px) {
-        .nav {
-            display: none;
-        }
-
-        .header-content {
-            padding: 20px 40px;
-        }
-
-        .modal-content {
-            width: 95%;
-            margin: 10% auto;
-        }
+    /* ========================================
+       MOBILE RESPONSIVE
+       ======================================== */
+    /* ========================================
+   MOBILE RESPONSIVE
+   ======================================== */
+@media (max-width: 1440px) {
+    .header-content {
+        padding: 20px 20px;
     }
-    
+
+    /* Show hamburger menu */
+    .hamburger {
+        display: flex;
+        z-index: 1002;
+    }
+
+    /* Mobile Navigation - Drop down style */
+    .nav {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        width: 100%;
+        background: white;
+        flex-direction: column;
+        gap: 0;
+        padding: 0;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transition: max-height 0.4s var(--transition), opacity 0.3s ease;
+        z-index: 999;
+    }
+
+    .nav.active {
+        max-height: 400px;
+        opacity: 1;
+    }
+
+    .nav-link {
+        padding: 18px 30px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+        font-size: 14px;
+        text-align: left;
+    }
+
+    .nav-link:last-child {
+        border-bottom: none;
+    }
+
+    .nav-link::after {
+        display: none;
+    }
+
+    .nav-link:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+
+    /* Logo stays centered */
+    .logo {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    /* Adjust actions */
+    .header-actions {
+        gap: 15px;
+    }
+
+    .language-name {
+        display: none;
+    }
+
+    .language-current {
+        padding: 8px;
+    }
+
+    /* Remove mobile overlay (not needed for dropdown style) */
+    .mobile-overlay {
+        display: none !important;
+    }
+
+    .modal-content {
+        width: 95%;
+        margin: 10% auto;
+    }
+
+    /* ลดขนาดไอคอนในมือถือ */
+    .action-btn {
+        font-size: 13px;
+    }
+}
+
+@media (max-width: 480px) {
+    .logo img {
+        height: 40px;
+    }
+
+    .action-btn {
+        font-size: 12px;
+    }
+
+    .nav-link {
+        padding: 16px 20px;
+        font-size: 13px;
+    }
+}
 </style>
 
 <!-- HEADER -->
 <header class="header">
     <div class="header-content">
+        <!-- Hamburger Menu (Mobile) -->
+        <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
+            <span></span>
+            <span></span>
+            <span></span>
+        </button>
 
-        <a href="?" class="logo">
-    <img src="/origami_website/perfume//public/product_images/696463601df83_1768186720.png" alt="Perfume Luxury Logo" style="height: 50px;">
-</a>
-        <nav class="nav">
+        <!-- Logo (Centered) -->
+        <a href="?lang=<?= $lang ?>" class="logo">
+            <img src="/origami_website/perfume//public/product_images/696463601df83_1768186720.png" alt="Perfume Luxury Logo">
+        </a>
+
+        <!-- Navigation -->
+        <nav class="nav" id="navMenu">
             <?php foreach ($navbarItems as $item): ?>
                 <?php
                 // สร้าง URL ใหม่โดยให้พารามิเตอร์หน้ามาก่อน lang
                 if ($item['link'] === '?') {
-                    // สำหรับหน้า home
                     $linkUrl = '?lang=' . $lang;
                 } elseif ($item['link'] === '?product') {
                     $linkUrl = '?product&lang=' . $lang;
@@ -674,7 +825,6 @@ $languages = [
                             $currentPage = '?checkout';
                         } elseif (isset($_GET['payment'])) {
                             $currentPage = '?payment';
-                            // เก็บ order_id ถ้ามี
                             if (isset($_GET['order_id'])) {
                                 $queryParams['order_id'] = $_GET['order_id'];
                             }
@@ -682,7 +832,6 @@ $languages = [
                             $currentPage = '?orders';
                         } elseif (isset($_GET['order_detail'])) {
                             $currentPage = '?order_detail';
-                            // ⭐ เก็บ id ของ order_detail
                             if (isset($_GET['id'])) {
                                 $queryParams['id'] = $_GET['id'];
                             }
@@ -690,7 +839,6 @@ $languages = [
                             $currentPage = '?';
                         }
                         
-                        // สร้าง URL โดยรวม parameters ทั้งหมด
                         $queryParams['lang'] = $code;
                         $langUrl = $currentPage . '&' . http_build_query($queryParams);
                         ?>
@@ -727,6 +875,9 @@ $languages = [
         </div>
     </div>
 </header>
+
+<!-- Mobile Overlay -->
+<div class="mobile-overlay" id="mobileOverlay"></div>
 
 <!-- Login Modal -->
 <div id="myModal-sign-in" class="modal">
@@ -800,6 +951,37 @@ $languages = [
         }
     }
 });
+
+// Hamburger Menu Toggle - Drop down style
+const hamburgerBtn = document.getElementById('hamburgerBtn');
+const navMenu = document.getElementById('navMenu');
+const mobileOverlay = document.getElementById('mobileOverlay');
+
+if (hamburgerBtn && navMenu) {
+    hamburgerBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        hamburgerBtn.classList.toggle('active');
+        navMenu.classList.toggle('active');
+    });
+
+    // Close menu when clicking nav link
+    const navLinks = navMenu.querySelectorAll('.nav-link');
+    navLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            hamburgerBtn.classList.remove('active');
+            navMenu.classList.remove('active');
+        });
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!hamburgerBtn.contains(e.target) && !navMenu.contains(e.target)) {
+            hamburgerBtn.classList.remove('active');
+            navMenu.classList.remove('active');
+        }
+    });
+}
+
 // Function to load cart count
 function loadCartCount() {
     const jwt = sessionStorage.getItem('jwt');

@@ -308,7 +308,7 @@ function ht($key, $lang) {
             currentVideo.play().catch(e => console.log('Video autoplay failed:', e));
         }
         
-        document.querySelector('.current').textContent = String(index + 1).padStart(2, '0');
+        // document.querySelector('.current').textContent = String(index + 1).padStart(2, '0');
     }
 
     function nextSlide() {

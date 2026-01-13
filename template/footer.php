@@ -522,7 +522,9 @@ $social_links = [
         <div class="footer-content">
             <!-- Brand Column -->
             <div class="footer-brand-section">
-                <div class="footer-brand">PERFUME</div>
+                <a href="?" class="logo2">
+                    <img src="public/product_images/6965ad2fca016_1768271151.png" alt="Perfume Luxury Logo" style="height: 50px;">
+                </a>
                 <p class="footer-description">
                     <?= ft('brand_desc', $lang) ?>
                 </p>
