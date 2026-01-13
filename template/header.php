@@ -834,6 +834,8 @@ $languages = [
                             $currentPage = '?contact';
                         } elseif (isset($_GET['cart'])) {
                             $currentPage = '?cart';
+                        } elseif (isset($_GET['register'])) {
+                            $currentPage = '?register';
                         } elseif (isset($_GET['profile'])) {
                             $currentPage = '?profile';
                         } elseif (isset($_GET['checkout'])) {

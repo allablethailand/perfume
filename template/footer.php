@@ -175,11 +175,11 @@ $footer_translations = [
     
     // Copyright
     'copyright' => [
-        'th' => '© 2025 AI COMPANION PERFUME. สงวนลิขสิทธิ์',
-        'en' => '© 2025 AI COMPANION PERFUME. All Rights Reserved.',
-        'cn' => '© 2025 AI 伴侣香水。保留所有权利。',
-        'jp' => '© 2025 AI コンパニオン フレグランス。全著作権所有。',
-        'kr' => '© 2025 AI 컴패니언 향수. 모든 권리 보유.'
+        'th' => '© 2025 Trandar Innovation. สงวนลิขสิทธิ์',
+        'en' => '© 2025 Trandar Innovation. All Rights Reserved.',
+        'cn' => '© 2025 Trandar Innovation。',
+        'jp' => '© 2025 Trandar Innovation。全著作権所有。',
+        'kr' => '© 2025 Trandar Innovation. 모든 권리 보유.'
     ],
     'made_with_love' => [
         'th' => 'สร้างสรรค์ด้วยความรัก',
@@ -528,7 +528,7 @@ $social_links = [
                 <p class="footer-description">
                     <?= ft('brand_desc', $lang) ?>
                 </p>
-                <div class="footer-social">
+                <!-- <div class="footer-social">
                     <?php foreach ($social_links as $social): ?>
                         <a href="<?= htmlspecialchars($social['url']) ?>" 
                            class="social-link"
@@ -538,7 +538,7 @@ $social_links = [
                             <i class="<?= htmlspecialchars($social['icon']) ?>"></i>
                         </a>
                     <?php endforeach; ?>
-                </div>
+                </div> -->
             </div>
 
             <!-- About Column -->

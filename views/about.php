@@ -224,18 +224,18 @@ $translations = [
         'kr' => '우리는 당신을 이해하고 함께 성장할 수 있는 영혼을 가진 향수를 만듭니다. 이것이 살아있는 향의 미래입니다'
     ],
     'quote_author' => [
-        'th' => 'ดร. ซาร่าห์ เฉิน',
-        'en' => 'Dr. Sarah Chen',
-        'cn' => '陈博士',
-        'jp' => 'サラ・チェン博士',
-        'kr' => '사라 첸 박사'
+        'th' => 'Kridsada Satukijchai',
+        'en' => 'Kridsada Satukijchai',
+        'cn' => 'Kridsada Satukijchai',
+        'jp' => 'Kridsada Satukijchai',
+        'kr' => 'Kridsada Satukijchai'
     ],
     'quote_position' => [
-        'th' => 'หัวหน้าฝ่ายนวัตกรรม',
-        'en' => 'Chief Innovation Officer',
-        'cn' => '首席创新官',
-        'jp' => 'チーフイノベーションオフィサー',
-        'kr' => '최고 혁신 책임자'
+        'th' => 'CEO',
+        'en' => 'CEO',
+        'cn' => 'CEO',
+        'jp' => 'CEO',
+        'kr' => 'CEO'
     ],
     'tech_label' => [
         'th' => 'เทคโนโลยี',

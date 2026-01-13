@@ -93,11 +93,11 @@ function ct($key, $lang) {
 // Contact Information (Static Data)
 $contact_info = [
     'company_name' => [
-        'th' => 'บริษัท เอไอ คอมแพเนียน เพอร์ฟูม จำกัด',
-        'en' => 'AI COMPANION PERFUME CO., LTD.',
-        'cn' => 'AI 伴侣香水有限公司',
-        'jp' => 'AI コンパニオン フレグランス株式会社',
-        'kr' => 'AI 컴패니언 향수 주식회사'
+        'th' => 'Trandar Innovation',
+        'en' => 'Trandar Innovation',
+        'cn' => 'Trandar Innovation',
+        'jp' => 'Trandar Innovation',
+        'kr' => 'Trandar Innovation'
     ],
     'address' => [
         'th' => '102 ถนนพัฒนาการ 40 เขตสวนหลวง กรุงเทพมหานคร 10250',
@@ -107,7 +107,7 @@ $contact_info = [
         'kr' => '태국 방콕 수안루앙 파타나칸 40, 102번지 10250'
     ],
     'phone' => '+66 2 722 7007',
-    'email' => 'info@aicompanionperfume.com',
+    'email' => 'info@trandar.com',
     'hours_weekday' => [
         'th' => 'จันทร์ – ศุกร์ 09:00 – 18:00 น.',
         'en' => 'Monday – Friday 09:00 AM – 06:00 PM',
