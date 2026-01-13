@@ -108,6 +108,5 @@ switch($fragment) {
     case 'ai_activation': require __DIR__.'/views/ai_activation.php'; break;
     case 'ai_questions': require __DIR__.'/views/ai_questions.php'; break;
     case 'ai_chat': require __DIR__.'/views/ai_chat.php'; break;
-
     default: require __DIR__.'/views/homepage.php'; break;
 }

@@ -40,6 +40,11 @@
             height: 100vh;
         }
 
+        .ai-avatar-container {
+            position: relative;
+            margin-bottom: 30px;
+        }
+
         .ai-avatar-circle {
             width: 280px;
             height: 280px;
@@ -47,7 +52,6 @@
             overflow: hidden;
             border: 4px solid rgba(120, 119, 198, 0.3);
             box-shadow: 0 20px 60px rgba(120, 119, 198, 0.4);
-            margin-bottom: 30px;
             position: relative;
         }
 
@@ -73,6 +77,95 @@
             object-fit: cover;
             position: relative;
             z-index: 1;
+        }
+
+        /* Speech Bubble */
+        .speech-bubble {
+            position: absolute;
+            left: 50%;
+            bottom: 100%;
+            transform: translateX(-50%);
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, rgba(120, 119, 198, 0.2) 0%, rgba(168, 167, 229, 0.15) 100%);
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(120, 119, 198, 0.4);
+            border-radius: 20px;
+            padding: 20px 24px;
+            min-width: 320px;
+            max-width: 350px;
+            box-shadow: 0 10px 40px rgba(120, 119, 198, 0.3);
+            opacity: 0;
+            animation: bubbleIn 0.5s ease forwards;
+            animation-delay: 0.3s;
+            z-index: 10;
+        }
+
+        @keyframes bubbleIn {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+        }
+
+        .speech-bubble::before {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 20px solid rgba(120, 119, 198, 0.4);
+        }
+
+        .speech-bubble::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            margin-top: -2px;
+            width: 0;
+            height: 0;
+            border-left: 13px solid transparent;
+            border-right: 13px solid transparent;
+            border-top: 18px solid rgba(120, 119, 198, 0.15);
+        }
+
+        .speech-bubble-text {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .speech-bubble-icon {
+            display: inline-block;
+            margin-right: 8px;
+            font-size: 16px;
+            color: #7877c6;
+        }
+
+        /* Question Change Animation */
+        .speech-bubble.changing {
+            animation: bubbleOut 0.3s ease forwards;
+        }
+
+        @keyframes bubbleOut {
+            from {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-10px);
+            }
         }
 
         .ai-info {
@@ -445,6 +538,12 @@
                 width: 220px;
                 height: 220px;
             }
+
+            .speech-bubble {
+                min-width: 280px;
+                max-width: 300px;
+                margin-bottom: 20px;
+            }
         }
 
         @media (max-width: 992px) {
@@ -469,6 +568,29 @@
 
             .ai-name-sidebar {
                 font-size: 24px;
+            }
+
+            .speech-bubble {
+                position: static;
+                transform: none;
+                margin: 20px auto 0;
+                animation: bubbleInMobile 0.5s ease forwards;
+            }
+
+            @keyframes bubbleInMobile {
+                from {
+                    opacity: 0;
+                    transform: translateY(-10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            .speech-bubble::before,
+            .speech-bubble::after {
+                display: none;
             }
 
             .main-content {
@@ -502,14 +624,33 @@
             .scale-option {
                 font-size: 20px;
             }
+
+            .speech-bubble {
+                min-width: auto;
+                width: 100%;
+                padding: 16px 20px;
+            }
+
+            .speech-bubble-text {
+                font-size: 14px;
+            }
         }
     </style>
 </head>
 <body>
     <!-- AI Avatar Sidebar -->
     <div class="ai-sidebar">
-        <div class="ai-avatar-circle">
-            <img src="" alt="AI Avatar" id="aiAvatarSidebar">
+        <div class="ai-avatar-container">
+            <div class="ai-avatar-circle">
+                <img src="" alt="AI Avatar" id="aiAvatarSidebar">
+            </div>
+            <!-- Speech Bubble -->
+            <div class="speech-bubble" id="speechBubble">
+                <div class="speech-bubble-text">
+                    <i class="fas fa-comment-dots speech-bubble-icon"></i>
+                    <span id="speechBubbleText">กำลังโหลดคำถาม...</span>
+                </div>
+            </div>
         </div>
         <div class="ai-info">
             <h2 class="ai-name-sidebar" id="aiNameSidebar">AI Companion</h2>
@@ -635,6 +776,24 @@
             });
         }
 
+        function updateSpeechBubble(questionText) {
+            const bubble = $('#speechBubble');
+            const bubbleText = $('#speechBubbleText');
+            
+            // Add changing class to animate out
+            bubble.addClass('changing');
+            
+            // Wait for animation, then update text and animate in
+            setTimeout(function() {
+                bubbleText.text(questionText);
+                bubble.removeClass('changing');
+                
+                // Re-trigger animation by removing and re-adding element
+                const bubbleClone = bubble.clone(true);
+                bubble.replaceWith(bubbleClone);
+            }, 300);
+        }
+
         function displayQuestion(index) {
             if (index < 0 || index >= questions.length) return;
 
@@ -647,7 +806,11 @@
             $('#questionNumber').text(`Question ${index + 1}`);
 
             const langCol = 'question_text_' + lang;
-            $('#questionText').text(question[langCol] || question.question_text_th);
+            const questionText = question[langCol] || question.question_text_th;
+            $('#questionText').text(questionText);
+
+            // Update speech bubble with current question
+            updateSpeechBubble(questionText);
 
             $('#choicesContainer').empty().hide();
             $('#textInput').val('').hide();
