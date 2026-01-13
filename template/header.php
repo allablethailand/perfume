@@ -205,7 +205,7 @@ $stmt_logo->close();
 // Language config
 $languages = [
     'th' => ['name' => 'ไทย', 'flag' => 'https://flagcdn.com/th.svg'],
-    'en' => ['name' => 'English', 'flag' => 'https://flagcdn.com/us.svg'],
+    'en' => ['name' => 'English', 'flag' => 'https://flagcdn.com/gb.svg'],
     'cn' => ['name' => '中文', 'flag' => 'https://flagcdn.com/cn.svg'],
     'jp' => ['name' => '日本語', 'flag' => 'https://flagcdn.com/jp.svg'],
     'kr' => ['name' => '한국어', 'flag' => 'https://flagcdn.com/kr.svg']
@@ -318,7 +318,7 @@ $languages = [
         font-weight: 400;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        color: var(--luxury-black);
+        color: #000000;
         text-decoration: none;
         position: relative;
         transition: color 0.3s ease;
@@ -659,22 +659,22 @@ $languages = [
 
     /* Mobile Navigation - Drop down style */
     .nav {
-        position: absolute;
-        top: 100%;
-        left: 0;
-        right: 0;
-        width: 100%;
-        background: white;
-        flex-direction: column;
-        gap: 0;
-        padding: 0;
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-        max-height: 0;
-        overflow: hidden;
-        opacity: 0;
-        transition: max-height 0.4s var(--transition), opacity 0.3s ease;
-        z-index: 999;
-    }
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    width: 100%;
+    /* แก้ไขตรงนี้: ใช้ rgba(แดง, เขียว, น้ำเงิน, ความโปร่งใส) */
+    background: rgba(0, 0, 0, 0.7); 
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.4s var(--transition), opacity 0.3s ease;
+    z-index: 999;
+}
 
     .nav.active {
         max-height: 400px;
@@ -686,6 +686,7 @@ $languages = [
         border-bottom: 1px solid rgba(0, 0, 0, 0.05);
         font-size: 14px;
         text-align: left;
+        color: #ffffff;
     }
 
     .nav-link:last-child {
@@ -733,6 +734,13 @@ $languages = [
     /* ลดขนาดไอคอนในมือถือ */
     .action-btn {
         font-size: 13px;
+    }
+}
+
+@media (max-width: 600px) {
+    /* ซ่อนปุ่มเปลี่ยนภาษา */
+    .language-switcher {
+        display: none !important;
     }
 }
 
@@ -813,8 +821,15 @@ $languages = [
                             $currentPage = '?news';
                         } elseif (isset($_GET['news_detail'])) {
                             $currentPage = '?news_detail';
+                            if (isset($_GET['id'])) {
+                                $queryParams['id'] = $_GET['id'];
+                            }
                         } elseif (isset($_GET['about'])) {
                             $currentPage = '?about';
+                        }elseif (isset($_GET['privacy'])) {
+                            $currentPage = '?privacy';
+                        }elseif (isset($_GET['termofuse'])) {
+                            $currentPage = '?termofuse';
                         } elseif (isset($_GET['contact'])) {
                             $currentPage = '?contact';
                         } elseif (isset($_GET['cart'])) {
@@ -857,7 +872,7 @@ $languages = [
             
             <!-- User Menu -->
             <div class="user-menu" id="userMenu">
-                <button class="action-btn" id="userBtn" aria-label="User">
+                <button class="action-btn" id="userBtn"style="padding-bottom:7px" aria-label="User">
                     <i class="fas fa-user"></i>
                 </button>
                 <div class="user-dropdown" id="userDropdown">
