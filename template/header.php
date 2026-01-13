@@ -188,8 +188,6 @@ $navbarItems = [
     ['link' => '?contact', 'key' => 'contact'],
 ];
 
-
-
 // Get logo
 $logo_path = 'public/img/LOGOTRAND.png';
 $logo_id_for_display = 1;
@@ -353,10 +351,35 @@ $languages = [
         color: var(--luxury-black);
         transition: opacity 0.3s ease;
         position: relative;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
     .action-btn:hover {
         opacity: 0.6;
+    }
+
+    /* AI Avatar Styles */
+    #aiAvatar {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid var(--luxury-black);
+        transition: all 0.3s ease;
+        display: none;
+    }
+
+    #aiAvatar:hover {
+        opacity: 0.8;
+        transform: translate(-50%, -50%) scale(1.1);
     }
 
     .cart-badge {
@@ -643,9 +666,6 @@ $languages = [
     /* ========================================
        MOBILE RESPONSIVE
        ======================================== */
-    /* ========================================
-   MOBILE RESPONSIVE
-   ======================================== */
 @media (max-width: 1440px) {
     .header-content {
         padding: 20px 20px;
@@ -659,22 +679,21 @@ $languages = [
 
     /* Mobile Navigation - Drop down style */
     .nav {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    width: 100%;
-    /* แก้ไขตรงนี้: ใช้ rgba(แดง, เขียว, น้ำเงิน, ความโปร่งใส) */
-    background: rgba(0, 0, 0, 0.7); 
-    flex-direction: column;
-    gap: 0;
-    padding: 0;
-    max-height: 0;
-    overflow: hidden;
-    opacity: 0;
-    transition: max-height 0.4s var(--transition), opacity 0.3s ease;
-    z-index: 999;
-}
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        width: 100%;
+        background: rgba(0, 0, 0, 0.7); 
+        flex-direction: column;
+        gap: 0;
+        padding: 0;
+        max-height: 0;
+        overflow: hidden;
+        opacity: 0;
+        transition: max-height 0.4s var(--transition), opacity 0.3s ease;
+        z-index: 999;
+    }
 
     .nav.active {
         max-height: 400px;
@@ -872,13 +891,14 @@ $languages = [
                 <i class="fas fa-search"></i>
             </button>
             
-            <!-- User Menu -->
+            <!-- User Menu with AI Avatar -->
             <div class="user-menu" id="userMenu">
-                <button class="action-btn" id="userBtn"style="padding-bottom:7px" aria-label="User">
-                    <i class="fas fa-user"></i>
+                <button class="action-btn" id="userBtn"aria-label="User">
+                    <i class="fas fa-user" id="userIcon"></i>
+                    <img id="aiAvatar" src="" alt="AI Avatar">
                 </button>
                 <div class="user-dropdown" id="userDropdown">
-                    <a href="?profile" id="profileLink" style="display:none;">My Profile</a>
+                    <a href="?profile&lang=<?= $lang ?>" id="profileLink" style="display:none;">My Profile</a>
                     <a href="app/admin/index.php" id="adminLink" style="display:none;">Admin Panel</a>
                     <a href="#" id="logoutLink" style="display:none;">Logout</a>
                 </div>
@@ -958,10 +978,10 @@ $languages = [
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
+document.addEventListener('DOMContentLoaded', function () {
     const params = new URLSearchParams(window.location.search);
 
-    if (params.get('') === '1') {
+    if (params.get('login') === '1') {
         const modal = document.getElementById('myModal-sign-in');
         if (modal) {
             modal.style.display = 'block';
@@ -995,6 +1015,53 @@ if (hamburgerBtn && navMenu) {
         if (!hamburgerBtn.contains(e.target) && !navMenu.contains(e.target)) {
             hamburgerBtn.classList.remove('active');
             navMenu.classList.remove('active');
+        }
+    });
+}
+
+// Function to load AI Avatar
+function loadAIAvatar() {
+    const jwt = sessionStorage.getItem('jwt');
+    
+    if (!jwt) {
+        // ไม่มี token แสดงไอคอน user ปกติ
+        $('#aiAvatar').hide();
+        $('#userIcon').show();
+        return;
+    }
+    
+    $.ajax({
+        url: 'app/actions/get_user_ai_avatar.php',
+        type: 'GET',
+        headers: {
+            'Authorization': 'Bearer ' + jwt,
+            'X-Auth-Token': jwt
+        },
+        dataType: 'json',
+        success: function(response) {
+            console.log('AI Avatar response:', response);
+            
+            if (response.status === 'success' && response.has_ai) {
+                // แสดงรูป AI avatar แทนไอคอน
+                $('#userIcon').hide();
+                $('#aiAvatar').attr('src', response.ai_avatar_url).show();
+                
+                // เพิ่ม tooltip หรือ title ถ้ามีชื่อ AI
+                if (response.ai_name_th || response.ai_name_en) {
+                    const aiName = currentLang === 'th' ? response.ai_name_th : response.ai_name_en;
+                    $('#aiAvatar').attr('title', aiName);
+                }
+            } else {
+                // แสดงไอคอน user ปกติ
+                $('#aiAvatar').hide();
+                $('#userIcon').show();
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Failed to load AI avatar:', status, error);
+            // กรณี error ให้แสดงไอคอน user ปกติ
+            $('#aiAvatar').hide();
+            $('#userIcon').show();
         }
     });
 }
@@ -1041,6 +1108,7 @@ window.updateCartCount = loadCartCount;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadCartCount();
+    loadAIAvatar(); // โหลด AI avatar เมื่อ page load
 
     // Language Switcher
     const languageSwitcher = document.getElementById('languageSwitcher');
@@ -1081,6 +1149,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 logoutLink.style.display = 'block';
                 loadCartCount();
+                loadAIAvatar(); // โหลด AI avatar หลัง verify token สำเร็จ
             }
         })
         .catch(error => console.error("Token verification failed:", error));
@@ -1188,6 +1257,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const roleId = parseInt(response.data.role_id);
 
                                 loadCartCount();
+                                loadAIAvatar(); // โหลด AI avatar หลัง login สำเร็จ
 
                                 if (roleId === 1) {
                                     window.location.href = 'app/admin/index.php';
