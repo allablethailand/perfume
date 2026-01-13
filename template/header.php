@@ -185,7 +185,7 @@ $navbarItems = [
     ['link' => '?product', 'key' => 'products'],
     ['link' => '?news', 'key' => 'news'],
     ['link' => '?about', 'key' => 'about'],
-    ['link' => '?contact', 'key' => 'contact'],
+    // ['link' => '?contact', 'key' => 'contact'],
 ];
 
 // Get logo

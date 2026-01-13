@@ -583,7 +583,7 @@ $social_links = [
             <div class="footer-column">
                 <h4 class="footer-title"><?= ft('customer_service', $lang) ?></h4>
                 <div class="footer-links">
-                    <a href="#" class="footer-link">
+                    <a href="?contact&lang=<?= $lang ?>" class="footer-link">
                         <?= ft('contact_us', $lang) ?>
                     </a>
                     <a href="#" class="footer-link">
