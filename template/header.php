@@ -664,6 +664,63 @@ $languages = [
     }
 
     /* ========================================
+       AI CHAT BUTTON STYLES
+       ======================================== */
+    .ai-chat-button {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 70px;
+        height: 70px;
+        cursor: pointer;
+        z-index: 999;
+        transition: all 0.3s var(--transition);
+        animation: pulse 2s infinite;
+    }
+
+    .ai-chat-button:hover {
+        transform: scale(1.1);
+        animation: none;
+    }
+
+    .ai-avatar-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+    }
+
+    .ai-avatar-img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid var(--luxury-black);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        background: white;
+    }
+
+    .ai-status-dot {
+        position: absolute;
+        bottom: 5px;
+        right: 5px;
+        width: 16px;
+        height: 16px;
+        background: #00ff00;
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(0, 255, 0, 0.4);
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.4);
+        }
+        50% {
+            box-shadow: 0 0 0 15px rgba(0, 0, 0, 0);
+        }
+    }
+
+    /* ========================================
        MOBILE RESPONSIVE
        ======================================== */
 @media (max-width: 1440px) {
@@ -754,6 +811,21 @@ $languages = [
     .action-btn {
         font-size: 13px;
     }
+
+    /* AI Chat Button - Mobile */
+    .ai-chat-button {
+        width: 60px;
+        height: 60px;
+        bottom: 20px;
+        right: 20px;
+    }
+    
+    .ai-status-dot {
+        width: 14px;
+        height: 14px;
+        bottom: 3px;
+        right: 3px;
+    }
 }
 
 @media (max-width: 600px) {
@@ -775,6 +847,20 @@ $languages = [
     .nav-link {
         padding: 16px 20px;
         font-size: 13px;
+    }
+
+    /* AI Chat Button - Small Mobile */
+    .ai-chat-button {
+        width: 55px;
+        height: 55px;
+        bottom: 15px;
+        right: 15px;
+    }
+    
+    .ai-status-dot {
+        width: 12px;
+        height: 12px;
+        border: 2px solid white;
     }
 }
 </style>
@@ -871,6 +957,8 @@ $languages = [
                             if (isset($_GET['id'])) {
                                 $queryParams['id'] = $_GET['id'];
                             }
+                        } elseif (isset($_GET['ai_activation'])) {
+                            $currentPage = '?ai_activation';
                         } else {
                             $currentPage = '?';
                         }
@@ -915,6 +1003,14 @@ $languages = [
 
 <!-- Mobile Overlay -->
 <div class="mobile-overlay" id="mobileOverlay"></div>
+
+<!-- AI Chat Button (Floating) -->
+<div id="aiChatButton" class="ai-chat-button" style="border-radius: 50%;" style="display: none;">
+    <div class="ai-avatar-container">
+        <img id="aiChatAvatar" src="" alt="AI Companion" class="ai-avatar-img">
+        <div class="ai-status-dot"></div>
+    </div>
+</div>
 
 <!-- Login Modal -->
 <div id="myModal-sign-in" class="modal">
@@ -1066,6 +1162,47 @@ function loadAIAvatar() {
     });
 }
 
+// Function to load AI Chat Button
+function loadAIChatButton() {
+    const jwt = sessionStorage.getItem('jwt');
+    
+    if (!jwt) {
+        $('#aiChatButton').hide();
+        return;
+    }
+    
+    $.ajax({
+        url: 'app/actions/get_user_ai_avatar.php',
+        type: 'GET',
+        headers: {
+            'Authorization': 'Bearer ' + jwt,
+            'X-Auth-Token': jwt
+        },
+        dataType: 'json',
+        success: function(response) {
+            console.log('AI Chat Button response:', response);
+            
+            if (response.status === 'success' && response.has_ai) {
+                // แสดงปุ่ม AI Chat
+                $('#aiChatAvatar').attr('src', response.ai_avatar_url);
+                $('#aiChatButton').fadeIn();
+                
+                // เพิ่ม click event
+                $('#aiChatButton').off('click').on('click', function() {
+                    window.location.href = '?ai_activation&lang=' + currentLang;
+                });
+            } else {
+                // ซ่อนปุ่มถ้าไม่มี AI
+                $('#aiChatButton').hide();
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Failed to load AI chat button:', status, error);
+            $('#aiChatButton').hide();
+        }
+    });
+}
+
 // Function to load cart count
 function loadCartCount() {
     const jwt = sessionStorage.getItem('jwt');
@@ -1108,7 +1245,8 @@ window.updateCartCount = loadCartCount;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadCartCount();
-    loadAIAvatar(); // โหลด AI avatar เมื่อ page load
+    loadAIAvatar();
+    loadAIChatButton(); // โหลดปุ่ม AI Chat
 
     // Language Switcher
     const languageSwitcher = document.getElementById('languageSwitcher');
@@ -1149,7 +1287,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 logoutLink.style.display = 'block';
                 loadCartCount();
-                loadAIAvatar(); // โหลด AI avatar หลัง verify token สำเร็จ
+                loadAIAvatar();
+                loadAIChatButton(); // โหลดปุ่ม AI Chat หลัง verify token
             }
         })
         .catch(error => console.error("Token verification failed:", error));
@@ -1257,7 +1396,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const roleId = parseInt(response.data.role_id);
 
                                 loadCartCount();
-                                loadAIAvatar(); // โหลด AI avatar หลัง login สำเร็จ
+                                loadAIAvatar();
+                                loadAIChatButton(); // โหลดปุ่ม AI Chat หลัง login
 
                                 if (roleId === 1) {
                                     window.location.href = 'app/admin/index.php';
