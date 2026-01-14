@@ -9,13 +9,13 @@ session_start();
 $host = $_SERVER['HTTP_HOST'];
 
 // Default allowed root path
-$allowedRoot = '/';
-$allowedIndex = '/'; #/index.php
+$allowedRoot = '/perfume/';
+$allowedIndex = '/perfume/'; #/index.php
 
 // If running on localhost (your dev URL)
 if (strpos($host, 'localhost') !== false) {
-    $allowedRoot = '/perfume/';
-    $allowedIndex = '/perfume/';
+    $allowedRoot = '/origami_website/perfume/';
+    $allowedIndex = '/origami_website/perfume/';
 }
 
 /*
