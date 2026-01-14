@@ -1,0 +1,29 @@
+{
+    "nationalities": [
+        {
+            "name": "ไทย",
+            "abbreviation": "TH",
+            "flag": "https://flagcdn.com/w320/th.png"
+        },
+        {
+            "name": "English",
+            "abbreviation": "EN",
+            "flag": "https://flagcdn.com/w320/gb.png"
+        },
+        {
+            "name": "中文",
+            "abbreviation": "CN",
+            "flag": "https://flagcdn.com/w320/cn.png"
+        },
+        {
+            "name": "日本語",
+            "abbreviation": "JP",
+            "flag": "https://flagcdn.com/w320/jp.png"
+        },
+        {
+            "name": "한국어",
+            "abbreviation": "KR",
+            "flag": "https://flagcdn.com/w320/kr.png"
+        }
+    ]
+}

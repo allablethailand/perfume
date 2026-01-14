@@ -1,0 +1,321 @@
+/* ========================================
+   AI COMPANION MANAGEMENT - CSS
+   ======================================== */
+
+/* AI Avatar Upload */
+.ai-avatar-upload {
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #f8f9fa;
+}
+
+.ai-avatar-upload:hover {
+    border-color: #007bff;
+    background: #e7f3ff;
+}
+
+.avatar-preview {
+    min-height: 250px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.avatar-preview i {
+    font-size: 48px;
+    color: #999;
+    margin-bottom: 10px;
+}
+
+.avatar-preview p {
+    margin: 5px 0;
+    color: #666;
+    font-size: 15px;
+}
+
+.avatar-preview small {
+    color: #999;
+    font-size: 12px;
+}
+
+/* AI Video Upload */
+.ai-video-upload {
+    border: 2px dashed #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #f8f9fa;
+}
+
+.ai-video-upload:hover {
+    border-color: #28a745;
+    background: #e8f5e9;
+}
+
+.video-preview {
+    min-height: 250px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.video-preview i {
+    font-size: 48px;
+    color: #999;
+    margin-bottom: 10px;
+}
+
+.video-preview p {
+    margin: 5px 0;
+    color: #666;
+    font-size: 15px;
+}
+
+.video-preview small {
+    color: #999;
+    font-size: 12px;
+}
+
+/* AI Avatar Thumbnail in List */
+.ai-avatar-thumb {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 2px solid #fff;
+}
+
+/* AI Avatar Placeholder */
+.ai-avatar-placeholder {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    border: 2px solid #f0f0f0;
+}
+
+/* Card Headers */
+.card-header h5 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.card-header h5 i {
+    margin-right: 8px;
+    color: #007bff;
+}
+
+/* Form Groups */
+.form-group label {
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: #555;
+}
+
+.form-group label i {
+    margin-right: 6px;
+    color: #666;
+    width: 16px;
+    text-align: center;
+}
+
+/* Language Tabs */
+.nav-tabs {
+    border-bottom: 2px solid #dee2e6;
+}
+
+.nav-tabs .nav-link {
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: #666;
+    padding: 12px 20px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.nav-tabs .nav-link:hover {
+    border-bottom-color: #007bff;
+    color: #007bff;
+}
+
+.nav-tabs .nav-link.active {
+    border-bottom-color: #007bff;
+    color: #007bff;
+    background: transparent;
+}
+
+.flag-icon {
+    width: 20px;
+    height: 15px;
+    margin-right: 6px;
+    border-radius: 2px;
+}
+
+/* Badge Styles */
+.badge {
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 500;
+    border-radius: 20px;
+}
+
+.badge-success {
+    background-color: #28a745;
+    color: #fff;
+}
+
+.badge-secondary {
+    background-color: #6c757d;
+    color: #fff;
+}
+
+.badge-info {
+    background-color: #17a2b8;
+    color: #fff;
+}
+
+/* Button Circle Styles */
+.btn-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-size: 14px;
+}
+
+.btn-circle.btn-info {
+    background-color: #17a2b8;
+    color: #fff;
+}
+
+.btn-circle.btn-info:hover {
+    background-color: #138496;
+    transform: scale(1.1);
+}
+
+.btn-circle.btn-edit {
+    background-color: #ffc107;
+    color: #fff;
+}
+
+.btn-circle.btn-edit:hover {
+    background-color: #e0a800;
+    transform: scale(1.1);
+}
+
+.btn-circle.btn-del {
+    background-color: #dc3545;
+    color: #fff;
+}
+
+.btn-circle.btn-del:hover {
+    background-color: #c82333;
+    transform: scale(1.1);
+}
+
+/* Page Header */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+.page-header h4 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    color: #333;
+}
+
+.page-header h4 i {
+    margin-right: 10px;
+    color: #007bff;
+}
+
+/* Loading Overlay */
+#loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-spinner {
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Input Group */
+.input-group .btn-outline-secondary {
+    border-color: #ced4da;
+}
+
+.input-group .btn-outline-secondary:hover {
+    background-color: #007bff;
+    border-color: #007bff;
+    color: #fff;
+}
+
+/* Textarea */
+textarea.form-control {
+    resize: vertical;
+    font-family: 'Kanit', 'Roboto', sans-serif;
+}
+
+/* Code Display */
+code {
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+}
+
+/* Card Body Padding */
+.card-body {
+    padding: 20px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .nav-tabs .nav-link {
+        padding: 10px 12px;
+        font-size: 13px;
+    }
+    
+    .flag-icon {
+        width: 16px;
+        height: 12px;
+    }
+}

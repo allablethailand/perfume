@@ -1,0 +1,43 @@
+echo vendor/ >> .gitignore
+echo node_modules/ >> .gitignore
+echo .env >> .gitignore
+echo .DS_Store >> .gitignore
+echo Thumbs.db >> .gitignore
+echo *.log >> .gitignore
+echo public/uploads/ >> .gitignore
+echo public/img/uploads/ >> .gitignore
+```
+
+หรือสร้างไฟล์ `.gitignore` ด้วย text editor แล้วใส่:
+```
+# Dependencies
+vendor/
+node_modules/
+
+# Environment variables
+.env
+.env.local
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+error_log
+access_log
+
+# Uploads (ถ้าไม่ต้องการเก็บไฟล์ที่ user อัพโหลด)
+public/uploads/
+public/img/uploads/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Cache
+cache/
+temp/
+tmp/
