@@ -8,11 +8,11 @@ $lang = isset($_SESSION['lang']) ? $_SESSION['lang'] : 'th';
 // Minimal Footer Translations
 $user_footer_translations = [
     'copyright' => [
-        'th' => '© 2025 AI COMPANION PERFUME',
-        'en' => '© 2025 AI COMPANION PERFUME',
-        'cn' => '© 2025 AI 伴侣香水',
-        'jp' => '© 2025 AI コンパニオン',
-        'kr' => '© 2025 AI 컴패니언'
+        'th' => '© 2025 Trandar Innovation.',
+        'en' => '© 2025 Trandar Innovation.',
+        'cn' => '© 2025 Trandar Innovation.',
+        'jp' => '© 2025 Trandar Innovation.',
+        'kr' => '© 2025 Trandar Innovation.'
     ],
     'rights' => [
         'th' => 'สงวนลิขสิทธิ์',

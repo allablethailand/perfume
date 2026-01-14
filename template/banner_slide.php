@@ -3,19 +3,19 @@
 $imagesItems = [
     [
         'type' => 'video',
-        'src' => 'http://localhost/origami_website/perfume//public/product_images/freepik_ultrarealistic_cinematic_commercial_video_based_on_kling.mp4'
+        'src' => 'public/product_images/freepik_ultrarealistic_cinematic_commercial_video_based_on_kling.mp4'
     ],
     [
         'type' => 'image',
-        'src' => 'http://localhost/origami_website/perfume//public/product_images/696089dc2fa56_1767934428.jpg'
+        'src' => 'public/product_images/696089dc2fa56_1767934428.jpg'
     ],
     [
         'type' => 'image',
-        'src' => 'http://localhost/origami_website/perfume//public/product_images/69606aab3b72e_1767926443.jpg'
+        'src' => 'public/product_images/69606aab3b72e_1767926443.jpg'
     ],
     [
         'type' => 'image',
-        'src' => 'http://localhost/origami_website/perfume//public/product_images/695df1d5afe5d_1767764437.jpg'
+        'src' => 'public/product_images/695df1d5afe5d_1767764437.jpg'
     ],
 ];
 

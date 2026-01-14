@@ -384,7 +384,7 @@ function tt($key, $lang) {
     <!-- FEATURED CONTENT -->
     <section class="featured-section">
         <div class="featured-image">
-            <img src="http://localhost/origami_website/perfume//public/product_images/69606aab39ce7_1767926443.jpg" 
+            <img src="public/product_images/69606aab39ce7_1767926443.jpg" 
                  alt="Featured Project"
                  loading="lazy"
                  width="960" 
@@ -411,7 +411,7 @@ function tt($key, $lang) {
             <article class="news-card">
                 <a href="#">
                     <div class="news-image">
-                        <img src="http://localhost/origami_website/perfume//public/product_images/69645f1665b2c_1768185622.jpg" 
+                        <img src="public/product_images/69645f1665b2c_1768185622.jpg" 
                              alt="News Article"
                              loading="lazy"
                              width="400" 
@@ -429,7 +429,7 @@ function tt($key, $lang) {
             <article class="news-card">
                 <a href="#">
                     <div class="news-image">
-                        <img src="http://localhost/origami_website/perfume//public/product_images/696089dc34f0a_1767934428.jpg" 
+                        <img src="public/product_images/696089dc34f0a_1767934428.jpg" 
                              alt="News Article"
                              loading="lazy"
                              width="400" 
@@ -447,7 +447,7 @@ function tt($key, $lang) {
             <article class="news-card">
                 <a href="#">
                     <div class="news-image">
-                        <img src="http://localhost/origami_website/perfume//public/product_images/69645f25dea49_1768185637.jpg" 
+                        <img src="public/product_images/69645f25dea49_1768185637.jpg" 
                              alt="News Article"
                              loading="lazy"
                              width="400" 
