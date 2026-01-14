@@ -337,10 +337,133 @@ $(document).ready(function() {
             window.location.href = 'list_project.php';
         }
     });
+     $('#deleteAvatar').on('click', function(e) {
+        e.stopPropagation();
+        
+        Swal.fire({
+            title: 'Delete Avatar?',
+            text: "This will remove the AI avatar image",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $('#deleteAvatarFlag').val('1');
+                $('#avatarPreview').html(`
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Click to upload avatar</p>
+                    <small>PNG, JPG, GIF (Max 5MB)</small>
+                `);
+                Swal.fire('Marked for deletion!', 'Avatar will be deleted when you save.', 'success');
+            }
+        });
+    });
     
-    // ========================================
-    // HELPER FUNCTIONS
-    // ========================================
+    // Delete Video
+    $('#deleteVideo').on('click', function(e) {
+        e.stopPropagation();
+        
+        Swal.fire({
+            title: 'Delete Video?',
+            text: "This will remove the AI video",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $('#deleteVideoFlag').val('1');
+                $('#videoPreview').html(`
+                    <i class="fas fa-film"></i>
+                    <p>Click to upload video</p>
+                    <small>MP4, WebM (Max 50MB)</small>
+                `);
+                Swal.fire('Marked for deletion!', 'Video will be deleted when you save.', 'success');
+            }
+        });
+    });
+    
+    // Avatar Preview on new upload
+    $('#aiAvatar').on('change', function(e) {
+        let file = e.target.files[0];
+        if (file) {
+            $('#deleteAvatarFlag').val('0');
+            let reader = new FileReader();
+            reader.onload = function(event) {
+                $('#avatarPreview').html(`
+                    <img src="${event.target.result}" style="width: 100%; height: 250px; object-fit: cover; border-radius: 8px;">
+                `);
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+    
+    // Video Preview on new upload
+    $('#aiVideo').on('change', function(e) {
+        let file = e.target.files[0];
+        if (file) {
+            $('#deleteVideoFlag').val('0');
+            let url = URL.createObjectURL(file);
+            $('#videoPreview').html(`
+                <video controls style="width: 100%; height: 250px; border-radius: 8px;">
+                    <source src="${url}" type="${file.type}">
+                </video>
+            `);
+        }
+    });
+    
+    // Submit Edit AI Companion
+    $('#submitEditAI').on('click', function(e) {
+        e.preventDefault();
+        
+        if (!$('#product_id').val()) {
+            alertError('Please select a product');
+            return;
+        }
+        
+        if (!$('#ai_code').val()) {
+            alertError('Please enter AI Code');
+            return;
+        }
+        
+        if (!$('#ai_name_th').val()) {
+            alertError('Please enter AI Name (Thai)');
+            return;
+        }
+        
+        let formData = new FormData($('#formAICompanionEdit')[0]);
+        formData.append('action', 'editAICompanion');
+        
+        $('#loading-overlay').fadeIn();
+        
+        $.ajax({
+            url: 'actions/process_ai_companions.php',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    Swal.fire('Success!', response.message, 'success').then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    alertError(response.message);
+                }
+            },
+            error: function(xhr, status, error) {
+                alertError('Failed to update AI Companion: ' + error);
+            },
+            complete: function() {
+                $('#loading-overlay').fadeOut();
+            }
+        });
+    });
+    
     function alertError(message) {
         const Toast = Swal.mixin({
             toast: true,
