@@ -69,7 +69,7 @@ if ($role_id != 5) {
 // 3. หา AI companion ที่เชื่อมกับ product_id
 // 4. เอา AI avatar ตัวแรกที่เจอ (หรือจะเอาตัวล่าสุดก็ได้)
 
-$sql = "SELECT DISTINCT ac.ai_avatar_url, ac.ai_name_th, ac.ai_name_en, ac.ai_code
+$sql = "SELECT DISTINCT ac.ai_avatar_url, ac.ai_name_th, ac.ai_name_en, ac.ai_code, o.date_created
         FROM orders o
         INNER JOIN order_items oi ON o.order_id = oi.order_id
         INNER JOIN ai_companions ac ON oi.product_id = ac.product_id
