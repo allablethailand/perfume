@@ -87,7 +87,7 @@ function getTranslation($key, $lang, $translations) {
             <span class="toggle-button" onclick="toggleSidebar()">
                 <i class="fas fa-bars"></i>
             </span>
-            <a href="#"><img class="logo" src="<?php echo $new_path; ?>perfume/public/product_images/696089dc2eba5_1767934428.jpg" alt=""></a>
+            <a href="#"><img class="logo" src="<?php echo $new_path; ?>public/product_images/696089dc2eba5_1767934428.jpg" alt=""></a>
         </div>
 
         <div class="header-top-right dropdown-wrapper">
