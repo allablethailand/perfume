@@ -85,7 +85,7 @@ if (!isset($_SESSION['role_id']) || $_SESSION['role_id'] !== 1) {
                 <br>
                 <strong>ต้องการ:</strong> Admin (Role 1) 
             </div>
-            <a href="/origami_website/perfume/" class="btn">กลับไปหน้าหลัก</a>
+            <a href="/perfume/" class="btn">กลับไปหน้าหลัก</a>
         </div>
     </body>
     </html>

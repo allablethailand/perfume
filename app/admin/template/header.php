@@ -1,5 +1,6 @@
 <?php
 // เช็คสิทธิ์การเข้าถึง Admin ก่อนทำอะไรทั้งหมด
+print_r($_SERVER['DOCUMENT_ROOT']); exit;
 require_once $_SERVER['DOCUMENT_ROOT'] . '/perfume/app/admin/check_admin_permission.php';
 
 // ต้องแน่ใจว่าได้เปิดใช้งาน Session ก่อนการแสดงผลใดๆ
@@ -26,8 +27,8 @@ if (isset($_GET['lang'])) {
 }
 
 
-include $_SERVER['DOCUMENT_ROOT'] . '/origami_website/perfume/lib/connect.php';
-include $_SERVER['DOCUMENT_ROOT'] . '/origami_website/perfume/lib/base_directory.php';
+include $_SERVER['DOCUMENT_ROOT'] . '/perfume/lib/connect.php';
+include $_SERVER['DOCUMENT_ROOT'] . '/perfume/lib/base_directory.php';
 
 // กำหนด URL ของรูปโปรไฟล์เริ่มต้น
 $default_profile_img = 'https://as1.ftcdn.net/jpg/01/12/09/12/1000_F_112091233_xghsriqmHzk4sq71lWBL4q0e7n9QJKX6.jpg';

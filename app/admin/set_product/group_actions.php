@@ -15,8 +15,8 @@ $script_name = $_SERVER['SCRIPT_NAME'];
 $base_uri = str_replace(basename($script_name), '', $script_name);
 
 $root_app_uri = '/';
-if (strpos($base_uri, '/origami_website/perfume/') !== false) {
-    $root_app_uri = '/origami_website/perfume/';
+if (strpos($base_uri, '/perfume/') !== false) {
+    $root_app_uri = '/perfume/';
 }
 
 $root_url = $scheme . '://' . $host . $port . $root_app_uri;
