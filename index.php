@@ -14,8 +14,8 @@ $allowedIndex = '/'; #/index.php
 
 // If running on localhost (your dev URL)
 if (strpos($host, 'localhost') !== false) {
-    $allowedRoot = '/origami_website/perfume/';
-    $allowedIndex = '/origami_website/perfume/';
+    $allowedRoot = '/perfume/';
+    $allowedIndex = '/perfume/';
 }
 
 /*
