@@ -1,6 +1,6 @@
 <?php
 // app/actions/get_user_ai_avatar.php
-require_once(__DIR__ . '/../../lib/connect.php');
+require_once('../../lib/connect.php');
 header('Content-Type: application/json');
 
 // ตรวจสอบ JWT token
@@ -19,7 +19,7 @@ if (!$jwt) {
 }
 
 // Verify JWT and get user_id
-require_once(__DIR__ . '/../../vendor/autoload.php');
+require_once('../../vendor/autoload.php');
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Dotenv\Dotenv;
