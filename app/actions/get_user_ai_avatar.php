@@ -25,7 +25,6 @@ use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Dotenv\Dotenv;
 
-echo __DIR__ . '/../../'; exit;
 $dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
 $dotenv->load();
 
@@ -40,8 +39,18 @@ try {
     }
     
     // ดึงข้อมูลจาก decoded token ตามโครงสร้างที่ถูกต้อง
-    $user_id = $decoded->data->user_id;
-    $role_id = $decoded->data->role_id;
+    $user_id = isset($decoded->data->user_id) ? intval($decoded->data->user_id) : null;
+    $role_id = isset($decoded->data->role_id) ? intval($decoded->data->role_id) : null;
+
+    if (!$user_id) {
+        echo json_encode(['status' => 'error', 'message' => 'Invalid token data']);
+        exit;
+    }
+
+    if (!$role_id) {
+        echo json_encode(['status' => 'error', 'message' => 'Role ID not found in token']);
+        exit;
+    }
     
 } catch (Exception $e) {
     echo json_encode(['status' => 'error', 'message' => 'Invalid token: ' . $e->getMessage()]);
@@ -73,6 +82,13 @@ $sql = "SELECT DISTINCT ac.ai_avatar_url, ac.ai_name_th, ac.ai_name_en, ac.ai_co
         LIMIT 1";
 
 $stmt = $conn->prepare($sql);
+if ($stmt === false) {
+    echo json_encode([
+        'status' => 'error', 
+        'message' => 'SQL Prepare failed: ' . $conn->error // ตัวนี้จะบอกว่า SQL ผิดตรงไหน
+    ]);
+    exit;
+}
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
 $result = $stmt->get_result();
