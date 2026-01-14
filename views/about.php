@@ -741,7 +741,7 @@ function tt($key, $lang) {
     <!-- Hero Section -->
     <section class="hero-about">
         <div class="hero-video-bg">
-            <img src="http://localhost/origami_website/perfume//public/product_images/69645f1667b00_1768185622.jpg" 
+            <img src="public/product_images/69645f1667b00_1768185622.jpg" 
                  alt="AI Perfume"
                  loading="eager">
         </div>
@@ -758,7 +758,7 @@ function tt($key, $lang) {
     <!-- Story Section -->
     <section class="story-section">
         <div class="story-image">
-            <img src="http://localhost/origami_website/perfume//public/product_images/69645f1664212_1768185622.jpg" 
+            <img src="public/product_images/69645f1664212_1768185622.jpg" 
                  alt="Our Story"
                  loading="lazy">
         </div>
@@ -884,7 +884,7 @@ function tt($key, $lang) {
             </ul>
         </div>
         <div class="story-image">
-            <img src="http://localhost/origami_website/perfume//public/product_images/6960c3aad2c0a_1767949226.jpg" 
+            <img src="public/product_images/6960c3aad2c0a_1767949226.jpg" 
                  alt="Technology"
                  loading="lazy">
         </div>
