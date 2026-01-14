@@ -148,7 +148,7 @@ $contact_info = [
             left: 0;
             width: 100%;
             height: 100%;
-            background: url('http://localhost/origami_website/perfume//public/product_images/696089dc32b1a_1767934428.jpg') center/cover;
+            background: url('public/product_images/696089dc32b1a_1767934428.jpg') center/cover;
             opacity: 0.15;
             z-index: 0;
         }

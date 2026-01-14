@@ -225,7 +225,7 @@ $languages = [
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <!-- Favicon -->
-<link rel="icon" type="image/x-icon" href="/origami_website/perfume//public/product_images/696089dc2eba5_1767934428.jpg">
+<link rel="icon" type="image/x-icon" href="public/product_images/696089dc2eba5_1767934428.jpg">
 <link href="app/css/index_.css?v=<?= time(); ?>" rel="stylesheet">
 <!-- Header Styles -->
 <style>
@@ -975,7 +975,7 @@ $languages = [
 
         <!-- Logo (Centered) -->
         <a href="?lang=<?= $lang ?>" class="logo">
-            <img src="/origami_website/perfume//public/product_images/696463601df83_1768186720.png" alt="Perfume Luxury Logo">
+            <img src="public/product_images/696463601df83_1768186720.png" alt="Perfume Luxury Logo">
         </a>
 
         <!-- Navigation -->
