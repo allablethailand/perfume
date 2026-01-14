@@ -1,6 +1,6 @@
 <?php
 // เช็คสิทธิ์การเข้าถึง Admin ก่อนทำอะไรทั้งหมด
-require_once $_SERVER['DOCUMENT_ROOT'] . '/origami_website/perfume/app/admin/check_admin_permission.php';
+require_once $_SERVER['DOCUMENT_ROOT'] . '/perfume/app/admin/check_admin_permission.php';
 
 // ต้องแน่ใจว่าได้เปิดใช้งาน Session ก่อนการแสดงผลใดๆ
 if (session_status() === PHP_SESSION_NONE) {
