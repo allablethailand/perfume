@@ -13,5 +13,5 @@
     @session_start();
     session_destroy();
 
-    header("Location: http://localhost/origami_website/perfume/?");
+    header("Location: http://localhost/perfume/?");
 ?>

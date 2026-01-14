@@ -5,8 +5,8 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 // ต้องแน่ใจว่าไฟล์เหล่านี้ถูกเรียกก่อนการใช้งานตัวแปรเช่น $new_path
-include $_SERVER['DOCUMENT_ROOT'] . '/origami_website/perfume/lib/connect.php';
-include $_SERVER['DOCUMENT_ROOT'] . '/origami_website/perfume/lib/base_directory.php'; // กำหนด $new_path และอื่นๆ
+include $_SERVER['DOCUMENT_ROOT'] . '/perfume/lib/connect.php';
+include $_SERVER['DOCUMENT_ROOT'] . '/perfume/lib/base_directory.php'; // กำหนด $new_path และอื่นๆ
 
 // กำหนดภาษาเริ่มต้นเป็น 'th' หากไม่มีการกำหนดใน Session
 $lang = $_SESSION['lang'] ?? 'th';
@@ -150,8 +150,8 @@ $currentLang = $translations[$lang];
 
     <?php include 'template/header.php'; ?>
     <?php
-    // include $_SERVER['DOCUMENT_ROOT'] . '/origami_website/perfume/lib/connect.php'; // ย้ายไปด้านบนแล้ว
-    // include $_SERVER['DOCUMENT_ROOT'] . '/origami_website/perfume/lib/base_directory.php'; // ย้ายไปด้านบนแล้ว
+    // include $_SERVER['DOCUMENT_ROOT'] . '/perfume/lib/connect.php'; // ย้ายไปด้านบนแล้ว
+    // include $_SERVER['DOCUMENT_ROOT'] . '/perfume/lib/base_directory.php'; // ย้ายไปด้านบนแล้ว
 
     $user_id = $_SESSION['user_id']; // ต้องแน่ใจว่า login แล้ว
 
