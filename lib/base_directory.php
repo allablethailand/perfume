@@ -1,30 +1,40 @@
 <?php
-// ตรวจ protocol แบบปลอดภัย
+// ตรวจ protocol
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
-$scriptDir = isset($_SERVER['SCRIPT_NAME']) ? dirname($_SERVER['SCRIPT_NAME']) : '/';
 
-// สร้าง base path
-$basePath = sprintf('%s://%s%s', $scheme, $host, $scriptDir);
-$urlParts = parse_url($basePath);
+// 🔥 ส่วนที่แก้ไข: ตรวจจับ base path จริงจาก SCRIPT_NAME
+$scriptName = isset($_SERVER['SCRIPT_NAME']) ? $_SERVER['SCRIPT_NAME'] : '';
 
-$path = isset($urlParts['path']) ? $urlParts['path'] : '/';
-$port = isset($urlParts['port']) ? ':' . $urlParts['port'] : '';
+// ดึง path จริงจาก script ที่กำลังรัน
+// ตัวอย่าง: /perfume/app/admin/dashboard.php → /perfume/
+// หรือ /app/admin/dashboard.php → /
+preg_match('#^(.*?)/app/admin/#', $scriptName, $matches);
+$detectedBasePath = isset($matches[1]) ? $matches[1] : '';
 
-// ตั้งค่าตาม scheme
-if ($scheme === 'http') {
-    $fixedPath = '/perfume/app/admin/';
-    $newPath = '/perfume/';
-} else {
-    $fixedPath = '/app/admin/';
-    $newPath = '/';
+// ถ้าไม่เจอ ให้ลองดูว่าอยู่ที่ root หรือไม่
+if (empty($detectedBasePath) && strpos($scriptName, '/app/admin/') === 0) {
+    $detectedBasePath = '';
 }
 
-// กำหนด path สำหรับใช้งาน
+// กำหนด path
+$newPath = $detectedBasePath . '/';
+$fixedPath = $detectedBasePath . '/app/admin/';
+
+// Port (ถ้ามี)
+$port = '';
+if (isset($_SERVER['SERVER_PORT'])) {
+    $serverPort = $_SERVER['SERVER_PORT'];
+    if (($scheme === 'http' && $serverPort != 80) || ($scheme === 'https' && $serverPort != 443)) {
+        $port = ':' . $serverPort;
+    }
+}
+
+// สร้าง URL เต็ม
 $base_Path = $scheme . '://' . $host . $port . $newPath;
 $base_PathAdmin = $scheme . '://' . $host . $port . $fixedPath;
 
-// ตั้งค่าให้เป็น global
+// ตั้งค่า global variables
 $GLOBALS['new_path'] = $newPath;
 $GLOBALS['base_path'] = $base_Path;
 $GLOBALS['base_path_admin'] = $base_PathAdmin;
