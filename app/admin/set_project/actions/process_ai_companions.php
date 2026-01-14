@@ -221,199 +221,223 @@ try {
     // EDIT AI COMPANION (แก้ไขแล้ว)
     // ========================================
     } elseif ($action == 'editAICompanion') {
+    
+    $ai_id = $_POST['ai_id'] ?? 0;
+    
+    if (empty($ai_id)) {
+        throw new Exception("AI ID is missing.");
+    }
+    
+    $product_id = $_POST['product_id'] ?? 0;
+    $ai_code = $_POST['ai_code'] ?? '';
+    
+    $ai_name_th = $_POST['ai_name_th'] ?? '';
+    $ai_name_en = $_POST['ai_name_en'] ?? '';
+    $ai_name_cn = $_POST['ai_name_cn'] ?? '';
+    $ai_name_jp = $_POST['ai_name_jp'] ?? '';
+    $ai_name_kr = $_POST['ai_name_kr'] ?? '';
+    
+    $system_prompt_th = $_POST['system_prompt_th'] ?? '';
+    $system_prompt_en = $_POST['system_prompt_en'] ?? '';
+    $system_prompt_cn = $_POST['system_prompt_cn'] ?? '';
+    $system_prompt_jp = $_POST['system_prompt_jp'] ?? '';
+    $system_prompt_kr = $_POST['system_prompt_kr'] ?? '';
+    
+    $perfume_knowledge_th = $_POST['perfume_knowledge_th'] ?? '';
+    $perfume_knowledge_en = $_POST['perfume_knowledge_en'] ?? '';
+    $perfume_knowledge_cn = $_POST['perfume_knowledge_cn'] ?? '';
+    $perfume_knowledge_jp = $_POST['perfume_knowledge_jp'] ?? '';
+    $perfume_knowledge_kr = $_POST['perfume_knowledge_kr'] ?? '';
+    
+    $style_suggestions_th = $_POST['style_suggestions_th'] ?? '';
+    $style_suggestions_en = $_POST['style_suggestions_en'] ?? '';
+    $style_suggestions_cn = $_POST['style_suggestions_cn'] ?? '';
+    $style_suggestions_jp = $_POST['style_suggestions_jp'] ?? '';
+    $style_suggestions_kr = $_POST['style_suggestions_kr'] ?? '';
+    
+    $status = $_POST['status'] ?? 1;
+    
+    // เช็คว่าจะลบไฟล์หรือไม่
+    $delete_avatar = $_POST['delete_avatar'] ?? '0';
+    $delete_video = $_POST['delete_video'] ?? '0';
+    
+    // Check if AI code is being changed and if it already exists
+    $check_code = $conn->prepare("SELECT ai_id FROM ai_companions WHERE ai_code = ? AND ai_id != ? AND del = 0");
+    $check_code->bind_param("si", $ai_code, $ai_id);
+    $check_code->execute();
+    $check_code->store_result();
+    
+    if ($check_code->num_rows > 0) {
+        throw new Exception("AI Code already exists. Please use a unique code.");
+    }
+    $check_code->close();
+    
+    $conn->begin_transaction();
+    
+    try {
+        // Get current file paths
+        $current_query = "SELECT ai_avatar_path, ai_avatar_url, ai_video_path, ai_video_url FROM ai_companions WHERE ai_id = $ai_id";
+        $current_result = $conn->query($current_query);
+        $current = $current_result->fetch_assoc();
         
-        $ai_id = $_POST['ai_id'] ?? 0;
+        // เก็บค่าเดิมไว้ก่อน
+        $ai_avatar_path = $current['ai_avatar_path'];
+        $ai_avatar_url = $current['ai_avatar_url'];
+        $ai_video_path = $current['ai_video_path'];
+        $ai_video_url = $current['ai_video_url'];
         
-        if (empty($ai_id)) {
-            throw new Exception("AI ID is missing.");
-        }
-        
-        $product_id = $_POST['product_id'] ?? 0;
-        $ai_code = $_POST['ai_code'] ?? '';
-        
-        $ai_name_th = $_POST['ai_name_th'] ?? '';
-        $ai_name_en = $_POST['ai_name_en'] ?? '';
-        $ai_name_cn = $_POST['ai_name_cn'] ?? '';
-        $ai_name_jp = $_POST['ai_name_jp'] ?? '';
-        $ai_name_kr = $_POST['ai_name_kr'] ?? '';
-        
-        $system_prompt_th = $_POST['system_prompt_th'] ?? '';
-        $system_prompt_en = $_POST['system_prompt_en'] ?? '';
-        $system_prompt_cn = $_POST['system_prompt_cn'] ?? '';
-        $system_prompt_jp = $_POST['system_prompt_jp'] ?? '';
-        $system_prompt_kr = $_POST['system_prompt_kr'] ?? '';
-        
-        $perfume_knowledge_th = $_POST['perfume_knowledge_th'] ?? '';
-        $perfume_knowledge_en = $_POST['perfume_knowledge_en'] ?? '';
-        $perfume_knowledge_cn = $_POST['perfume_knowledge_cn'] ?? '';
-        $perfume_knowledge_jp = $_POST['perfume_knowledge_jp'] ?? '';
-        $perfume_knowledge_kr = $_POST['perfume_knowledge_kr'] ?? '';
-        
-        $style_suggestions_th = $_POST['style_suggestions_th'] ?? '';
-        $style_suggestions_en = $_POST['style_suggestions_en'] ?? '';
-        $style_suggestions_cn = $_POST['style_suggestions_cn'] ?? '';
-        $style_suggestions_jp = $_POST['style_suggestions_jp'] ?? '';
-        $style_suggestions_kr = $_POST['style_suggestions_kr'] ?? '';
-        
-        $status = $_POST['status'] ?? 1;
-        
-        // Check if AI code is being changed and if it already exists
-        $check_code = $conn->prepare("SELECT ai_id FROM ai_companions WHERE ai_code = ? AND ai_id != ? AND del = 0");
-        $check_code->bind_param("si", $ai_code, $ai_id);
-        $check_code->execute();
-        $check_code->store_result();
-        
-        if ($check_code->num_rows > 0) {
-            throw new Exception("AI Code already exists. Please use a unique code.");
-        }
-        $check_code->close();
-        
-        $conn->begin_transaction();
-        
-        try {
-            // Get current file paths
-            $current_query = "SELECT ai_avatar_path, ai_avatar_url, ai_video_path, ai_video_url FROM ai_companions WHERE ai_id = $ai_id";
-            $current_result = $conn->query($current_query);
-            $current = $current_result->fetch_assoc();
+        // ========================================
+        // จัดการ Avatar
+        // ========================================
+        if ($delete_avatar === '1') {
+            // ลบไฟล์เดิม
+            if ($ai_avatar_path && file_exists($ai_avatar_path)) {
+                unlink($ai_avatar_path);
+            }
+            $ai_avatar_path = null;
+            $ai_avatar_url = null;
+        } elseif (isset($_FILES['ai_avatar']) && $_FILES['ai_avatar']['error'] === UPLOAD_ERR_OK) {
+            // อัพโหลดไฟล์ใหม่
+            $upload_dir = __DIR__ . '/../../../../public/ai_avatars/';
             
-            // เก็บค่าเดิมไว้ก่อน
-            $ai_avatar_path = $current['ai_avatar_path'];
-            $ai_avatar_url = $current['ai_avatar_url'];
-            $ai_video_path = $current['ai_video_path'];
-            $ai_video_url = $current['ai_video_url'];
-            
-            // Handle Avatar Upload (ถ้ามีไฟล์ใหม่อัพโหลดเข้ามา)
-            if (isset($_FILES['ai_avatar']) && $_FILES['ai_avatar']['error'] === UPLOAD_ERR_OK) {
-                $upload_dir = __DIR__ . '/../../../../public/ai_avatars/';
-                
-                if (!is_dir($upload_dir)) {
-                    mkdir($upload_dir, 0755, true);
-                }
-                
-                $file_extension = strtolower(pathinfo($_FILES['ai_avatar']['name'], PATHINFO_EXTENSION));
-                $unique_filename = 'avatar_' . uniqid() . '_' . time() . '.' . $file_extension;
-                $file_path = $upload_dir . $unique_filename;
-                $api_path = $base_path . '/public/ai_avatars/' . $unique_filename;
-                
-                if (move_uploaded_file($_FILES['ai_avatar']['tmp_name'], $file_path)) {
-                    // ลบไฟล์เก่า
-                    if ($ai_avatar_path && file_exists($ai_avatar_path)) {
-                        unlink($ai_avatar_path);
-                    }
-                    
-                    // ใช้ไฟล์ใหม่
-                    $ai_avatar_path = $file_path;
-                    $ai_avatar_url = $api_path;
-                }
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
             }
             
-            // Handle Video Upload (ถ้ามีไฟล์ใหม่อัพโหลดเข้ามา)
-            if (isset($_FILES['ai_video']) && $_FILES['ai_video']['error'] === UPLOAD_ERR_OK) {
-                $upload_dir = __DIR__ . '/../../../../public/ai_videos/';
-                
-                if (!is_dir($upload_dir)) {
-                    mkdir($upload_dir, 0755, true);
+            $file_extension = strtolower(pathinfo($_FILES['ai_avatar']['name'], PATHINFO_EXTENSION));
+            $unique_filename = 'avatar_' . uniqid() . '_' . time() . '.' . $file_extension;
+            $file_path = $upload_dir . $unique_filename;
+            $api_path = $base_path . '/public/ai_avatars/' . $unique_filename;
+            
+            if (move_uploaded_file($_FILES['ai_avatar']['tmp_name'], $file_path)) {
+                // ลบไฟล์เก่า
+                if ($ai_avatar_path && file_exists($ai_avatar_path)) {
+                    unlink($ai_avatar_path);
                 }
                 
-                $file_extension = strtolower(pathinfo($_FILES['ai_video']['name'], PATHINFO_EXTENSION));
-                $unique_filename = 'video_' . uniqid() . '_' . time() . '.' . $file_extension;
-                $file_path = $upload_dir . $unique_filename;
-                $api_path = $base_path . '/public/ai_videos/' . $unique_filename;
-                
-                if (move_uploaded_file($_FILES['ai_video']['tmp_name'], $file_path)) {
-                    // ลบไฟล์เก่า
-                    if ($ai_video_path && file_exists($ai_video_path)) {
-                        unlink($ai_video_path);
-                    }
-                    
-                    // ใช้ไฟล์ใหม่
-                    $ai_video_path = $file_path;
-                    $ai_video_url = $api_path;
-                }
+                // ใช้ไฟล์ใหม่
+                $ai_avatar_path = $file_path;
+                $ai_avatar_url = $api_path;
             }
-            
-            // Update ทุกฟิลด์พร้อมกัน (ใช้ค่าเดิมถ้าไม่มีไฟล์ใหม่)
-            $update_query = "UPDATE ai_companions SET 
-                product_id = ?, 
-                ai_code = ?,
-                ai_name_th = ?, 
-                ai_name_en = ?, 
-                ai_name_cn = ?, 
-                ai_name_jp = ?, 
-                ai_name_kr = ?,
-                ai_avatar_path = ?, 
-                ai_avatar_url = ?,
-                ai_video_path = ?, 
-                ai_video_url = ?,
-                system_prompt_th = ?, 
-                system_prompt_en = ?, 
-                system_prompt_cn = ?, 
-                system_prompt_jp = ?, 
-                system_prompt_kr = ?,
-                perfume_knowledge_th = ?, 
-                perfume_knowledge_en = ?, 
-                perfume_knowledge_cn = ?, 
-                perfume_knowledge_jp = ?, 
-                perfume_knowledge_kr = ?,
-                style_suggestions_th = ?, 
-                style_suggestions_en = ?, 
-                style_suggestions_cn = ?, 
-                style_suggestions_jp = ?, 
-                style_suggestions_kr = ?,
-                status = ?
-                WHERE ai_id = ?";
-            
-            $stmt = $conn->prepare($update_query);
-            
-            // Bind ทั้งหมด 28 parameters (27 ฟิลด์ + 1 ai_id)
-            $stmt->bind_param("isssssssssssssssssssssssssii",
-                $product_id, 
-                $ai_code,
-                $ai_name_th, 
-                $ai_name_en, 
-                $ai_name_cn, 
-                $ai_name_jp, 
-                $ai_name_kr,
-                $ai_avatar_path, 
-                $ai_avatar_url,
-                $ai_video_path, 
-                $ai_video_url,
-                $system_prompt_th, 
-                $system_prompt_en, 
-                $system_prompt_cn, 
-                $system_prompt_jp, 
-                $system_prompt_kr,
-                $perfume_knowledge_th, 
-                $perfume_knowledge_en, 
-                $perfume_knowledge_cn, 
-                $perfume_knowledge_jp, 
-                $perfume_knowledge_kr,
-                $style_suggestions_th, 
-                $style_suggestions_en, 
-                $style_suggestions_cn, 
-                $style_suggestions_jp, 
-                $style_suggestions_kr,
-                $status, 
-                $ai_id
-            );
-            
-            if (!$stmt->execute()) {
-                throw new Exception("Failed to update AI Companion: " . $stmt->error);
-            }
-            
-            $stmt->close();
-            
-            $conn->commit();
-            
-            $response = [
-                'status' => 'success', 
-                'message' => 'AI Companion updated successfully!'
-            ];
-            
-        } catch (Exception $e) {
-            $conn->rollback();
-            throw $e;
         }
+        
+        // ========================================
+        // จัดการ Video
+        // ========================================
+        if ($delete_video === '1') {
+            // ลบไฟล์เดิม
+            if ($ai_video_path && file_exists($ai_video_path)) {
+                unlink($ai_video_path);
+            }
+            $ai_video_path = null;
+            $ai_video_url = null;
+        } elseif (isset($_FILES['ai_video']) && $_FILES['ai_video']['error'] === UPLOAD_ERR_OK) {
+            // อัพโหลดไฟล์ใหม่
+            $upload_dir = __DIR__ . '/../../../../public/ai_videos/';
+            
+            if (!is_dir($upload_dir)) {
+                mkdir($upload_dir, 0755, true);
+            }
+            
+            $file_extension = strtolower(pathinfo($_FILES['ai_video']['name'], PATHINFO_EXTENSION));
+            $unique_filename = 'video_' . uniqid() . '_' . time() . '.' . $file_extension;
+            $file_path = $upload_dir . $unique_filename;
+            $api_path = $base_path . '/public/ai_videos/' . $unique_filename;
+            
+            if (move_uploaded_file($_FILES['ai_video']['tmp_name'], $file_path)) {
+                // ลบไฟล์เก่า
+                if ($ai_video_path && file_exists($ai_video_path)) {
+                    unlink($ai_video_path);
+                }
+                
+                // ใช้ไฟล์ใหม่
+                $ai_video_path = $file_path;
+                $ai_video_url = $api_path;
+            }
+        }
+        
+        // Update ทุกฟิลด์พร้อมกัน (ใช้ค่าเดิมถ้าไม่มีการเปลี่ยนแปลง)
+        $update_query = "UPDATE ai_companions SET 
+            product_id = ?, 
+            ai_code = ?,
+            ai_name_th = ?, 
+            ai_name_en = ?, 
+            ai_name_cn = ?, 
+            ai_name_jp = ?, 
+            ai_name_kr = ?,
+            ai_avatar_path = ?, 
+            ai_avatar_url = ?,
+            ai_video_path = ?, 
+            ai_video_url = ?,
+            system_prompt_th = ?, 
+            system_prompt_en = ?, 
+            system_prompt_cn = ?, 
+            system_prompt_jp = ?, 
+            system_prompt_kr = ?,
+            perfume_knowledge_th = ?, 
+            perfume_knowledge_en = ?, 
+            perfume_knowledge_cn = ?, 
+            perfume_knowledge_jp = ?, 
+            perfume_knowledge_kr = ?,
+            style_suggestions_th = ?, 
+            style_suggestions_en = ?, 
+            style_suggestions_cn = ?, 
+            style_suggestions_jp = ?, 
+            style_suggestions_kr = ?,
+            status = ?
+            WHERE ai_id = ?";
+        
+        $stmt = $conn->prepare($update_query);
+        
+        // Bind ทั้งหมด 28 parameters (27 ฟิลด์ + 1 ai_id)
+        $stmt->bind_param("isssssssssssssssssssssssssii",
+            $product_id, 
+            $ai_code,
+            $ai_name_th, 
+            $ai_name_en, 
+            $ai_name_cn, 
+            $ai_name_jp, 
+            $ai_name_kr,
+            $ai_avatar_path, 
+            $ai_avatar_url,
+            $ai_video_path, 
+            $ai_video_url,
+            $system_prompt_th, 
+            $system_prompt_en, 
+            $system_prompt_cn, 
+            $system_prompt_jp, 
+            $system_prompt_kr,
+            $perfume_knowledge_th, 
+            $perfume_knowledge_en, 
+            $perfume_knowledge_cn, 
+            $perfume_knowledge_jp, 
+            $perfume_knowledge_kr,
+            $style_suggestions_th, 
+            $style_suggestions_en, 
+            $style_suggestions_cn, 
+            $style_suggestions_jp, 
+            $style_suggestions_kr,
+            $status, 
+            $ai_id
+        );
+        
+        if (!$stmt->execute()) {
+            throw new Exception("Failed to update AI Companion: " . $stmt->error);
+        }
+        
+        $stmt->close();
+        
+        $conn->commit();
+        
+        $response = [
+            'status' => 'success', 
+            'message' => 'AI Companion updated successfully!'
+        ];
+        
+    } catch (Exception $e) {
+        $conn->rollback();
+        throw $e;
+    }
         
     // ========================================
     // DELETE AI COMPANION

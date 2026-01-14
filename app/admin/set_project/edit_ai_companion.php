@@ -109,7 +109,12 @@ include '../template/header.php';
                                     <div class="ai-avatar-upload" onclick="document.getElementById('aiAvatar').click()">
                                         <div id="avatarPreview" class="avatar-preview">
                                             <?php if ($ai['ai_avatar_url']): ?>
-                                                <img src="<?= htmlspecialchars($ai['ai_avatar_url']) ?>" style="width: 100%; height: 250px; object-fit: cover; border-radius: 8px;">
+                                                <div style="position: relative;">
+                                                    <img src="<?= htmlspecialchars($ai['ai_avatar_url']) ?>" style="width: 100%; height: 250px; object-fit: cover; border-radius: 8px;">
+                                                    <button type="button" class="btn btn-danger btn-sm" id="deleteAvatar" style="position: absolute; top: 10px; right: 10px;">
+                                                        <i class="fas fa-trash"></i> Delete
+                                                    </button>
+                                                </div>
                                             <?php else: ?>
                                                 <i class="fas fa-cloud-upload-alt"></i>
                                                 <p>Click to upload avatar</p>
@@ -118,6 +123,7 @@ include '../template/header.php';
                                         </div>
                                     </div>
                                     <input type="file" id="aiAvatar" name="ai_avatar" accept="image/*" style="display: none;">
+                                    <input type="hidden" id="deleteAvatarFlag" name="delete_avatar" value="0">
                                 </div>
 
                                 <!-- AI Video (Optional) -->
@@ -126,9 +132,14 @@ include '../template/header.php';
                                     <div class="ai-video-upload" onclick="document.getElementById('aiVideo').click()">
                                         <div id="videoPreview" class="video-preview">
                                             <?php if ($ai['ai_video_url']): ?>
-                                                <video controls style="width: 100%; height: 250px; border-radius: 8px;">
-                                                    <source src="<?= htmlspecialchars($ai['ai_video_url']) ?>">
-                                                </video>
+                                                <div style="position: relative;">
+                                                    <video controls style="width: 100%; height: 250px; border-radius: 8px;">
+                                                        <source src="<?= htmlspecialchars($ai['ai_video_url']) ?>">
+                                                    </video>
+                                                    <button type="button" class="btn btn-danger btn-sm" id="deleteVideo" style="position: absolute; top: 10px; right: 10px;">
+                                                        <i class="fas fa-trash"></i> Delete
+                                                    </button>
+                                                </div>
                                             <?php else: ?>
                                                 <i class="fas fa-film"></i>
                                                 <p>Click to upload video</p>
@@ -137,8 +148,9 @@ include '../template/header.php';
                                         </div>
                                     </div>
                                     <input type="file" id="aiVideo" name="ai_video" accept="video/*" style="display: none;">
+                                    <input type="hidden" id="deleteVideoFlag" name="delete_video" value="0">
                                 </div>
-
+                                
                                 <!-- Status -->
                                 <div class="form-group">
                                     <label><i class="fas fa-toggle-on"></i> Status</label>
