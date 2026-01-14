@@ -13,8 +13,8 @@ $port = isset($urlParts['port']) ? ':' . $urlParts['port'] : '';
 
 // ตั้งค่าตาม scheme
 if ($scheme === 'http') {
-    $fixedPath = '/origami_website/perfume/app/admin/';
-    $newPath = '/origami_website/perfume/';
+    $fixedPath = '/perfume/app/admin/';
+    $newPath = '/perfume/';
 } else {
     $fixedPath = '/app/admin/';
     $newPath = '/';
