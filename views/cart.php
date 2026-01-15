@@ -294,7 +294,7 @@ if (!isset($_SESSION['guest_session_id'])) {
             <!-- Cart items will be loaded here -->
         </div>
     </div>
-
+    <?php include 'template/footermini.php' ?>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
