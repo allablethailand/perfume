@@ -307,14 +307,14 @@ $page_title = $product['product_name'];
         .product-price {
             font-size: 20px;
             font-weight: 400;
-            margin-bottom: 30px;
-            color: var(--luxury-gray);
+            margin-bottom: 10px;
+            color: var(--luxury-black);
         }
 
-        .price-breakdown {
-            font-size: 13px;
+        .price-note {
+            font-size: 12px;
             color: var(--luxury-gray);
-            margin-top: 8px;
+            margin-bottom: 30px;
             font-weight: 300;
         }
 
@@ -577,10 +577,10 @@ $page_title = $product['product_name'];
                 <h1 class="product-title"><?= htmlspecialchars($product['product_name']) ?></h1>
                 
                 <div class="product-price">
-                    ฿<?= number_format($product['price_with_vat'], 2) ?>
-                    <div class="price-breakdown">
-                        <?= $lang === 'en' ? 'Includes VAT' : ($lang === 'cn' ? '含增值税' : ($lang === 'jp' ? '税込' : ($lang === 'kr' ? '부가세 포함' : 'รวม VAT แล้ว'))) ?> (<?= number_format($product['vat_percentage'], 0) ?>%)
-                    </div>
+                    ฿<?= number_format($product['price'], 2) ?>
+                </div>
+                <div class="price-note">
+                    <?= $lang === 'en' ? 'Excluding VAT' : ($lang === 'cn' ? '不含增值税' : ($lang === 'jp' ? '税抜' : ($lang === 'kr' ? '부가세 제외' : 'ยังไม่รวม VAT'))) ?>
                 </div>
 
                 <?php if (!empty($product['description'])): ?>
@@ -593,12 +593,13 @@ $page_title = $product['product_name'];
                 <div class="detail-accordion">
                     <div class="detail-item">
                         <div class="detail-header" onclick="toggleDetail(this)">
-                            <span><?= $lang === 'en' ? 'Product Information' : ($lang === 'cn' ? '产品信息' : ($lang === 'jp' ? '製品情報' : ($lang === 'kr' ? '제품 정보' : 'ข้อมูลสินค้า'))) ?></span>
+                            <span><?= $lang === 'en' ? 'Price Information' : ($lang === 'cn' ? '价格信息' : ($lang === 'jp' ? '価格情報' : ($lang === 'kr' ? '가격 정보' : 'ข้อมูลราคา'))) ?></span>
                             <i class="fas fa-chevron-down"></i>
                         </div>
                         <div class="detail-content">
-                            <p><strong><?= $lang === 'en' ? 'Price (Before VAT):' : ($lang === 'cn' ? '价格（税前）：' : ($lang === 'jp' ? '価格（税抜）：' : ($lang === 'kr' ? '가격 (세전):' : 'ราคา (ก่อน VAT):'))) ?></strong> ฿<?= number_format($product['price'], 2) ?></p>
+                            <p><strong><?= $lang === 'en' ? 'Price (Excluding VAT):' : ($lang === 'cn' ? '价格（不含税）：' : ($lang === 'jp' ? '価格（税抜）：' : ($lang === 'kr' ? '가격 (세전):' : 'ราคา (ไม่รวม VAT):'))) ?></strong> ฿<?= number_format($product['price'], 2) ?></p>
                             <p><strong><?= $lang === 'en' ? 'VAT:' : ($lang === 'cn' ? '增值税：' : ($lang === 'jp' ? 'VAT：' : ($lang === 'kr' ? '부가세:' : 'VAT:'))) ?></strong> <?= number_format($product['vat_percentage'], 0) ?>%</p>
+                            <p><strong><?= $lang === 'en' ? 'Total Price (Including VAT):' : ($lang === 'cn' ? '总价（含税）：' : ($lang === 'jp' ? '合計価格（税込）：' : ($lang === 'kr' ? '총 가격 (세금 포함):' : 'ราคารวม VAT:'))) ?></strong> ฿<?= number_format($product['price_with_vat'], 2) ?></p>
                         </div>
                     </div>
 
@@ -608,7 +609,7 @@ $page_title = $product['product_name'];
                             <i class="fas fa-chevron-down"></i>
                         </div>
                         <div class="detail-content">
-                            <p><?= $lang === 'en' ? 'Free delivery for orders over ฿5,000' : ($lang === 'cn' ? '订单满 ฿5,000 免费配送' : ($lang === 'jp' ? '฿5,000以上のご注文で送料無料' : ($lang === 'kr' ? '฿5,000 이상 주문 시 무료 배송' : 'จัดส่งฟรีสำหรับคำสั่งซื้อมากกว่า ฿5,000'))) ?></p>
+                            <p><?= $lang === 'en' ? 'Free delivery for orders over ฿10,000' : ($lang === 'cn' ? '订单满 ฿10,000 免费配送' : ($lang === 'jp' ? '฿10,000以上のご注文で送料無料' : ($lang === 'kr' ? '฿10,000 이상 주문 시 무료 배송' : 'จัดส่งฟรีสำหรับคำสั่งซื้อมากกว่า ฿10,000'))) ?></p>
                             <p><?= $lang === 'en' ? 'Returns accepted within 7 days' : ($lang === 'cn' ? '7天内接受退货' : ($lang === 'jp' ? '7日以内の返品可能' : ($lang === 'kr' ? '7일 이내 반품 가능' : 'รับคืนสินค้าภายใน 7 วัน'))) ?></p>
                         </div>
                     </div>
