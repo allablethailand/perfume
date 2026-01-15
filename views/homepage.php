@@ -530,20 +530,22 @@ function tt($key, $lang) {
     background: #f5f5f0;
     border-top: 1px solid #e0e0d8;
     border-bottom: 1px solid #e0e0d8;
+    overflow-x: hidden;
 }
 
 .science-grid {
     max-width: 1400px;
     margin: 0 auto;
     display: grid;
-    grid-template-columns: 48% 52%;
-    gap: 80px;
+    grid-template-columns: 1fr 1fr;
+    gap: 60px;
     align-items: start;
 }
 
 .science-image {
     position: sticky;
     top: 120px;
+    width: 100%;
 }
 
 .science-image img {
@@ -556,6 +558,8 @@ function tt($key, $lang) {
 
 .science-content {
     padding: 50px 0;
+    max-width: 100%;
+    overflow-x: hidden;
 }
 
 .science-title {
@@ -724,6 +728,12 @@ function tt($key, $lang) {
 }
 
 /* ===== RESPONSIVE DESIGN ===== */
+@media (max-width: 1200px) {
+    .science-grid {
+        gap: 50px;
+    }
+}
+
 @media (max-width: 1024px) {
     .symphony-container,
     .science-grid,
@@ -744,6 +754,15 @@ function tt($key, $lang) {
     .science-image {
         position: relative;
         top: 0;
+        max-height: 500px;
+    }
+    
+    .science-image img {
+        height: 500px;
+    }
+    
+    .science-section {
+        padding: 80px 5%;
     }
 }
 
@@ -770,6 +789,41 @@ function tt($key, $lang) {
     
     .vessel-experience {
         padding: 30px;
+    }
+    
+    .science-image img {
+        height: 400px;
+    }
+    
+    .science-features {
+        gap: 35px;
+    }
+    
+    .science-feature {
+        padding-left: 25px;
+    }
+}
+
+@media (max-width: 480px) {
+    .symphony-title,
+    .science-title,
+    .vessel-title {
+        font-size: 28px;
+    }
+    
+    .symphony-section,
+    .science-section,
+    .vessel-section {
+        padding: 60px 5%;
+    }
+    
+    .science-image img {
+        height: 350px;
+    }
+    
+    .vessel-header {
+        margin-bottom: 60px;
+        padding-bottom: 30px;
     }
 }
 </style>
