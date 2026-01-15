@@ -356,7 +356,7 @@ function tt($key, $lang) {
             </div>
             <div class="symphony-visual">
                 <div class="symphony-image-wrapper">
-                    <img src="public/product_images/69606aab39ce7_1767926443.jpg" 
+                    <img src="public/product_images/6967738be84be_1768387467.jpg" 
                          alt="Symphony of Scent" 
                          class="symphony-image"
                          loading="lazy">
@@ -370,7 +370,7 @@ function tt($key, $lang) {
     <section class="science-section">
         <div class="science-grid">
             <div class="science-image">
-                <img src="public/product_images/69645f1665b2c_1768185622.jpg" 
+                <img src="public/product_images/6968522a7d884_1768444458.jpg" 
                      alt="Science of Scent" 
                      loading="lazy">
             </div>
@@ -426,7 +426,7 @@ function tt($key, $lang) {
                 </div>
                 
                 <div class="vessel-image">
-                    <img src="public/product_images/696089dc34f0a_1767934428.jpg" 
+                    <img src="public/product_images/6968520034d5a_1768444416.jpg" 
                          alt="The Vessel" 
                          loading="lazy">
                 </div>
