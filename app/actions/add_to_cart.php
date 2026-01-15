@@ -63,18 +63,23 @@ if ($quantity <= 0) {
     exit;
 }
 
+// ✅ Start transaction to prevent race condition
+$conn->begin_transaction();
+
 try {
-    // Get product details
+    // Get product details with lock
     $stmt = $conn->prepare("
-        SELECT product_id, price, vat_percentage, status 
+        SELECT product_id, price, vat_percentage, status, stock_quantity 
         FROM products 
         WHERE product_id = ? AND del = 0
+        FOR UPDATE
     ");
     $stmt->bind_param('i', $product_id);
     $stmt->execute();
     $result = $stmt->get_result();
     
     if ($result->num_rows === 0) {
+        $conn->rollback();
         echo json_encode([
             'status' => 'error',
             'message' => 'Product not found'
@@ -87,6 +92,7 @@ try {
     
     // Check if product is available
     if ($product['status'] != 1) {
+        $conn->rollback();
         echo json_encode([
             'status' => 'error',
             'message' => 'Product is not available'
@@ -94,51 +100,73 @@ try {
         exit;
     }
     
-    // ✅ แก้ไข: ตรวจสอบทั้งรายการที่ active (status=1) และที่ถูกลบ (status=0)
+    // Check stock
+    if ($product['stock_quantity'] <= 0) {
+        $conn->rollback();
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Product is out of stock'
+        ]);
+        exit;
+    }
+    
+    // ✅ แก้ไข: ตรวจสอบเฉพาะรายการที่ active (status=1) เท่านั้น
+    // ไม่สนใจรายการที่ status=0 (ถูกลบแล้ว)
     $check_stmt = $conn->prepare("
-        SELECT cart_id, quantity, status 
+        SELECT cart_id, quantity 
         FROM cart 
-        WHERE user_id = ? AND product_id = ?
+        WHERE user_id = ? AND product_id = ? AND status = 1
+        FOR UPDATE
     ");
     $check_stmt->bind_param('ii', $user_id, $product_id);
     $check_stmt->execute();
     $check_result = $check_stmt->get_result();
     
     if ($check_result->num_rows > 0) {
+        // ✅ มีรายการที่ active อยู่แล้ว ให้เพิ่มจำนวน
         $existing = $check_result->fetch_assoc();
         $new_quantity = $existing['quantity'] + $quantity;
         
-        // ✅ ถ้ารายการถูกลบไปแล้ว (status=0) ให้กู้คืนและอัพเดท
-        if ($existing['status'] == 0) {
-            $update_stmt = $conn->prepare("
-                UPDATE cart 
-                SET quantity = ?, 
-                    price = ?,
-                    vat_percentage = ?,
-                    status = 1,
-                    date_updated = NOW() 
-                WHERE cart_id = ?
-            ");
-            $update_stmt->bind_param('iddi', $new_quantity, $product['price'], $product['vat_percentage'], $existing['cart_id']);
-            $message = 'Product restored and updated in cart successfully';
-        } else {
-            // ✅ รายการยังใช้งานอยู่ (status=1) ให้เพิ่มจำนวน
-            $update_stmt = $conn->prepare("
-                UPDATE cart 
-                SET quantity = ?, 
-                    price = ?,
-                    vat_percentage = ?,
-                    date_updated = NOW() 
-                WHERE cart_id = ?
-            ");
-            $update_stmt->bind_param('iddi', $new_quantity, $product['price'], $product['vat_percentage'], $existing['cart_id']);
-            $message = 'Cart updated successfully';
+        // เช็ค stock
+        if ($new_quantity > $product['stock_quantity']) {
+            $conn->rollback();
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Stock not available. Please reduce quantity.'
+            ]);
+            exit;
         }
         
-        $update_stmt->execute();
+        $update_stmt = $conn->prepare("
+            UPDATE cart 
+            SET quantity = quantity + ?, 
+                price = ?,
+                vat_percentage = ?,
+                date_updated = NOW() 
+            WHERE cart_id = ?
+        ");
+        $update_stmt->bind_param('iddi', $quantity, $product['price'], $product['vat_percentage'], $existing['cart_id']);
+        
+        if (!$update_stmt->execute()) {
+            throw new Exception('Failed to update cart: ' . $update_stmt->error);
+        }
         $update_stmt->close();
+        
+        $message = 'Cart updated successfully';
     } else {
-        // ✅ ไม่มีรายการเลย ให้สร้างใหม่พร้อม status=1
+        // ✅ ไม่มีรายการที่ active ให้สร้างใหม่เลย
+        // (ไม่สนใจว่าจะมีรายการ status=0 อยู่หรือไม่)
+        
+        // เช็ค stock
+        if ($quantity > $product['stock_quantity']) {
+            $conn->rollback();
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Stock not available. Please reduce quantity.'
+            ]);
+            exit;
+        }
+        
         $insert_stmt = $conn->prepare("
             INSERT INTO cart (user_id, session_id, product_id, quantity, price, vat_percentage, status, date_created, date_updated) 
             VALUES (?, ?, ?, ?, ?, ?, 1, NOW(), NOW())
@@ -154,6 +182,9 @@ try {
     }
     
     $check_stmt->close();
+    
+    // ✅ Commit transaction
+    $conn->commit();
     
     // ✅ นับจำนวนสินค้าในตะกร้า (เฉพาะที่ status=1)
     $count_stmt = $conn->prepare("
@@ -178,6 +209,9 @@ try {
     ]);
     
 } catch (Exception $e) {
+    // ✅ Rollback on error
+    $conn->rollback();
+    
     echo json_encode([
         'status' => 'error',
         'message' => 'Database error: ' . $e->getMessage()

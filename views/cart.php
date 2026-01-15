@@ -64,10 +64,49 @@ if (!isset($_SESSION['guest_session_id'])) {
             gap: 20px;
             padding: 20px 0;
             border-bottom: 1px solid #e0e0e0;
+            position: relative;
         }
 
         .cart-item:last-child {
             border-bottom: none;
+        }
+
+        /* ✅ Stock warning styles */
+        .cart-item.out-of-stock {
+            opacity: 0.6;
+            background: #fff5f5;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .cart-item.exceeds-stock {
+            background: #fffbf0;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .stock-warning {
+            grid-column: 1 / -1;
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 12px 15px;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #856404;
+        }
+
+        .stock-warning.error {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+
+        .stock-warning i {
+            font-size: 16px;
         }
 
         .item-image {
@@ -94,6 +133,22 @@ if (!isset($_SESSION['guest_session_id'])) {
         .item-price {
             font-size: 16px;
             color: #666;
+        }
+
+        .stock-info {
+            font-size: 13px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .stock-info.low-stock {
+            color: #ff9800;
+            font-weight: 500;
+        }
+
+        .stock-info.out-of-stock {
+            color: #dc3545;
+            font-weight: 600;
         }
 
         .item-actions {
@@ -126,8 +181,13 @@ if (!isset($_SESSION['guest_session_id'])) {
             transition: background 0.3s;
         }
 
-        .qty-btn:hover {
+        .qty-btn:hover:not(:disabled) {
             background: #e0e0e0;
+        }
+
+        .qty-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
         }
 
         .qty-input {
@@ -212,13 +272,26 @@ if (!isset($_SESSION['guest_session_id'])) {
             margin-top: 20px;
         }
 
-        .checkout-btn:hover {
+        .checkout-btn:hover:not(:disabled) {
             opacity: 0.8;
         }
 
         .checkout-btn:disabled {
             background: #ccc;
             cursor: not-allowed;
+        }
+
+        .stock-issue-warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #856404;
         }
 
         .empty-cart {
@@ -346,20 +419,54 @@ if (!isset($_SESSION['guest_session_id'])) {
             let itemsHtml = '';
             items.forEach(function(item) {
                 const itemTotal = item.price_with_vat * item.quantity;
+                
+                // ✅ สร้าง class และ warning message ตาม stock
+                let itemClass = '';
+                let stockWarningHtml = '';
+                let stockInfoHtml = '';
+                let disableIncrease = false;
+                
+                if (item.is_out_of_stock) {
+                    itemClass = 'out-of-stock';
+                    stockWarningHtml = `
+                        <div class="stock-warning error">
+                            <i class="fas fa-exclamation-circle"></i>
+                            <span><strong>Out of Stock</strong> - This item is currently unavailable</span>
+                        </div>
+                    `;
+                    stockInfoHtml = '<div class="stock-info out-of-stock"><i class="fas fa-times-circle"></i> Out of Stock</div>';
+                    disableIncrease = true;
+                } else if (item.is_exceeds_stock) {
+                    itemClass = 'exceeds-stock';
+                    stockWarningHtml = `
+                        <div class="stock-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span><strong>Limited Stock</strong> - Please reduce quantity to continue</span>
+                        </div>
+                    `;
+                    stockInfoHtml = `<div class="stock-info low-stock"><i class="fas fa-info-circle"></i> Limited stock available</div>`;
+                    disableIncrease = true;
+                } else if (item.stock_quantity <= 5) {
+                    // ✅ ไม่แสดงจำนวนที่เหลือ แค่บอกว่า stock น้อย
+                    stockInfoHtml = `<div class="stock-info low-stock"><i class="fas fa-info-circle"></i> Limited stock</div>`;
+                    disableIncrease = (item.quantity >= item.stock_quantity);
+                }
+                
                 itemsHtml += `
-                    <div class="cart-item" data-cart-id="${item.cart_id}">
+                    <div class="cart-item ${itemClass}" data-cart-id="${item.cart_id}">
                         <img src="${item.product_image || 'public/img/no-image.png'}" alt="${item.product_name}" class="item-image">
                         <div class="item-details">
                             <div>
                                 <div class="item-name">${item.product_name}</div>
                                 <div class="item-price">฿${parseFloat(item.price_with_vat).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                ${stockInfoHtml}
                             </div>
                             <div class="quantity-control">
-                                <button class="qty-btn" onclick="updateQuantity(${item.cart_id}, ${item.quantity - 1})">
+                                <button class="qty-btn" onclick="updateQuantity(${item.cart_id}, ${item.quantity - 1})" ${item.is_out_of_stock ? 'disabled' : ''}>
                                     <i class="fas fa-minus"></i>
                                 </button>
                                 <input type="number" class="qty-input" value="${item.quantity}" readonly>
-                                <button class="qty-btn" onclick="updateQuantity(${item.cart_id}, ${item.quantity + 1})">
+                                <button class="qty-btn" onclick="updateQuantity(${item.cart_id}, ${item.quantity + 1})" ${disableIncrease ? 'disabled' : ''}>
                                     <i class="fas fa-plus"></i>
                                 </button>
                             </div>
@@ -370,9 +477,21 @@ if (!isset($_SESSION['guest_session_id'])) {
                                 <i class="fas fa-trash"></i> Remove
                             </button>
                         </div>
+                        ${stockWarningHtml}
                     </div>
                 `;
             });
+
+            // ✅ แสดง warning ถ้ามีปัญหา stock
+            let stockIssueWarningHtml = '';
+            if (summary.has_stock_issue) {
+                stockIssueWarningHtml = `
+                    <div class="stock-issue-warning">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <span>Some items in your cart have stock issues. Please review and adjust quantities before checkout.</span>
+                    </div>
+                `;
+            }
 
             const html = `
                 <div class="cart-content">
@@ -380,6 +499,7 @@ if (!isset($_SESSION['guest_session_id'])) {
                         ${itemsHtml}
                     </div>
                     <div class="cart-summary">
+                        ${stockIssueWarningHtml}
                         <div class="summary-title">Order Summary</div>
                         <div class="summary-row">
                             <span>Subtotal (${summary.total_items} items)</span>
@@ -393,8 +513,8 @@ if (!isset($_SESSION['guest_session_id'])) {
                             <span>Total</span>
                             <span>฿${parseFloat(summary.total).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                         </div>
-                        <button class="checkout-btn" onclick="proceedToCheckout()" ${!jwt ? 'disabled' : ''}>
-                            ${!jwt ? 'Please Login to Checkout' : 'Proceed to Checkout'}
+                        <button class="checkout-btn" onclick="proceedToCheckout()" ${!jwt || summary.has_stock_issue ? 'disabled' : ''}>
+                            ${!jwt ? 'Please Login to Checkout' : (summary.has_stock_issue ? 'Fix Stock Issues to Continue' : 'Proceed to Checkout')}
                         </button>
                         ${!jwt ? '<p style="text-align: center; margin-top: 15px; font-size: 13px; color: #999;">You need to login to complete your purchase</p>' : ''}
                     </div>
@@ -430,7 +550,19 @@ if (!isset($_SESSION['guest_session_id'])) {
                             window.updateCartCount();
                         }
                     } else {
-                        Swal.fire('Error!', response.message, 'error');
+                        // ✅ แสดง error message แบบไม่บอกจำนวน stock
+                        let errorMessage = response.message;
+                        if (errorMessage.includes('Only') && errorMessage.includes('items left')) {
+                            errorMessage = 'Stock not available. Please reduce quantity.';
+                        }
+                        
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Cannot Update',
+                            text: errorMessage,
+                            confirmButtonColor: '#000'
+                        });
+                        loadCart(); // Reload to show correct stock info
                     }
                 }
             });
