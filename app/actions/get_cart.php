@@ -42,7 +42,7 @@ if (!in_array($lang, ['th', 'en', 'cn', 'jp', 'kr'])) {
 $name_col = "name_" . $lang;
 
 try {
-    // ✅ แก้ไข: ดึงเฉพาะรายการที่ status=1 (ยังไม่ถูกลบ)
+    // ✅ แก้ไข: ดึงเฉพาะรายการที่ status=1 (ยังไม่ถูกลบ) และเพิ่ม stock_quantity
     if ($user_id) {
         $query = "
             SELECT 
@@ -54,6 +54,7 @@ try {
                 ROUND(c.price * (1 + c.vat_percentage / 100), 2) as price_with_vat,
                 p.{$name_col} as product_name,
                 p.status,
+                p.stock_quantity,
                 (SELECT pi.api_path 
                  FROM product_images pi 
                  WHERE pi.product_id = p.product_id 
@@ -80,6 +81,7 @@ try {
                 ROUND(c.price * (1 + c.vat_percentage / 100), 2) as price_with_vat,
                 p.{$name_col} as product_name,
                 p.status,
+                p.stock_quantity,
                 (SELECT pi.api_path 
                  FROM product_images pi 
                  WHERE pi.product_id = p.product_id 
@@ -105,15 +107,25 @@ try {
     $subtotal = 0;
     $total_vat = 0;
     $total_items = 0;
+    $has_stock_issue = false;
     
     while ($row = $result->fetch_assoc()) {
         $item_price_with_vat = floatval($row['price_with_vat']);
         $item_quantity = intval($row['quantity']);
+        $stock_quantity = intval($row['stock_quantity']);
         $item_total = $item_price_with_vat * $item_quantity;
         
         // คำนวณ VAT
         $item_price_before_vat = floatval($row['price']);
         $item_vat = ($item_price_before_vat * $item_quantity * floatval($row['vat_percentage'])) / 100;
+        
+        // ✅ เช็คว่า stock พอหรือไม่
+        $is_out_of_stock = ($stock_quantity <= 0);
+        $is_exceeds_stock = ($item_quantity > $stock_quantity);
+        
+        if ($is_out_of_stock || $is_exceeds_stock) {
+            $has_stock_issue = true;
+        }
         
         $items[] = [
             'cart_id' => $row['cart_id'],
@@ -124,6 +136,9 @@ try {
             'price_with_vat' => $item_price_with_vat,
             'vat_percentage' => floatval($row['vat_percentage']),
             'quantity' => $item_quantity,
+            'stock_quantity' => $stock_quantity,
+            'is_out_of_stock' => $is_out_of_stock,
+            'is_exceeds_stock' => $is_exceeds_stock,
             'item_total' => $item_total,
             'status' => $row['status']
         ];
@@ -149,7 +164,8 @@ try {
                 'vat_amount' => round($total_vat, 2),
                 'vat_percentage' => round($avg_vat_percentage, 2),
                 'total' => round($total, 2),
-                'total_items' => $total_items
+                'total_items' => $total_items,
+                'has_stock_issue' => $has_stock_issue
             ]
         ]
     ]);
