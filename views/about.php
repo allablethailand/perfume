@@ -884,7 +884,7 @@ function tt($key, $lang) {
             </ul>
         </div>
         <div class="story-image">
-            <img src="public/product_images/6960c3aad2c0a_1767949226.jpg" 
+            <img src="public/product_images/6968584a338f8_1768446026.png" 
                  alt="Technology"
                  loading="lazy">
         </div>
