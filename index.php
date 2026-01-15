@@ -17,7 +17,6 @@ if (strpos($host, 'localhost') !== false) {
     $allowedRoot = '/perfume/';
     $allowedIndex = '/perfume/';
 }
-
 /*
 |--------------------------------------------------------------------------
 | 2. SECURITY: Block fake-path spam URLs
