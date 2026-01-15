@@ -418,7 +418,8 @@ if (!isset($_SESSION['guest_session_id'])) {
 
             let itemsHtml = '';
             items.forEach(function(item) {
-                const itemTotal = item.price_with_vat * item.quantity;
+                // ✅ ใช้ราคาที่ยังไม่รวม VAT
+                const itemTotal = item.price * item.quantity;
                 
                 // ✅ สร้าง class และ warning message ตาม stock
                 let itemClass = '';
@@ -458,7 +459,7 @@ if (!isset($_SESSION['guest_session_id'])) {
                         <div class="item-details">
                             <div>
                                 <div class="item-name">${item.product_name}</div>
-                                <div class="item-price">฿${parseFloat(item.price_with_vat).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                <div class="item-price">฿${parseFloat(item.price).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
                                 ${stockInfoHtml}
                             </div>
                             <div class="quantity-control">
@@ -506,7 +507,7 @@ if (!isset($_SESSION['guest_session_id'])) {
                             <span>฿${parseFloat(summary.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                         </div>
                         <div class="summary-row">
-                            <span>VAT (${summary.vat_percentage}%)</span>
+                            <span>VAT (${summary.vat_percentage.toFixed(2)}%)</span>
                             <span>฿${parseFloat(summary.vat_amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
                         </div>
                         <div class="summary-row total">
