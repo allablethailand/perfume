@@ -136,14 +136,13 @@ $name_col = "name_" . $lang;
 
         <div class="products-grid">
             <?php
-            // ดึงสินค้าทั้งหมด - เพิ่มเงื่อนไข stock_quantity > 0
+            // ดึงสินค้าทั้งหมด - แสดงราคาที่ยังไม่รวม VAT
             $products_query = "
                 SELECT 
                     p.product_id,
                     p.{$name_col} as product_name,
                     p.price,
                     p.vat_percentage,
-                    ROUND(p.price * (1 + p.vat_percentage / 100), 2) as price_with_vat,
                     pi.api_path as image_path
                 FROM products p
                 LEFT JOIN product_images pi ON p.product_id = pi.product_id AND pi.is_primary = 1 AND pi.del = 0
@@ -169,7 +168,7 @@ $name_col = "name_" . $lang;
                                  class="product-image"
                                  loading="lazy">
                             <div class="product-price-overlay">
-                                ฿<?= number_format($product['price_with_vat'], 2) ?>
+                                ฿<?= number_format($product['price'], 2) ?>
                             </div>
                         </div>
                         <h3 class="product-name"><?= htmlspecialchars($product['product_name']) ?></h3>
