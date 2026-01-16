@@ -18,7 +18,7 @@ if (session_status() == PHP_SESSION_NONE) {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             background: #f5f5f5;
             height: 100vh;
-            overflow: hidden; /* ป้องกัน body เลื่อน */
+            overflow: hidden;
         }
         
         .chat-container {
@@ -26,7 +26,7 @@ if (session_status() == PHP_SESSION_NONE) {
             grid-template-columns: 320px 1fr;
             height: calc(100vh - 70px); 
             margin-top: 70px;
-            overflow: hidden; /* ป้องกัน container เลื่อน */
+            overflow: hidden;
         }
         
         /* ========== Sidebar ========== */
@@ -36,7 +36,7 @@ if (session_status() == PHP_SESSION_NONE) {
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            height: 100%; /* บังคับความสูง */
+            height: 100%;
         }
         
         .sidebar-header {
@@ -49,17 +49,17 @@ if (session_status() == PHP_SESSION_NONE) {
             flex: 1;
             overflow-y: auto;
             padding: 10px;
-            min-height: 0; /* สำคัญมาก! ให้ flex child เลื่อนได้ */
+            min-height: 0;
         }
 
-        /* ========== Chat Area (แก้ตรงนี้) ========== */
+        /* ========== Chat Area ========== */
         .chat-main {
             display: flex;
             flex-direction: column;
             background: #fafafa;
             height: 100%;
             overflow: hidden;
-            position: relative; /* สำคัญ */
+            position: relative;
         }
         
         .chat-header {
@@ -68,24 +68,56 @@ if (session_status() == PHP_SESSION_NONE) {
             border-bottom: 1px solid #e0e0e0;
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 15px;
             flex-shrink: 0;
-            height: 70px; /* กำหนดความสูงชัดเจน */
+            height: 70px;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .header-right {
+            display: flex;
+            gap: 12px;
+        }
+
+        .edit-prompts-btn {
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #7877c6 0%, #a8a7e5 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .edit-prompts-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(120, 119, 198, 0.4);
         }
         
-        /* 🔥 FIX: ส่วนนี้คือจุดสำคัญ */
         .chat-messages {
             flex: 1;
-            overflow-y: auto !important; /* บังคับให้เลื่อนได้ */
+            overflow-y: auto !important;
             overflow-x: hidden;
             padding: 30px;
-            min-height: 0; /* สำคัญมาก! */
-            max-height: 100%; /* จำกัดความสูง */
+            min-height: 0;
+            max-height: 100%;
             scroll-behavior: smooth;
             position: relative;
         }
         
-        /* จัดแต่ง Scrollbar */
         .chat-messages::-webkit-scrollbar {
             width: 8px;
         }
@@ -218,7 +250,7 @@ if (session_status() == PHP_SESSION_NONE) {
             padding: 20px 30px;
             border-top: 1px solid #e0e0e0;
             flex-shrink: 0;
-            min-height: 80px; /* กำหนดความสูงขั้นต่ำ */
+            min-height: 80px;
         }
         
         .input-wrapper {
@@ -359,6 +391,11 @@ if (session_status() == PHP_SESSION_NONE) {
         @media (max-width: 968px) {
             .chat-container { grid-template-columns: 1fr; }
             .chat-sidebar { display: none; }
+            
+            .edit-prompts-btn {
+                padding: 8px 12px;
+                font-size: 11px;
+            }
         }
     </style>
     <?php include 'template/header.php' ?>
@@ -376,10 +413,17 @@ if (session_status() == PHP_SESSION_NONE) {
         
         <div class="chat-main">
             <div class="chat-header" id="chatHeader" style="display: none;">
-                <img src="" alt="AI" class="ai-avatar" id="aiAvatar">
-                <div class="ai-info">
-                    <h3 id="aiName">AI Companion</h3>
-                    <p>Your Personal Perfume Assistant</p>
+                <div class="header-left">
+                    <img src="" alt="AI" class="ai-avatar" id="aiAvatar">
+                    <div class="ai-info">
+                        <h3 id="aiName">AI Companion</h3>
+                        <p>Your Personal Perfume Assistant</p>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <button class="edit-prompts-btn" id="editPromptsBtn">
+                        <i class="fas fa-edit"></i> Edit Preferences
+                    </button>
                 </div>
             </div>
             
@@ -422,5 +466,17 @@ if (session_status() == PHP_SESSION_NONE) {
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="app/js/ai_chat.js?v=<?php echo time(); ?>"></script>
+    <script>
+        // Add click event for edit prompts button
+        document.addEventListener('DOMContentLoaded', function() {
+            const editPromptsBtn = document.getElementById('editPromptsBtn');
+            
+            if (editPromptsBtn) {
+                editPromptsBtn.addEventListener('click', function() {
+                    window.location.href = '?ai_edit_prompts&lang=' + currentLang;
+                });
+            }
+        });
+    </script>
 </body>
 </html>
