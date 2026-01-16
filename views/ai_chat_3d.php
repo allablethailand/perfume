@@ -378,7 +378,7 @@ if (session_status() == PHP_SESSION_NONE) {
             
             <div class="sidebar-footer">
                 <button class="mode-toggle-btn" onclick="window.location.href='?ai_chat&lang=<?php echo $_GET['lang'] ?? 'th'; ?>'">
-                    <i class="fas fa-comments"></i> Switch to 2D Mode
+                    <i class="fas fa-comments"></i> Switch to Chat Mode
                 </button>
                 <button class="edit-prompts-btn" onclick="window.location.href='?ai_edit_prompts&lang=<?php echo $_GET['lang'] ?? 'th'; ?>'">
                     <i class="fas fa-cog"></i> Edit Preferences
