@@ -8,7 +8,7 @@
 
 require_once('../../lib/connect.php');
 require_once('../../lib/jwt_helper.php');
-require_once('../../lib/GroqAPI.php');
+require_once('../../lib/aimodelmanager.php');
 
 global $conn;
 
@@ -130,10 +130,11 @@ try {
     $user_chat_stmt->execute();
     $user_chat_stmt->close();
     
-    // ✅ ดึงข้อมูล AI companion
+    // ✅ ดึงข้อมูล AI companion (ครบทุก field)
     $lang_col = $language;
     $ai_stmt = $conn->prepare("
         SELECT 
+            ai_id,
             ai_code,
             ai_name_{$lang_col} as ai_name,
             system_prompt_{$lang_col} as system_prompt,
@@ -145,17 +146,25 @@ try {
     $ai_stmt->bind_param('i', $ai_id);
     $ai_stmt->execute();
     $ai_result = $ai_stmt->get_result();
+    
+    if ($ai_result->num_rows === 0) {
+        throw new Exception('AI companion not found');
+    }
+    
     $ai_companion = $ai_result->fetch_assoc();
     $ai_stmt->close();
     
-    // ✅ ดึง personality ของ user
+    // ✅ ดึง personality ของ user พร้อม choices
     $personality_stmt = $conn->prepare("
         SELECT 
             q.question_text_{$lang_col} as question,
-            a.text_answer as answer,
-            a.scale_value
+            a.text_answer,
+            a.scale_value,
+            c.choice_text_{$lang_col} as choice_text,
+            q.question_order
         FROM user_personality_answers a
         INNER JOIN ai_personality_questions q ON a.question_id = q.question_id
+        LEFT JOIN ai_question_choices c ON a.choice_id = c.choice_id
         WHERE a.user_companion_id = ?
         ORDER BY q.question_order
     ");
@@ -168,7 +177,7 @@ try {
     }
     $personality_stmt->close();
     
-    // ✅ ดึงประวัติการแชท (10 ข้อความล่าสุด)
+    // ✅ ดึงประวัติการแชท (20 ข้อความล่าสุด)
     $history_stmt = $conn->prepare("
         SELECT role, message_text 
         FROM ai_chat_history 
@@ -185,34 +194,37 @@ try {
     }
     $history_stmt->close();
     
-    // ✅ เตรียม messages สำหรับส่งไปยัง Groq
-    $groq = new GroqAPI();
+    // ✅ สร้าง AI Model Manager
+    $aiManager = new AIModelManager($conn);
     
     // สร้าง system prompt
-    $system_prompt = $groq->buildSystemPrompt($ai_companion, $user_personality, $language);
+    $system_prompt_result = $aiManager->buildSystemPrompt($ai_companion, $user_personality, $language);
+    $system_prompt = $system_prompt_result['prompt'];
+    $prompt_details = $system_prompt_result['details'];
     
     $messages = [
         ['role' => 'system', 'content' => $system_prompt]
     ];
     
     // เพิ่มประวัติการแชท
-    $formatted_history = $groq->formatConversationHistory($chat_history, 10);
+    $formatted_history = $aiManager->formatConversationHistory($chat_history, 10);
     $messages = array_merge($messages, $formatted_history);
     
-    // ✅ ส่งไปยัง Groq และรับคำตอบ
-    $ai_response = $groq->chat($messages, [
+    // ✅ ส่งไปยัง AI (พร้อม Fallback System)
+    $ai_response = $aiManager->chat($messages, [
         'max_tokens' => 1024,
         'temperature' => 0.7
     ]);
     
     if (!$ai_response['success']) {
-        throw new Exception('AI Error: ' . $ai_response['error']);
+        throw new Exception('All AI models failed: ' . $ai_response['error']);
     }
     
     $ai_message = $ai_response['message'];
-    $ai_model = $ai_response['model'];
+    $ai_model = $ai_response['model_used'];
     $tokens_used = $ai_response['tokens_used'];
     $response_time = $ai_response['response_time_ms'];
+    $provider_used = $ai_response['provider'];
     
     // ✅ บันทึกคำตอบของ AI
     $ai_chat_stmt = $conn->prepare("
@@ -247,7 +259,7 @@ try {
     
     $conn->commit();
     
-    // ส่งคำตอบกลับ
+    // ส่งคำตอบกลับพร้อม prompt details
     echo json_encode([
         'status' => 'success',
         'conversation_id' => $conversation_id,
@@ -255,7 +267,10 @@ try {
         'ai_name' => $ai_companion['ai_name'],
         'tokens_used' => $tokens_used,
         'response_time_ms' => $response_time,
-        'model_used' => $ai_model
+        'model_used' => $ai_model,
+        'provider' => $provider_used,
+        'fallback_attempts' => $ai_response['attempts'],
+        'prompt_details' => $prompt_details
     ]);
     
 } catch (Exception $e) {
