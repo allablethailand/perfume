@@ -873,11 +873,6 @@ $languages = [
         gap: 8px;
     }
 
-    /* ซ่อนปุ่ม Search */
-    /* .header-actions .action-btn[aria-label="Search"] {
-        display: none !important;
-    } */
-
     /* ลดขนาดปุ่มที่เหลือ */
     .action-btn {
         width: 28px;
@@ -1260,8 +1255,46 @@ function loadAIAvatar() {
     });
 }
 
+// Function to check AI companion status (ไม่ redirect อัตโนมัติ)
+function checkAICompanionStatus() {
+    const jwt = sessionStorage.getItem('jwt');
+    
+    if (!jwt) {
+        $('#aiChatButton').hide();
+        return;
+    }
+    
+    $.ajax({
+        url: 'app/actions/check_ai_companion_status.php',
+        type: 'GET',
+        headers: {
+            'Authorization': 'Bearer ' + jwt,
+            'X-Auth-Token': jwt
+        },
+        dataType: 'json',
+        success: function(response) {
+            console.log('AI Companion Status:', response);
+            
+            if (response.status === 'success') {
+                if (response.has_companion) {
+                    // มี AI companion - แสดงปุ่ม chat
+                    // เก็บสถานะไว้ใน data attribute
+                    loadAIChatButton(response);
+                } else {
+                    // ยังไม่มี AI companion - ซ่อนปุ่ม
+                    $('#aiChatButton').hide();
+                }
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Failed to check AI companion status:', status, error);
+            $('#aiChatButton').hide();
+        }
+    });
+}
+
 // Function to load AI Chat Button
-function loadAIChatButton() {
+function loadAIChatButton(companionStatus) {
     const jwt = sessionStorage.getItem('jwt');
     
     if (!jwt) {
@@ -1285,9 +1318,24 @@ function loadAIChatButton() {
                 $('#aiChatAvatar').attr('src', response.ai_avatar_url);
                 $('#aiChatButton').fadeIn();
                 
-                // เพิ่ม click event
+                // เก็บสถานะ setup ไว้ใน data attribute
+                $('#aiChatButton').data('setup-completed', companionStatus.setup_completed);
+                $('#aiChatButton').data('companion-id', companionStatus.data.user_companion_id);
+                $('#aiChatButton').data('preferred-lang', companionStatus.data.preferred_language || 'th');
+                
+                // เพิ่ม click event ตามสถานะ
                 $('#aiChatButton').off('click').on('click', function() {
-                    window.location.href = '?ai_activation&lang=' + currentLang;
+                    const setupCompleted = $(this).data('setup-completed');
+                    const companionId = $(this).data('companion-id');
+                    const lang = $(this).data('preferred-lang');
+                    
+                    if (setupCompleted) {
+                        // ถ้า setup เสร็จแล้ว -> ไป ai_chat
+                        window.location.href = '?ai_chat&lang=' + currentLang;
+                    } else {
+                        // ถ้ายัง setup ไม่เสร็จ -> ไป ai_questions
+                        window.location.href = '?ai_questions&companion_id=' + companionId + '&lang=' + lang;
+                    }
                 });
             } else {
                 // ซ่อนปุ่มถ้าไม่มี AI
@@ -1344,7 +1392,7 @@ window.updateCartCount = loadCartCount;
 document.addEventListener('DOMContentLoaded', function() {
     loadCartCount();
     loadAIAvatar();
-    loadAIChatButton(); // โหลดปุ่ม AI Chat
+    checkAICompanionStatus(); // เพิ่มการเช็คสถานะ AI companion
 
     // Language Switcher
     const languageSwitcher = document.getElementById('languageSwitcher');
@@ -1386,7 +1434,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 logoutLink.style.display = 'block';
                 loadCartCount();
                 loadAIAvatar();
-                loadAIChatButton(); // โหลดปุ่ม AI Chat หลัง verify token
+                checkAICompanionStatus(); // เช็คสถานะ AI companion หลัง verify token
             }
         })
         .catch(error => console.error("Token verification failed:", error));
@@ -1495,7 +1543,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                                 loadCartCount();
                                 loadAIAvatar();
-                                loadAIChatButton(); // โหลดปุ่ม AI Chat หลัง login
+                                checkAICompanionStatus(); // เช็คสถานะ AI companion หลัง login
 
                                 if (roleId === 1) {
                                     window.location.href = 'app/admin/index.php';

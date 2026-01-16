@@ -84,8 +84,6 @@ try {
     echo json_encode([
         'status' => 'success',
         'count' => $cart_count,
-        'user_id' => $user_id, // for debugging
-        'has_jwt' => !empty($jwt) // for debugging
     ]);
     
 } catch (Exception $e) {
