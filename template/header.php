@@ -774,7 +774,7 @@ $languages = [
     }
 
     .nav-link:hover {
-        background-color: rgba(0, 0, 0, 0.02);
+        background-color: rgba(255, 255, 255, 0.66);
     }
 
     /* Logo stays centered */

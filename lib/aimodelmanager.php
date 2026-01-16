@@ -4,6 +4,7 @@
  * 
  * จัดการ AI Models หลายตัว พร้อม Fallback System
  * รองรับ Groq, OpenAI, Anthropic, และ providers อื่นๆ
+ * ✅ รองรับการเข้ารหัส/ถอดรหัส API Key
  */
 
 class AIModelManager {
@@ -15,8 +16,41 @@ class AIModelManager {
         $this->loadModels();
     }
     
+    // ============================================
+    // ฟังก์ชันเข้ารหัส/ถอดรหัส API Key
+    // ============================================
+    private function getEncryptionKey() {
+        // ใช้ JWT_SECRET_KEY จาก .env หรือใช้ค่า default
+        $secret_key = getenv('JWT_SECRET_KEY');
+        return hash('sha256', $secret_key, true); // แปลงเป็น binary 32 bytes
+    }
+    
+    private function decryptApiKey($encryptedKey) {
+        if (empty($encryptedKey)) return null;
+        
+        try {
+            $key = $this->getEncryptionKey();
+            $cipher = 'AES-256-CBC';
+            
+            // Decode base64
+            $data = base64_decode($encryptedKey);
+            
+            // แยก IV (16 bytes แรก) และ encrypted data
+            $iv = substr($data, 0, 16);
+            $encrypted = substr($data, 16);
+            
+            $decrypted = openssl_decrypt($encrypted, $cipher, $key, 0, $iv);
+            
+            return $decrypted !== false ? $decrypted : null;
+        } catch (Exception $e) {
+            error_log("Decryption error: " . $e->getMessage());
+            return null;
+        }
+    }
+    
     /**
      * ดึง AI Models ทั้งหมดที่ active เรียงตาม priority
+     * ✅ ถอดรหัส API Key อัตโนมัติ
      */
     private function loadModels() {
         $stmt = $this->conn->prepare("
@@ -39,6 +73,8 @@ class AIModelManager {
         $result = $stmt->get_result();
         
         while ($row = $result->fetch_assoc()) {
+            // ✅ ถอดรหัส API Key ก่อนเก็บใน memory
+            $row['api_key'] = $this->decryptApiKey($row['api_key']);
             $this->models[] = $row;
         }
         $stmt->close();
@@ -118,6 +154,14 @@ class AIModelManager {
      * ส่ง request ไปยัง Provider ที่ถูกต้อง
      */
     private function sendToProvider($model, $messages, $params) {
+        // ✅ เช็คว่า API Key ถูกถอดรหัสแล้วหรือยัง
+        if (empty($model['api_key'])) {
+            return [
+                'success' => false,
+                'error' => 'API Key not configured or failed to decrypt'
+            ];
+        }
+        
         switch (strtolower($model['provider'])) {
             case 'groq':
                 return $this->sendToGroq($model, $messages, $params);
@@ -156,7 +200,7 @@ class AIModelManager {
             CURLOPT_POST => true,
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
-                'Authorization: Bearer ' . $model['api_key']
+                'Authorization: Bearer ' . $model['api_key'] // ✅ ใช้ API Key ที่ถอดรหัสแล้ว
             ],
             CURLOPT_POSTFIELDS => json_encode($request_params),
             CURLOPT_TIMEOUT => 30
@@ -202,7 +246,7 @@ class AIModelManager {
             CURLOPT_POST => true,
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
-                'Authorization: Bearer ' . $model['api_key']
+                'Authorization: Bearer ' . $model['api_key'] // ✅ ใช้ API Key ที่ถอดรหัสแล้ว
             ],
             CURLOPT_POSTFIELDS => json_encode($request_params),
             CURLOPT_TIMEOUT => 30
@@ -263,7 +307,7 @@ class AIModelManager {
             CURLOPT_POST => true,
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
-                'x-api-key: ' . $model['api_key'],
+                'x-api-key: ' . $model['api_key'], // ✅ ใช้ API Key ที่ถอดรหัสแล้ว
                 'anthropic-version: 2023-06-01'
             ],
             CURLOPT_POSTFIELDS => json_encode($request_params),
@@ -383,10 +427,17 @@ class AIModelManager {
     }
     
     /**
-     * ดึงรายการ AI Models ทั้งหมด
+     * ดึงรายการ AI Models ทั้งหมด (ไม่แสดง API Key)
      */
     public function getModels() {
-        return $this->models;
+        $safe_models = [];
+        foreach ($this->models as $model) {
+            $safe_model = $model;
+            // ซ่อน API Key เพื่อความปลอดภัย
+            $safe_model['api_key'] = !empty($model['api_key']) ? '***ENCRYPTED***' : null;
+            $safe_models[] = $safe_model;
+        }
+        return $safe_models;
     }
 }
 ?>
