@@ -51,7 +51,7 @@ if (session_status() == PHP_SESSION_NONE) {
             overflow-y: auto;
             padding: 10px;
             min-height: 0;
-            padding-bottom: 80px; /* เว้นที่สำหรับปุ่มด้านล่าง */
+            padding-bottom: 150px; /* เว้นที่สำหรับปุ่มด้านล่าง */
         }
 
         /* ========== Sidebar Footer (Fixed Bottom) ========== */
@@ -64,6 +64,31 @@ if (session_status() == PHP_SESSION_NONE) {
             border-top: 1px solid #e0e0e0;
             padding: 15px 20px;
             z-index: 10;
+        }
+
+        .mode-3d-btn {
+            width: 100%;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            letter-spacing: 0.3px;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            margin-bottom: 10px;
+        }
+
+        .mode-3d-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.5);
         }
 
         .edit-prompts-btn {
@@ -457,8 +482,11 @@ if (session_status() == PHP_SESSION_NONE) {
             </div>
             <div class="conversations-list" id="conversationsList"></div>
             
-            <!-- ✅ ปุ่ม Edit Preferences ย้ายมาอยู่ล่างสุด Fixed -->
+            <!-- ✅ ปุ่มสลับโหมดและ Edit Preferences -->
             <div class="sidebar-footer">
+                <button class="mode-3d-btn" id="switch3DBtn">
+                    <i class="fas fa-cube"></i> Switch to 3D Mode
+                </button>
                 <button class="edit-prompts-btn" id="editPromptsBtn">
                     <i class="fas fa-cog"></i> Edit Preferences
                 </button>
@@ -516,13 +544,25 @@ if (session_status() == PHP_SESSION_NONE) {
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="app/js/ai_chat.js?v=<?php echo time(); ?>"></script>
     <script>
-        // Add click event for edit prompts button
+        // Add click events (ใช้ตัวแปร currentLang ที่มีอยู่แล้วใน ai_chat.js)
         document.addEventListener('DOMContentLoaded', function() {
-            const editPromptsBtn = document.getElementById('editPromptsBtn');
+            // ปุ่มสลับไป 3D Mode
+            const switch3DBtn = document.getElementById('switch3DBtn');
+            if (switch3DBtn) {
+                switch3DBtn.addEventListener('click', function() {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const lang = urlParams.get('lang') || 'th';
+                    window.location.href = '?ai_chat_3d&lang=' + lang;
+                });
+            }
             
-            if (editPromptsBtn) {
+            // ปุ่ม Edit Preferences (เดิมมีอยู่แล้ว แต่เพิ่มเช็ค)
+            const editPromptsBtn = document.getElementById('editPromptsBtn');
+            if (editPromptsBtn && !editPromptsBtn.onclick) {
                 editPromptsBtn.addEventListener('click', function() {
-                    window.location.href = '?ai_edit_prompts&lang=' + currentLang;
+                    const urlParams = new URLSearchParams(window.location.search);
+                    const lang = urlParams.get('lang') || 'th';
+                    window.location.href = '?ai_edit_prompts&lang=' + lang;
                 });
             }
         });
