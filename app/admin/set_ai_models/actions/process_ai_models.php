@@ -11,33 +11,48 @@ global $conn;
 $response = array('status' => 'error', 'message' => '');
 
 // ============================================
-// ฟังก์ชันเข้ารหัส/ถอดรหัส API Key (Simple Encryption)
+// ฟังก์ชันเข้ารหัส/ถอดรหัส API Key
 // ============================================
+function getEncryptionKey() {
+    // ใช้ JWT_SECRET_KEY จาก .env หรือใช้ค่า default
+    $secret_key = getenv('JWT_SECRET_KEY');
+    return hash('sha256', $secret_key, true); // แปลงเป็น binary 32 bytes
+}
+
 function encryptApiKey($apiKey) {
     if (empty($apiKey)) return null;
     
-    // ใช้ OpenSSL encryption (ควรเก็บ SECRET_KEY ใน config หรือ environment variable)
-    $secret_key = 'YOUR_SECRET_ENCRYPTION_KEY_HERE'; // ⚠️ เปลี่ยนเป็น key ของคุณ
-    $encryption_method = "AES-256-CBC";
-    $secret_iv = 'YOUR_SECRET_IV_HERE'; // ⚠️ เปลี่ยนเป็น IV ของคุณ
+    $key = getEncryptionKey();
+    $cipher = 'AES-256-CBC';
+    $iv = openssl_random_pseudo_bytes(16);
     
-    $key = hash('sha256', $secret_key);
-    $iv = substr(hash('sha256', $secret_iv), 0, 16);
+    $encrypted = openssl_encrypt($apiKey, $cipher, $key, 0, $iv);
     
-    return base64_encode(openssl_encrypt($apiKey, $encryption_method, $key, 0, $iv));
+    // รวม IV + encrypted data แล้ว encode เป็น base64
+    return base64_encode($iv . $encrypted);
 }
 
 function decryptApiKey($encryptedKey) {
     if (empty($encryptedKey)) return null;
     
-    $secret_key = 'YOUR_SECRET_ENCRYPTION_KEY_HERE';
-    $encryption_method = "AES-256-CBC";
-    $secret_iv = 'YOUR_SECRET_IV_HERE';
-    
-    $key = hash('sha256', $secret_key);
-    $iv = substr(hash('sha256', $secret_iv), 0, 16);
-    
-    return openssl_decrypt(base64_decode($encryptedKey), $encryption_method, $key, 0, $iv);
+    try {
+        $key = getEncryptionKey();
+        $cipher = 'AES-256-CBC';
+        
+        // Decode base64
+        $data = base64_decode($encryptedKey);
+        
+        // แยก IV (16 bytes แรก) และ encrypted data
+        $iv = substr($data, 0, 16);
+        $encrypted = substr($data, 16);
+        
+        $decrypted = openssl_decrypt($encrypted, $cipher, $key, 0, $iv);
+        
+        return $decrypted !== false ? $decrypted : null;
+    } catch (Exception $e) {
+        error_log("Decryption error: " . $e->getMessage());
+        return null;
+    }
 }
 
 try {
@@ -50,7 +65,7 @@ try {
         $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
         $searchValue = isset($_POST['search']['value']) ? $conn->real_escape_string($_POST['search']['value']) : '';
 
-        $whereClause = "1=1"; // ไม่มี soft delete ในตาราง ai_models
+        $whereClause = "1=1";
 
         if (!empty($searchValue)) {
             $whereClause .= " AND (model_name LIKE '%$searchValue%' OR model_code LIKE '%$searchValue%' OR provider LIKE '%$searchValue%')";
@@ -121,7 +136,7 @@ try {
         }
         $checkStmt->close();
 
-        // เข้ารหัส API Key ถ้ามี
+        // ✅ เข้ารหัส API Key ก่อนบันทึก
         $encrypted_api_key = !empty($api_key) ? encryptApiKey($api_key) : null;
 
         // Insert
@@ -180,7 +195,7 @@ try {
         }
         $checkStmt->close();
 
-        // ถ้ามี API Key ใหม่ ให้เข้ารหัส ถ้าไม่มีให้ใช้ค่าเดิม
+        // ✅ ถ้ามี API Key ใหม่ ให้เข้ารหัสก่อนบันทึก
         if (!empty($api_key)) {
             $encrypted_api_key = encryptApiKey($api_key);
             $stmt = $conn->prepare("UPDATE ai_models 
@@ -282,6 +297,7 @@ try {
             throw new Exception("กรุณากรอก API Key");
         }
 
+        // ✅ เข้ารหัส API Key ก่อนบันทึก
         $encrypted_api_key = encryptApiKey($api_key);
 
         $stmt = $conn->prepare("UPDATE ai_models SET api_key = ? WHERE model_id = ?");
@@ -318,7 +334,7 @@ try {
         if ($result->num_rows > 0) {
             $model = $result->fetch_assoc();
             
-            // ถอดรหัส API Key
+            // ✅ ถอดรหัส API Key ก่อนส่งกลับ
             $model['api_key'] = decryptApiKey($model['api_key']);
             
             $response = array(
