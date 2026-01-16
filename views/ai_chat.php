@@ -37,6 +37,7 @@ if (session_status() == PHP_SESSION_NONE) {
             flex-direction: column;
             overflow: hidden;
             height: 100%;
+            position: relative;
         }
         
         .sidebar-header {
@@ -50,6 +51,66 @@ if (session_status() == PHP_SESSION_NONE) {
             overflow-y: auto;
             padding: 10px;
             min-height: 0;
+            padding-bottom: 80px; /* เว้นที่สำหรับปุ่มด้านล่าง */
+        }
+
+        /* ========== Sidebar Footer (Fixed Bottom) ========== */
+        .sidebar-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: #fff;
+            border-top: 1px solid #e0e0e0;
+            padding: 15px 20px;
+            z-index: 10;
+        }
+
+        .edit-prompts-btn {
+            width: 100%;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: white;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            letter-spacing: 0.3px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .edit-prompts-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+            transition: left 0.5s;
+        }
+
+        .edit-prompts-btn:hover::before {
+            left: 100%;
+        }
+
+        .edit-prompts-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+            border-color: #4a4a4a;
+            background: linear-gradient(135deg, #2d2d2d 0%, #3a3a3a 100%);
+        }
+
+        .edit-prompts-btn i {
+            font-size: 14px;
         }
 
         /* ========== Chat Area ========== */
@@ -80,31 +141,22 @@ if (session_status() == PHP_SESSION_NONE) {
             gap: 15px;
         }
 
-        .header-right {
-            display: flex;
-            gap: 12px;
+        .ai-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
         }
 
-        .edit-prompts-btn {
-            padding: 10px 20px;
-            background: linear-gradient(135deg, #7877c6 0%, #a8a7e5 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 13px;
+        .ai-info h3 {
+            font-size: 16px;
             font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+            margin-bottom: 2px;
         }
 
-        .edit-prompts-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(120, 119, 198, 0.4);
+        .ai-info p {
+            font-size: 12px;
+            color: #666;
         }
         
         .chat-messages {
@@ -391,11 +443,6 @@ if (session_status() == PHP_SESSION_NONE) {
         @media (max-width: 968px) {
             .chat-container { grid-template-columns: 1fr; }
             .chat-sidebar { display: none; }
-            
-            .edit-prompts-btn {
-                padding: 8px 12px;
-                font-size: 11px;
-            }
         }
     </style>
     <?php include 'template/header.php' ?>
@@ -409,6 +456,13 @@ if (session_status() == PHP_SESSION_NONE) {
                 </button>
             </div>
             <div class="conversations-list" id="conversationsList"></div>
+            
+            <!-- ✅ ปุ่ม Edit Preferences ย้ายมาอยู่ล่างสุด Fixed -->
+            <div class="sidebar-footer">
+                <button class="edit-prompts-btn" id="editPromptsBtn">
+                    <i class="fas fa-cog"></i> Edit Preferences
+                </button>
+            </div>
         </div>
         
         <div class="chat-main">
@@ -419,11 +473,6 @@ if (session_status() == PHP_SESSION_NONE) {
                         <h3 id="aiName">AI Companion</h3>
                         <p>Your Personal Perfume Assistant</p>
                     </div>
-                </div>
-                <div class="header-right">
-                    <button class="edit-prompts-btn" id="editPromptsBtn">
-                        <i class="fas fa-edit"></i> Edit Preferences
-                    </button>
                 </div>
             </div>
             
