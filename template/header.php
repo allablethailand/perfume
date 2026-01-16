@@ -697,6 +697,32 @@ $languages = [
         border: 3px solid var(--luxury-black);
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
         background: white;
+        opacity: 0;
+        transition: opacity 0.4s ease;
+    }
+
+    /* placeholder ตอนยังไม่โหลด */
+    .ai-avatar-img.is-loading {
+        background: linear-gradient(
+            110deg,
+            #f2f2f2 25%,
+            #e6e6e6 37%,
+            #f2f2f2 63%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 1.2s infinite;
+    }
+
+    .ai-avatar-img.is-loaded {
+        opacity: 1;
+        background: none;
+        animation: none;
+    }
+
+    @keyframes shimmer {
+        to {
+            background-position-x: -200%;
+        }
     }
 
     .ai-status-dot {
@@ -1100,7 +1126,10 @@ $languages = [
 <!-- AI Chat Button (Floating) -->
 <div id="aiChatButton" class="ai-chat-button" style="border-radius: 50%;" style="display: none;">
     <div class="ai-avatar-container">
-        <img id="aiChatAvatar" src="" alt="AI Companion" class="ai-avatar-img">
+        <img id="aiChatAvatar"
+            src=""
+            alt="AI Companion"
+            class="ai-avatar-img is-loading">
         <div class="ai-status-dot"></div>
     </div>
 </div>
@@ -1315,7 +1344,16 @@ function loadAIChatButton(companionStatus) {
             
             if (response.status === 'success' && response.has_ai) {
                 // แสดงปุ่ม AI Chat
-                $('#aiChatAvatar').attr('src', response.ai_avatar_url);
+                const img = document.getElementById('aiChatAvatar');
+                img.classList.add('is-loading');
+                img.style.display = 'block';
+
+                img.onload = () => {
+                    img.classList.remove('is-loading');
+                    img.classList.add('is-loaded');
+                };
+
+                img.src = response.ai_avatar_url;
                 $('#aiChatButton').fadeIn();
                 
                 // เก็บสถานะ setup ไว้ใน data attribute
