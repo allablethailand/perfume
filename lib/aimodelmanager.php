@@ -5,7 +5,7 @@
  * จัดการ AI Models หลายตัว พร้อม Fallback System
  * รองรับ Groq, OpenAI, Anthropic, และ providers อื่นๆ
  * ✅ ปรับโครงสร้าง Prompt: Admin = นิสัยหลัก, User = นิสัยรอง
- * ✅ บังคับใช้ภาษาที่ user เลือก
+ * ✅ บังคับใช้ภาษาที่ user เลือกจาก preferred_language
  * ✅ ห้ามใช้ ครับ/ค่ะ ต้องเลือกอย่างใดอย่างหนึ่ง
  */
 
@@ -325,7 +325,7 @@ class AIModelManager {
      * โครงสร้าง:
      * 1. Admin Prompt (นิสัยหลัก) - มาจาก system_prompt, perfume_knowledge, style_suggestions
      * 2. User Personality (นิสัยรอง) - มาจาก user_personality_answers
-     * 3. Language Enforcement - บังคับใช้ภาษาที่ user เลือก
+     * 3. Language Enforcement - บังคับใช้ภาษาที่ user เลือกจาก preferred_language
      * 4. Response Format Rules - ห้ามใช้ ครับ/ค่ะ
      */
     public function buildSystemPrompt($ai_companion, $user_personality, $language = 'th') {
@@ -373,7 +373,7 @@ class AIModelManager {
         }
         
         // ============================================
-        // SECTION 4: กฎการใช้ภาษา
+        // SECTION 4: กฎการใช้ภาษา (ใช้ภาษาจาก preferred_language)
         // ============================================
         $language_rules = $this->getLanguageRules($language);
         
@@ -400,6 +400,7 @@ class AIModelManager {
             'ai_name' => $ai_name,
             'ai_code' => $ai_companion['ai_code'] ?? 'unknown',
             'language' => $language,
+            'language_source' => 'preferred_language from user_ai_companions',
             'prompt_sections' => [
                 'core_personality' => [
                     'label' => '🎭 นิสัยหลัก (Admin Prompt)',
@@ -423,7 +424,7 @@ class AIModelManager {
                     'answers_count' => count($user_personality)
                 ],
                 'language_rules' => [
-                    'label' => '🌐 Language Rules',
+                    'label' => '🌐 Language Rules (based on preferred_language)',
                     'content' => $language_rules,
                     'length' => mb_strlen($language_rules)
                 ],
@@ -443,23 +444,52 @@ class AIModelManager {
     }
     
     /**
-     * ✅ กฎการใช้ภาษา (บังคับใช้ภาษาที่ user เลือก)
+     * ✅ กฎการใช้ภาษา (บังคับใช้ภาษาจาก preferred_language)
      */
     private function getLanguageRules($language) {
         $language_names = [
-            'th' => 'ภาษาไทย',
+            'th' => 'ภาษาไทย (Thai)',
             'en' => 'English',
-            'ja' => '日本語 (Japanese)',
-            'ko' => '한국어 (Korean)',
-            'zh' => '中文 (Chinese)'
+            'jp' => '日本語 (Japanese)',
+            'kr' => '한국어 (Korean)',
+            'cn' => '中文 (Chinese)'
         ];
         
         $lang_name = $language_names[$language] ?? $language_names['th'];
         
-        return "=== กฎการใช้ภาษา (LANGUAGE ENFORCEMENT) ===
+        $rules = [
+            'th' => "=== กฎการใช้ภาษา (LANGUAGE ENFORCEMENT) ===
 🌐 คุณ**ต้อง**ตอบเป็น{$lang_name}เท่านั้น ไม่ว่าผู้ใช้จะถามเป็นภาษาอะไร
 🌐 ห้ามเปลี่ยนภาษาเว้นแต่ผู้ใช้จะขอเปลี่ยนอย่างชัดเจน เช่น \"เปลี่ยนเป็นภาษาอังกฤษ\" หรือ \"switch to English\"
-🌐 ถ้าผู้ใช้ถามเป็นภาษาอื่น ให้ตอบเป็น{$lang_name}ตามปกติ";
+🌐 ถ้าผู้ใช้ถามเป็นภาษาอื่น ให้ตอบเป็น{$lang_name}ตามปกติ
+🌐 ภาษานี้ถูกเลือกไว้โดยผู้ใช้ใน preferred_language และจะใช้ตลอดทั้งการสนทนา",
+
+            'en' => "=== LANGUAGE ENFORCEMENT RULES ===
+🌐 You **MUST** respond in {$lang_name} only, regardless of what language the user uses
+🌐 Do NOT change language unless the user explicitly requests it (e.g., \"เปลี่ยนเป็นภาษาไทย\" or \"switch to Thai\")
+🌐 If the user asks in another language, still respond in {$lang_name}
+🌐 This language was chosen by the user in preferred_language and will be used throughout the conversation",
+
+            'ja' => "=== 言語使用ルール (LANGUAGE ENFORCEMENT) ===
+🌐 ユーザーがどの言語を使用しても、{$lang_name}でのみ回答してください
+🌐 ユーザーが明示的に要求しない限り、言語を変更しないでください（例：「英語に変更」または「switch to English」）
+🌐 ユーザーが他の言語で質問しても、{$lang_name}で回答してください
+🌐 この言語はユーザーが preferred_language で選択したもので、会話全体で使用されます",
+
+            'ko' => "=== 언어 사용 규칙 (LANGUAGE ENFORCEMENT) ===
+🌐 사용자가 어떤 언어를 사용하든 {$lang_name}로만 응답해야 합니다
+🌐 사용자가 명시적으로 요청하지 않는 한 언어를 변경하지 마세요 (예: \"영어로 변경\" 또는 \"switch to English\")
+🌐 사용자가 다른 언어로 질문해도 {$lang_name}로 응답하세요
+🌐 이 언어는 사용자가 preferred_language에서 선택한 것이며 대화 전체에 사용됩니다",
+
+            'zh' => "=== 语言使用规则 (LANGUAGE ENFORCEMENT) ===
+🌐 无论用户使用什么语言，您**必须**仅使用{$lang_name}回复
+🌐 除非用户明确要求，否则请勿更改语言（例如：切换到英语或switch to English）
+🌐 如果用户用其他语言提问，仍然用{$lang_name}回答
+🌐 此语言是用户在 preferred_language 中选择的，将在整个对话中使用"
+        ];
+        
+        return $rules[$language] ?? $rules['th'];
     }
     
     /**
@@ -479,7 +509,8 @@ class AIModelManager {
             return "=== RESPONSE FORMAT RULES ===
 ✅ Be natural and conversational
 ✅ Maintain consistent personality throughout the conversation
-✅ Adapt your tone based on user's personality profile";
+✅ Adapt your tone based on user's personality profile
+✅ Keep responses clear and engaging";
         }
     }
     
