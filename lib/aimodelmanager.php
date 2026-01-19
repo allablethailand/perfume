@@ -4,7 +4,9 @@
  * 
  * จัดการ AI Models หลายตัว พร้อม Fallback System
  * รองรับ Groq, OpenAI, Anthropic, และ providers อื่นๆ
- * ✅ รองรับการเข้ารหัส/ถอดรหัส API Key
+ * ✅ ปรับโครงสร้าง Prompt: Admin = นิสัยหลัก, User = นิสัยรอง
+ * ✅ บังคับใช้ภาษาที่ user เลือก
+ * ✅ ห้ามใช้ ครับ/ค่ะ ต้องเลือกอย่างใดอย่างหนึ่ง
  */
 
 class AIModelManager {
@@ -20,9 +22,8 @@ class AIModelManager {
     // ฟังก์ชันเข้ารหัส/ถอดรหัส API Key
     // ============================================
     private function getEncryptionKey() {
-        // ใช้ JWT_SECRET_KEY จาก .env หรือใช้ค่า default
         $secret_key = getenv('JWT_SECRET_KEY');
-        return hash('sha256', $secret_key, true); // แปลงเป็น binary 32 bytes
+        return hash('sha256', $secret_key, true);
     }
     
     private function decryptApiKey($encryptedKey) {
@@ -32,10 +33,7 @@ class AIModelManager {
             $key = $this->getEncryptionKey();
             $cipher = 'AES-256-CBC';
             
-            // Decode base64
             $data = base64_decode($encryptedKey);
-            
-            // แยก IV (16 bytes แรก) และ encrypted data
             $iv = substr($data, 0, 16);
             $encrypted = substr($data, 16);
             
@@ -50,7 +48,6 @@ class AIModelManager {
     
     /**
      * ดึง AI Models ทั้งหมดที่ active เรียงตาม priority
-     * ✅ ถอดรหัส API Key อัตโนมัติ
      */
     private function loadModels() {
         $stmt = $this->conn->prepare("
@@ -73,7 +70,6 @@ class AIModelManager {
         $result = $stmt->get_result();
         
         while ($row = $result->fetch_assoc()) {
-            // ✅ ถอดรหัส API Key ก่อนเก็บใน memory
             $row['api_key'] = $this->decryptApiKey($row['api_key']);
             $this->models[] = $row;
         }
@@ -86,10 +82,6 @@ class AIModelManager {
     
     /**
      * ส่งข้อความไปหา AI พร้อม Fallback System
-     * 
-     * @param array $messages - รูปแบบ OpenAI chat format
-     * @param array $options - ตัวเลือกเพิ่มเติม
-     * @return array
      */
     public function chat($messages, $options = []) {
         $default_options = [
@@ -103,20 +95,17 @@ class AIModelManager {
         $attempts = 0;
         $errors = [];
         
-        // ✅ ลองส่งไปยัง AI แต่ละตัว ตาม priority
         foreach ($this->models as $model) {
             $attempts++;
             
             try {
                 $start_time = microtime(true);
                 
-                // เลือก Provider ที่ถูกต้อง
                 $response = $this->sendToProvider($model, $messages, $params);
                 
                 $end_time = microtime(true);
                 $response_time = round(($end_time - $start_time) * 1000);
                 
-                // ถ้าสำเร็จ return ทันที
                 if ($response['success']) {
                     return [
                         'success' => true,
@@ -131,7 +120,6 @@ class AIModelManager {
                     ];
                 }
                 
-                // ถ้าไม่สำเร็จ เก็บ error ไว้
                 $errors[] = "{$model['model_name']}: {$response['error']}";
                 
             } catch (Exception $e) {
@@ -139,7 +127,6 @@ class AIModelManager {
             }
         }
         
-        // ถ้าลองทุกตัวแล้วยังไม่สำเร็จ
         return [
             'success' => false,
             'error' => implode(' | ', $errors),
@@ -154,7 +141,6 @@ class AIModelManager {
      * ส่ง request ไปยัง Provider ที่ถูกต้อง
      */
     private function sendToProvider($model, $messages, $params) {
-        // ✅ เช็คว่า API Key ถูกถอดรหัสแล้วหรือยัง
         if (empty($model['api_key'])) {
             return [
                 'success' => false,
@@ -200,7 +186,7 @@ class AIModelManager {
             CURLOPT_POST => true,
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
-                'Authorization: Bearer ' . $model['api_key'] // ✅ ใช้ API Key ที่ถอดรหัสแล้ว
+                'Authorization: Bearer ' . $model['api_key']
             ],
             CURLOPT_POSTFIELDS => json_encode($request_params),
             CURLOPT_TIMEOUT => 30
@@ -246,7 +232,7 @@ class AIModelManager {
             CURLOPT_POST => true,
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
-                'Authorization: Bearer ' . $model['api_key'] // ✅ ใช้ API Key ที่ถอดรหัสแล้ว
+                'Authorization: Bearer ' . $model['api_key']
             ],
             CURLOPT_POSTFIELDS => json_encode($request_params),
             CURLOPT_TIMEOUT => 30
@@ -279,7 +265,6 @@ class AIModelManager {
     private function sendToAnthropic($model, $messages, $params) {
         $api_url = $model['api_endpoint'] ?: 'https://api.anthropic.com/v1/messages';
         
-        // แปลง messages format สำหรับ Anthropic
         $system = '';
         $anthropic_messages = [];
         
@@ -307,7 +292,7 @@ class AIModelManager {
             CURLOPT_POST => true,
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
-                'x-api-key: ' . $model['api_key'], // ✅ ใช้ API Key ที่ถอดรหัสแล้ว
+                'x-api-key: ' . $model['api_key'],
                 'anthropic-version: 2023-06-01'
             ],
             CURLOPT_POSTFIELDS => json_encode($request_params),
@@ -336,52 +321,90 @@ class AIModelManager {
     }
     
     /**
-     * สร้าง System Prompt สำหรับ AI Companion
+     * ✅ สร้าง System Prompt แบบใหม่
+     * โครงสร้าง:
+     * 1. Admin Prompt (นิสัยหลัก) - มาจาก system_prompt, perfume_knowledge, style_suggestions
+     * 2. User Personality (นิสัยรอง) - มาจาก user_personality_answers
+     * 3. Language Enforcement - บังคับใช้ภาษาที่ user เลือก
+     * 4. Response Format Rules - ห้ามใช้ ครับ/ค่ะ
      */
     public function buildSystemPrompt($ai_companion, $user_personality, $language = 'th') {
-        // ✅ 1. ดึง Prompt หลักจาก Admin (AI Companion)
-        $system_prompt = $ai_companion['system_prompt'] ?? '';
-        $perfume_knowledge = $ai_companion['perfume_knowledge'] ?? '';
-        $style_suggestions = $ai_companion['style_suggestions'] ?? '';
+        $ai_name = $ai_companion['ai_name'] ?? 'AI Assistant';
         
-        // ✅ 2. สร้าง Prompt รองจาก User Personality
-        $personality_text = '';
-        if (!empty($user_personality)) {
-            $personality_text = "\n\n=== ข้อมูลเพิ่มเติมเกี่ยวกับผู้ใช้ (User Personality) ===\n";
-            foreach ($user_personality as $answer) {
-                $personality_text .= "• {$answer['question']}: ";
-                
-                if (!empty($answer['choice_text'])) {
-                    $personality_text .= $answer['choice_text'];
-                } elseif (!empty($answer['text_answer'])) {
-                    $personality_text .= $answer['text_answer'];
-                } elseif ($answer['scale_value'] !== null) {
-                    $personality_text .= "คะแนน {$answer['scale_value']}/10";
-                }
-                $personality_text .= "\n";
-            }
-            
-            $personality_text .= "\n📌 **โปรดปรับคำตอบให้เหมาะกับบุคลิกและความชอบของผู้ใช้ด้านบน**";
+        // ============================================
+        // SECTION 1: นิสัยหลัก (จาก Admin)
+        // ============================================
+        $core_personality = trim($ai_companion['system_prompt'] ?? '');
+        
+        // ============================================
+        // SECTION 2: ความรู้เฉพาะทาง
+        // ============================================
+        $perfume_knowledge = trim($ai_companion['perfume_knowledge'] ?? '');
+        $style_suggestions = trim($ai_companion['style_suggestions'] ?? '');
+        
+        $expertise = '';
+        if (!empty($perfume_knowledge)) {
+            $expertise .= "\n\n=== ความรู้เกี่ยวกับน้ำหอม ===\n" . $perfume_knowledge;
+        }
+        if (!empty($style_suggestions)) {
+            $expertise .= "\n\n=== คำแนะนำด้านสไตล์ ===\n" . $style_suggestions;
         }
         
-        // ✅ 3. รวม Prompt ทั้งหมด
+        // ============================================
+        // SECTION 3: นิสัยรอง (จาก User Personality)
+        // ============================================
+        $user_context = '';
+        if (!empty($user_personality)) {
+            $user_context = "\n\n=== ข้อมูลเพิ่มเติมเกี่ยวกับผู้ใช้ (นิสัยรองที่ต้องคำนึงถึง) ===\n";
+            foreach ($user_personality as $answer) {
+                $user_context .= "• {$answer['question']}: ";
+                
+                if (!empty($answer['choice_text'])) {
+                    $user_context .= $answer['choice_text'];
+                } elseif (!empty($answer['text_answer'])) {
+                    $user_context .= $answer['text_answer'];
+                } elseif ($answer['scale_value'] !== null) {
+                    $user_context .= "คะแนน {$answer['scale_value']}/10";
+                }
+                $user_context .= "\n";
+            }
+            
+            $user_context .= "\n💡 ใช้ข้อมูลข้างต้นเป็นบริบทเสริมในการตอบ แต่ยังคงรักษานิสัยหลักของคุณไว้";
+        }
+        
+        // ============================================
+        // SECTION 4: กฎการใช้ภาษา
+        // ============================================
+        $language_rules = $this->getLanguageRules($language);
+        
+        // ============================================
+        // SECTION 5: กฎการตอบกลับ
+        // ============================================
+        $response_rules = $this->getResponseRules($language);
+        
+        // ============================================
+        // รวม Prompt ทั้งหมด
+        // ============================================
         $full_prompt = trim(
-            $system_prompt . "\n\n" . 
-            $perfume_knowledge . "\n\n" . 
-            $style_suggestions . 
-            $personality_text
+            $core_personality . 
+            $expertise . 
+            $user_context . 
+            "\n\n" . $language_rules . 
+            "\n\n" . $response_rules
         );
         
-        // ✅ 4. สร้าง Details เพื่อ Debug
+        // ============================================
+        // สร้าง Details เพื่อ Debug
+        // ============================================
         $details = [
-            'ai_name' => $ai_companion['ai_name'] ?? 'Unknown AI',
+            'ai_name' => $ai_name,
             'ai_code' => $ai_companion['ai_code'] ?? 'unknown',
             'language' => $language,
             'prompt_sections' => [
-                'system_prompt' => [
-                    'label' => '🤖 System Prompt (ฝั่ง Admin)',
-                    'content' => $system_prompt,
-                    'length' => mb_strlen($system_prompt)
+                'core_personality' => [
+                    'label' => '🎭 นิสัยหลัก (Admin Prompt)',
+                    'content' => $core_personality,
+                    'length' => mb_strlen($core_personality)
                 ],
                 'perfume_knowledge' => [
                     'label' => '💧 Perfume Knowledge',
@@ -394,10 +417,20 @@ class AIModelManager {
                     'length' => mb_strlen($style_suggestions)
                 ],
                 'user_personality' => [
-                    'label' => '👤 User Personality (คำตอบของ User)',
-                    'content' => $personality_text,
-                    'length' => mb_strlen($personality_text),
+                    'label' => '👤 นิสัยรอง (User Personality)',
+                    'content' => $user_context,
+                    'length' => mb_strlen($user_context),
                     'answers_count' => count($user_personality)
+                ],
+                'language_rules' => [
+                    'label' => '🌐 Language Rules',
+                    'content' => $language_rules,
+                    'length' => mb_strlen($language_rules)
+                ],
+                'response_rules' => [
+                    'label' => '📋 Response Format Rules',
+                    'content' => $response_rules,
+                    'length' => mb_strlen($response_rules)
                 ]
             ],
             'total_prompt_length' => mb_strlen($full_prompt)
@@ -407,6 +440,47 @@ class AIModelManager {
             'prompt' => $full_prompt,
             'details' => $details
         ];
+    }
+    
+    /**
+     * ✅ กฎการใช้ภาษา (บังคับใช้ภาษาที่ user เลือก)
+     */
+    private function getLanguageRules($language) {
+        $language_names = [
+            'th' => 'ภาษาไทย',
+            'en' => 'English',
+            'ja' => '日本語 (Japanese)',
+            'ko' => '한국어 (Korean)',
+            'zh' => '中文 (Chinese)'
+        ];
+        
+        $lang_name = $language_names[$language] ?? $language_names['th'];
+        
+        return "=== กฎการใช้ภาษา (LANGUAGE ENFORCEMENT) ===
+🌐 คุณ**ต้อง**ตอบเป็น{$lang_name}เท่านั้น ไม่ว่าผู้ใช้จะถามเป็นภาษาอะไร
+🌐 ห้ามเปลี่ยนภาษาเว้นแต่ผู้ใช้จะขอเปลี่ยนอย่างชัดเจน เช่น \"เปลี่ยนเป็นภาษาอังกฤษ\" หรือ \"switch to English\"
+🌐 ถ้าผู้ใช้ถามเป็นภาษาอื่น ให้ตอบเป็น{$lang_name}ตามปกติ";
+    }
+    
+    /**
+     * ✅ กฎการตอบกลับ (ห้ามใช้ ครับ/ค่ะ)
+     */
+    private function getResponseRules($language) {
+        if ($language === 'th') {
+            return "=== กฎการตอบกลับ (RESPONSE FORMAT RULES) ===
+⛔ **ห้ามใช้ \"ครับ/ค่ะ\" เด็ดขาด** - ต้องเลือกใช้อย่างใดอย่างหนึ่งเท่านั้น
+✅ ใช้ \"ครับ\" หรือ \"ค่ะ\" อย่างใดอย่างหนึ่งตลอดทั้งการสนทนา
+✅ ถ้านิสัยของคุณเป็นผู้ชาย ให้ใช้ \"ครับ\" เท่านั้น
+✅ ถ้านิสัยของคุณเป็นผู้หญิง ให้ใช้ \"ค่ะ\" เท่านั้น
+✅ ถ้าไม่ระบุเพศ ให้เลือกตามบุคลิกที่เหมาะสม แล้วใช้แบบนั้นตลอด
+📌 ตัวอย่างที่ถูก: \"สวัสดีครับ\" หรือ \"สวัสดีค่ะ\"
+⛔ ตัวอย่างที่ผิด: \"สวัสดีครับ/ค่ะ\" (ห้ามมีเครื่องหมาย / )";
+        } else {
+            return "=== RESPONSE FORMAT RULES ===
+✅ Be natural and conversational
+✅ Maintain consistent personality throughout the conversation
+✅ Adapt your tone based on user's personality profile";
+        }
     }
     
     /**
@@ -433,7 +507,6 @@ class AIModelManager {
         $safe_models = [];
         foreach ($this->models as $model) {
             $safe_model = $model;
-            // ซ่อน API Key เพื่อความปลอดภัย
             $safe_model['api_key'] = !empty($model['api_key']) ? '***ENCRYPTED***' : null;
             $safe_models[] = $safe_model;
         }

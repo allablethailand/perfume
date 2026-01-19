@@ -158,6 +158,81 @@
             color: rgba(255, 255, 255, 0.6);
         }
 
+        /* Language Selection */
+        .language-section {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 24px;
+            transition: all 0.3s;
+        }
+
+        .language-section:hover {
+            border-color: rgba(120, 119, 198, 0.3);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .language-section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .language-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+        }
+
+        .language-option {
+            background: rgba(255, 255, 255, 0.03);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .language-option:hover {
+            border-color: #7877c6;
+            background: rgba(120, 119, 198, 0.1);
+            transform: translateY(-4px);
+        }
+
+        .language-option.selected {
+            border-color: #7877c6;
+            background: rgba(120, 119, 198, 0.2);
+            box-shadow: 0 8px 20px rgba(120, 119, 198, 0.3);
+        }
+
+        .language-flag {
+            width: 48px;
+            height: 36px;
+            border-radius: 4px;
+            object-fit: cover;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .language-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .language-option.selected .language-name {
+            color: #fff;
+        }
+
         /* Questions List */
         .questions-list {
             display: flex;
@@ -500,6 +575,10 @@
                 margin-left: 0;
                 padding: 40px 30px;
             }
+
+            .language-grid {
+                grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            }
         }
 
         @media (max-width: 600px) {
@@ -513,6 +592,10 @@
 
             .question-item {
                 padding: 20px;
+            }
+
+            .language-grid {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
     </style>
@@ -544,6 +627,35 @@
             <p class="subtitle">Update your answers to personalize your AI companion</p>
         </div>
 
+        <!-- Language Selection -->
+        <div class="language-section">
+            <div class="language-section-title">
+                <i class="fas fa-globe"></i> Preferred Language
+            </div>
+            <div class="language-grid">
+                <div class="language-option" data-lang="th">
+                    <img src="https://flagcdn.com/w320/th.png" class="language-flag" alt="Thai">
+                    <span class="language-name">ไทย</span>
+                </div>
+                <div class="language-option" data-lang="en">
+                    <img src="https://flagcdn.com/w320/gb.png" class="language-flag" alt="English">
+                    <span class="language-name">English</span>
+                </div>
+                <div class="language-option" data-lang="cn">
+                    <img src="https://flagcdn.com/w320/cn.png" class="language-flag" alt="Chinese">
+                    <span class="language-name">中文</span>
+                </div>
+                <div class="language-option" data-lang="jp">
+                    <img src="https://flagcdn.com/w320/jp.png" class="language-flag" alt="Japanese">
+                    <span class="language-name">日本語</span>
+                </div>
+                <div class="language-option" data-lang="kr">
+                    <img src="https://flagcdn.com/w320/kr.png" class="language-flag" alt="Korean">
+                    <span class="language-name">한국어</span>
+                </div>
+            </div>
+        </div>
+
         <div class="questions-list" id="questionsList">
             <!-- Questions will be loaded here -->
         </div>
@@ -563,6 +675,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         const lang = urlParams.get('lang') || 'th';
         let companionId = null;
+        let currentPreferredLang = 'th';
 
         const jwt = sessionStorage.getItem('jwt');
         if (!jwt) {
@@ -579,6 +692,12 @@
                 e.preventDefault();
                 window.location.href = '?ai_chat&lang=' + lang;
             });
+
+            // Language selection
+            $('.language-option').on('click', function() {
+                const selectedLang = $(this).data('lang');
+                updatePreferredLanguage(selectedLang);
+            });
         });
 
         function loadCompanionInfo() {
@@ -590,6 +709,12 @@
                 success: function(response) {
                     if (response.status === 'success' && response.has_companion) {
                         companionId = response.data.user_companion_id;
+                        currentPreferredLang = response.data.preferred_language || 'th';
+                        
+                        // Set selected language
+                        $('.language-option').removeClass('selected');
+                        $(`.language-option[data-lang="${currentPreferredLang}"]`).addClass('selected');
+                        
                         const langCol = 'ai_name_' + lang;
                         $('#aiNameSidebar').text(response.data[langCol] || response.data.ai_name_th);
                         
@@ -601,6 +726,61 @@
                             window.location.href = '?';
                         });
                     }
+                }
+            });
+        }
+
+        function updatePreferredLanguage(selectedLang) {
+            if (selectedLang === currentPreferredLang) {
+                return; // No change
+            }
+
+            const cId = companionId || urlParams.get('companion_id');
+
+            $('#loadingOverlay .loading-text').text('Updating language...');
+            $('#loadingOverlay').addClass('active');
+
+            $.ajax({
+                url: 'app/actions/update_preferred_language.php',
+                type: 'POST',
+                headers: { 'Authorization': 'Bearer ' + jwt },
+                data: {
+                    user_companion_id: cId,
+                    preferred_language: selectedLang
+                },
+                dataType: 'json',
+                success: function(response) {
+                    $('#loadingOverlay').removeClass('active');
+                    $('#loadingOverlay .loading-text').text('Saving changes...');
+                    
+                    if (response.status === 'success') {
+                        currentPreferredLang = selectedLang;
+                        $('.language-option').removeClass('selected');
+                        $(`.language-option[data-lang="${selectedLang}"]`).addClass('selected');
+                        
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Updated!',
+                            text: 'Language preference updated successfully',
+                            timer: 1500,
+                            showConfirmButton: false,
+                            background: '#1a1a1a',
+                            color: '#fff'
+                        });
+                    } else {
+                        Swal.fire('Error!', response.message || 'Failed to update language', 'error');
+                        // Revert selection
+                        $('.language-option').removeClass('selected');
+                        $(`.language-option[data-lang="${currentPreferredLang}"]`).addClass('selected');
+                    }
+                },
+                error: function() {
+                    $('#loadingOverlay').removeClass('active');
+                    $('#loadingOverlay .loading-text').text('Saving changes...');
+                    Swal.fire('Error!', 'Failed to update language', 'error');
+                    // Revert selection
+                    $('.language-option').removeClass('selected');
+                    $(`.language-option[data-lang="${currentPreferredLang}"]`).addClass('selected');
                 }
             });
         }
@@ -707,10 +887,6 @@
             } else if (item.question_type === 'scale') {
                 inputHtml = `
                     <div class="scale-container">
-                        <div class="scale-labels">
-                            <span>Strongly Disagree</span>
-                            <span>Strongly Agree</span>
-                        </div>
                         <div class="scale-options">
                 `;
                 for (let i = 1; i <= 5; i++) {

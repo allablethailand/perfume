@@ -4,6 +4,8 @@
  * 
  * Endpoint สำหรับส่งข้อความและรับคำตอบจาก AI
  * POST: /app/actions/ai_chat.php
+ * 
+ * ✅ เพิ่มฟีเจอร์ dump_prompt เพื่อดูข้อมูลที่ส่งไปยัง AI
  */
 
 require_once('../../lib/connect.php');
@@ -48,6 +50,9 @@ $conversation_id = isset($input['conversation_id']) ? intval($input['conversatio
 $user_message = isset($input['message']) ? trim($input['message']) : '';
 $language = isset($input['language']) ? $input['language'] : 'th';
 
+// ✅ เพิ่ม parameter สำหรับ dump prompt (สำหรับ debug)
+$dump_prompt = isset($input['dump_prompt']) ? (bool)$input['dump_prompt'] : false;
+
 // Validate
 if (empty($user_message)) {
     echo json_encode([
@@ -62,9 +67,9 @@ try {
     
     // ✅ ถ้าไม่มี conversation_id ให้สร้างใหม่
     if ($conversation_id === 0) {
-        // ดึง user_companion_id ของ user นี้
+        // ดึง user_companion_id ของ user นี้ พร้อม preferred_language
         $companion_stmt = $conn->prepare("
-            SELECT user_companion_id, ai_id 
+            SELECT user_companion_id, ai_id, preferred_language 
             FROM user_ai_companions 
             WHERE user_id = ? AND status = 1 AND del = 0
             ORDER BY last_active_at DESC
@@ -81,6 +86,8 @@ try {
         $companion_data = $companion_result->fetch_assoc();
         $user_companion_id = $companion_data['user_companion_id'];
         $ai_id = $companion_data['ai_id'];
+        // ✅ ใช้ภาษาที่ user เลือกไว้ (ถ้ามี) หรือใช้ค่าที่ส่งมา
+        $language = !empty($companion_data['preferred_language']) ? $companion_data['preferred_language'] : $language;
         $companion_stmt->close();
         
         // สร้าง conversation ใหม่
@@ -95,12 +102,13 @@ try {
         $conversation_id = $conn->insert_id;
         $conv_stmt->close();
     } else {
-        // ดึงข้อมูล conversation ที่มีอยู่
+        // ดึงข้อมูล conversation ที่มีอยู่ พร้อม preferred_language
         $conv_stmt = $conn->prepare("
             SELECT 
                 c.user_companion_id, 
                 c.language_used,
-                uc.ai_id
+                uc.ai_id,
+                uc.preferred_language
             FROM ai_chat_conversations c
             INNER JOIN user_ai_companions uc ON c.user_companion_id = uc.user_companion_id
             WHERE c.conversation_id = ? AND uc.user_id = ? AND c.is_active = 1
@@ -116,7 +124,9 @@ try {
         $conv_data = $conv_result->fetch_assoc();
         $user_companion_id = $conv_data['user_companion_id'];
         $ai_id = $conv_data['ai_id'];
-        $language = $conv_data['language_used'];
+        // ✅ ใช้ภาษาจาก conversation (ถ้ามี) หรือใช้ preferred_language
+        $language = !empty($conv_data['language_used']) ? $conv_data['language_used'] : 
+                   (!empty($conv_data['preferred_language']) ? $conv_data['preferred_language'] : $language);
         $conv_stmt->close();
     }
     
@@ -177,13 +187,13 @@ try {
     }
     $personality_stmt->close();
     
-    // ✅ ดึงประวัติการแชท (20 ข้อความล่าสุด)
+    // ✅ ดึงประวัติการแชท (10 ข้อความล่าสุด)
     $history_stmt = $conn->prepare("
         SELECT role, message_text 
         FROM ai_chat_history 
         WHERE conversation_id = ? 
         ORDER BY created_at ASC 
-        LIMIT 20
+        LIMIT 10
     ");
     $history_stmt->bind_param('i', $conversation_id);
     $history_stmt->execute();
@@ -209,6 +219,33 @@ try {
     // เพิ่มประวัติการแชท
     $formatted_history = $aiManager->formatConversationHistory($chat_history, 10);
     $messages = array_merge($messages, $formatted_history);
+    
+    // ✅ ถ้าต้องการ dump prompt ให้ return ทันที (ไม่ส่งไปยัง AI)
+    if ($dump_prompt) {
+        $conn->rollback(); // ยกเลิกการบันทึกข้อความ
+        
+        echo json_encode([
+            'status' => 'success',
+            'dump_mode' => true,
+            'conversation_id' => $conversation_id,
+            'ai_companion' => [
+                'ai_id' => $ai_companion['ai_id'],
+                'ai_code' => $ai_companion['ai_code'],
+                'ai_name' => $ai_companion['ai_name']
+            ],
+            'user_personality_count' => count($user_personality),
+            'chat_history_count' => count($chat_history),
+            'prompt_details' => $prompt_details,
+            'messages_to_send' => $messages,
+            'message_structure' => [
+                'total_messages' => count($messages),
+                'system_message_length' => mb_strlen($messages[0]['content']),
+                'history_messages' => count($formatted_history),
+                'estimated_tokens' => intval(mb_strlen(json_encode($messages)) / 4) // ประมาณการ
+            ]
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     
     // ✅ ส่งไปยัง AI (พร้อม Fallback System)
     $ai_response = $aiManager->chat($messages, [
