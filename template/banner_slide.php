@@ -4,7 +4,7 @@ $imagesItems = [
     [
         'type' => 'video',
         'src' => 'public/ai_videos/video_696db72785bea_1768797991.mp4',
-        'duration' => 15 // กำหนดความยาววิดีโอเป็นวินาที
+        'duration' => 14 // กำหนดความยาววิดีโอเป็นวินาที
     ],
     [
         'type' => 'image',
