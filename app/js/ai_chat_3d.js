@@ -1,8 +1,6 @@
 /**
  * AI Chat 3D - Pastel Cyberpunk Sheep Character
  * ตัวละครแกะสีพาสเทลสไตล์ cyberpunk เหมือนในรูป
- * 
- * ✅ UPDATED: ปรับปรุงการออกเสียงภาษาไทยให้ใช้ Web Speech API โดยตรง
  */
 
 let currentConversationId = 0;
@@ -537,19 +535,13 @@ function showMessage(text) {
     $('#currentMessage').fadeIn();
 }
 
-/**
- * ✅ UPDATED: ปรับปรุงการออกเสียง - ภาษาไทยใช้ Web Speech API
- */
 function speakText(text) {
     let langCode = 'th';
     let detectedLang = 'Thai';
-    let useBrowserTTS = false; // บอกว่าจะใช้ Browser TTS หรือไม่
     
-    // ตรวจจับภาษา
     if (/[\u0E00-\u0E7F]/.test(text)) {
-        langCode = 'th-TH';
+        langCode = 'th';
         detectedLang = 'Thai';
-        useBrowserTTS = true; // ภาษาไทยใช้ Web Speech API
     } else if (/[\u4E00-\u9FFF]/.test(text)) {
         langCode = 'zh-CN';
         detectedLang = 'Chinese';
@@ -560,20 +552,13 @@ function speakText(text) {
         langCode = 'ko';
         detectedLang = 'Korean';
     } else {
-        langCode = 'en-US';
+        langCode = 'en';
         detectedLang = 'English';
     }
     
     isSpeaking = true;
     updateStatus('Speaking in ' + detectedLang + '...', true);
     
-    // ถ้าเป็นภาษาไทย ใช้ Web Speech API โดยตรง
-    if (useBrowserTTS) {
-        speakWithWebSpeech(text, langCode, detectedLang);
-        return;
-    }
-    
-    // ภาษาอื่นๆ ใช้ Google TTS ตามปกติ
     const maxLength = 200;
     const chunks = [];
     
@@ -597,103 +582,6 @@ function speakText(text) {
     playGoogleTTSChunks(chunks, 0, langCode);
 }
 
-/**
- * ✅ NEW: ฟังก์ชันสำหรับออกเสียงด้วย Web Speech API (เหมาะกับภาษาไทย)
- */
-function speakWithWebSpeech(text, langCode, detectedLang) {
-    if (!window.speechSynthesis) {
-        isSpeaking = false;
-        updateStatus('Ready to chat', false);
-        
-        Swal.fire({
-            icon: 'warning',
-            title: 'TTS Not Available',
-            text: 'Text-to-speech is not available in this browser. Please use Chrome, Edge, or Safari.',
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 4000
-        });
-        return;
-    }
-    
-    // หยุดเสียงเก่า (ถ้ามี)
-    window.speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = langCode;
-    
-    // ปรับค่าสำหรับภาษาไทยให้ฟังชัดขึ้น
-    if (langCode === 'th-TH') {
-        utterance.rate = 0.9;  // พูดช้าลงเล็กน้อย
-        utterance.pitch = 1.1; // เสียงสูงขึ้นเล็กน้อย
-        utterance.volume = 1.0;
-        
-        // พยายามเลือกเสียงภาษาไทย (ถ้ามี)
-        const voices = window.speechSynthesis.getVoices();
-        const thaiVoice = voices.find(voice => 
-            voice.lang.startsWith('th') || 
-            voice.lang.includes('TH') ||
-            voice.name.toLowerCase().includes('thai')
-        );
-        
-        if (thaiVoice) {
-            utterance.voice = thaiVoice;
-            console.log('Using Thai voice:', thaiVoice.name);
-        } else {
-            console.log('No Thai voice found, using default');
-        }
-    } else {
-        utterance.rate = 0.85;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
-    }
-    
-    utterance.onstart = function() {
-        isSpeaking = true;
-        console.log('🎤 Started speaking:', detectedLang);
-    };
-    
-    utterance.onend = function() {
-        isSpeaking = false;
-        updateStatus('Ready to chat', false);
-        $('#currentMessage').fadeOut();
-        if (mouth) mouth.scale.y = 1;
-        console.log('✅ Finished speaking');
-    };
-    
-    utterance.onerror = function(event) {
-        console.error('❌ TTS Error:', event.error);
-        isSpeaking = false;
-        updateStatus('Ready to chat', false);
-        
-        if (event.error !== 'interrupted') {
-            Swal.fire({
-                icon: 'error',
-                title: 'Speech Error',
-                text: 'Failed to speak: ' + event.error,
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000
-            });
-        }
-    };
-    
-    // เริ่มพูด
-    window.speechSynthesis.speak(utterance);
-    
-    // เพิ่มการป้องกัน Chrome bug ที่หยุดพูดเอง
-    const keepAlive = setInterval(() => {
-        if (!isSpeaking) {
-            clearInterval(keepAlive);
-            return;
-        }
-        window.speechSynthesis.pause();
-        window.speechSynthesis.resume();
-    }, 10000);
-}
-
 let currentAudio = null;
 
 function playGoogleTTSChunks(chunks, index, langCode) {
@@ -713,7 +601,6 @@ function playGoogleTTSChunks(chunks, index, langCode) {
     
     currentAudio.oncanplaythrough = function() {
         this.play().catch(err => {
-            console.error('Audio play error:', err);
             playGoogleTTSChunks(chunks, index + 1, langCode);
         });
     };
@@ -729,7 +616,6 @@ function playGoogleTTSChunks(chunks, index, langCode) {
     };
     
     currentAudio.onerror = function(e) {
-        console.error('Google TTS failed, falling back to Web Speech');
         fallbackToWebSpeech(chunks.join(' '), langCode);
     };
     
@@ -738,23 +624,50 @@ function playGoogleTTSChunks(chunks, index, langCode) {
 }
 
 function fallbackToWebSpeech(text, langCode) {
-    // แปลง language code สำหรับ Web Speech API
-    const langMap = {
-        'th': 'th-TH',
-        'zh-CN': 'zh-CN',
-        'ja': 'ja-JP',
-        'ko': 'ko-KR',
-        'en': 'en-US',
-        'en-US': 'en-US'
+    if (!window.speechSynthesis) {
+        isSpeaking = false;
+        updateStatus('Ready to chat', false);
+        
+        Swal.fire({
+            icon: 'warning',
+            title: 'TTS Not Available',
+            text: 'Text-to-speech is not available. Please try using Chrome or Edge browser.',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 4000
+        });
+        return;
+    }
+    
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = langCode === 'th' ? 'th-TH' : 
+                     langCode === 'zh-CN' ? 'zh-CN' :
+                     langCode === 'ja' ? 'ja-JP' :
+                     langCode === 'ko' ? 'ko-KR' : 'en-US';
+    utterance.rate = 0.85;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    
+    utterance.onstart = function() {
+        isSpeaking = true;
     };
     
-    const mappedLang = langMap[langCode] || langCode;
-    const detectedLang = langCode === 'th' || langCode === 'th-TH' ? 'Thai' :
-                         langCode === 'zh-CN' ? 'Chinese' :
-                         langCode === 'ja' || langCode === 'ja-JP' ? 'Japanese' :
-                         langCode === 'ko' || langCode === 'ko-KR' ? 'Korean' : 'English';
+    utterance.onend = function() {
+        isSpeaking = false;
+        updateStatus('Ready to chat', false);
+        $('#currentMessage').fadeOut();
+        if (mouth) mouth.scale.y = 1;
+    };
     
-    speakWithWebSpeech(text, mappedLang, detectedLang);
+    utterance.onerror = function(event) {
+        isSpeaking = false;
+        updateStatus('Ready to chat', false);
+    };
+    
+    window.speechSynthesis.speak(utterance);
 }
 
 function updateStatus(text, speaking) {
@@ -775,11 +688,6 @@ function createNewChat() {
     
     if (window.speechSynthesis) {
         window.speechSynthesis.cancel();
-    }
-    
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio = null;
     }
     
     updateStatus('Ready to chat', false);
