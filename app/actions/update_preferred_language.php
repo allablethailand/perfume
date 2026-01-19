@@ -35,12 +35,22 @@ if (!$decoded) {
 
 $user_id = isset($decoded->data->user_id) ? intval($decoded->data->user_id) : null;
 $user_companion_id = $_POST['user_companion_id'] ?? null;
-$question_id = $_POST['question_id'] ?? null;
+$preferred_language = $_POST['preferred_language'] ?? null;
 
-if (!$user_companion_id || !$question_id) {
+if (!$user_companion_id || !$preferred_language) {
     echo json_encode([
         'status' => 'error',
         'message' => 'Missing required parameters'
+    ]);
+    exit;
+}
+
+// Validate language
+$valid_languages = ['th', 'en', 'cn', 'jp', 'kr'];
+if (!in_array($preferred_language, $valid_languages)) {
+    echo json_encode([
+        'status' => 'error',
+        'message' => 'Invalid language'
     ]);
     exit;
 }
@@ -68,59 +78,24 @@ try {
     }
     $stmt->close();
 
-    // ตรวจสอบว่ามีคำตอบเดิมอยู่หรือไม่
+    // อัพเดทภาษา
     $stmt = $conn->prepare("
-        SELECT answer_id 
-        FROM user_personality_answers 
-        WHERE user_companion_id = ? 
-        AND question_id = ?
+        UPDATE user_ai_companions 
+        SET preferred_language = ?
+        WHERE user_companion_id = ?
     ");
-    $stmt->bind_param("ii", $user_companion_id, $question_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    $is_update = $result->num_rows > 0;
-    
-    if ($is_update) {
-        $answer_row = $result->fetch_assoc();
-        $answer_id = $answer_row['answer_id'];
-    }
-    $stmt->close();
-
-    // เตรียมข้อมูลสำหรับ update/insert
-    $choice_id = isset($_POST['choice_id']) ? $_POST['choice_id'] : null;
-    $text_answer = isset($_POST['text_answer']) ? $_POST['text_answer'] : null;
-    $scale_value = isset($_POST['scale_value']) ? $_POST['scale_value'] : null;
-    
-    if ($is_update) {
-        // UPDATE existing answer
-        $stmt = $conn->prepare("
-            UPDATE user_personality_answers 
-            SET choice_id = ?, 
-                text_answer = ?, 
-                scale_value = ?
-            WHERE answer_id = ?
-        ");
-        $stmt->bind_param("isii", $choice_id, $text_answer, $scale_value, $answer_id);
-    } else {
-        // INSERT new answer
-        $stmt = $conn->prepare("
-            INSERT INTO user_personality_answers 
-            (user_companion_id, question_id, choice_id, text_answer, scale_value, answered_at)
-            VALUES (?, ?, ?, ?, ?, NOW())
-        ");
-        $stmt->bind_param("iiisi", $user_companion_id, $question_id, $choice_id, $text_answer, $scale_value);
-    }
+    $stmt->bind_param("si", $preferred_language, $user_companion_id);
     
     if ($stmt->execute()) {
         echo json_encode([
             'status' => 'success',
-            'message' => 'Answer updated successfully'
+            'message' => 'Language preference updated successfully',
+            'preferred_language' => $preferred_language
         ]);
     } else {
         echo json_encode([
             'status' => 'error',
-            'message' => 'Failed to update answer'
+            'message' => 'Failed to update language preference'
         ]);
     }
     
