@@ -13,10 +13,6 @@ $imagesItems = [
         'type' => 'image',
         'src' => 'public/product_images/69606aab3b72e_1767926443.jpg'
     ],
-    [
-        'type' => 'image',
-        'src' => 'public/product_images/695df1d5afe5d_1767764437.jpg'
-    ],
 ];
 
 // Preload first image for LCP optimization
