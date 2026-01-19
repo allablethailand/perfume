@@ -3,7 +3,7 @@
 $imagesItems = [
     [
         'type' => 'video',
-        'src' => 'public/product_images/freepik_ultrarealistic_cinematic_commercial_video_based_on_kling.mp4'
+        'src' => 'public/ai_videos/video_696d992f4f2d9_1768790319.mp4'
     ],
     [
         'type' => 'image',
