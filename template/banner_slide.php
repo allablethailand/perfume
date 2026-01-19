@@ -333,12 +333,19 @@ function ht($key, $lang) {
     }
 
     function showSlide(index) {
+        // Clear any existing interval
+        if (autoSlideInterval) {
+            clearInterval(autoSlideInterval);
+            autoSlideInterval = null;
+        }
+        
         // Stop all videos and reset
         slides.forEach(slide => {
             const video = slide.querySelector('.hero-video');
             if (video) {
                 video.pause();
                 video.currentTime = 0;
+                video.onended = null; // Remove old event listeners
             }
             slide.classList.remove('active');
         });
@@ -357,31 +364,55 @@ function ht($key, $lang) {
         // Animate progress bar
         const progress = dots[index].querySelector('.hero-dot-progress');
         progress.style.animation = 'none';
-        // Trigger reflow
-        void progress.offsetWidth;
+        void progress.offsetWidth; // Trigger reflow
         progress.style.animation = `progressBar ${duration}ms linear forwards`;
         
-        // Handle video
+        // Check if current slide is video or image
         const video = slides[index].querySelector('.hero-video');
+        
         if (video) {
+            // Handle VIDEO
             currentVideo = video;
-            
-            // Ensure video is ready
-            video.load();
             
             const playPromise = video.play();
             if (playPromise !== undefined) {
                 playPromise.catch(e => {
                     console.log('Video autoplay prevented:', e);
+                    // If video can't play, use fallback timer
+                    autoSlideInterval = setTimeout(nextSlide, duration);
                 });
             }
             
-            // Set video end handler - transition when video actually ends
+            // Use BOTH timeupdate and ended events for reliability
+            let videoTransitioned = false;
+            
             video.onended = () => {
-                if (!isPaused) {
+                if (!isPaused && !videoTransitioned) {
+                    videoTransitioned = true;
                     nextSlide();
                 }
             };
+            
+            // Fallback: check video time periodically
+            video.ontimeupdate = () => {
+                // When video is near the end (within 0.5s), transition
+                if (video.duration - video.currentTime < 0.5 && !videoTransitioned && !isPaused) {
+                    videoTransitioned = true;
+                    nextSlide();
+                }
+            };
+            
+            // Safety fallback: use duration as absolute maximum
+            autoSlideInterval = setTimeout(() => {
+                if (!videoTransitioned && !isPaused) {
+                    videoTransitioned = true;
+                    nextSlide();
+                }
+            }, duration + 500); // Add 500ms buffer
+            
+        } else {
+            // Handle IMAGE - use simple timer
+            autoSlideInterval = setTimeout(nextSlide, duration);
         }
     }
 
@@ -390,36 +421,14 @@ function ht($key, $lang) {
         showSlide(currentSlide);
     }
 
-    function startAutoSlide() {
-        if (autoSlideInterval) {
-            clearInterval(autoSlideInterval);
-        }
-        
-        const currentSlideDuration = parseInt(slides[currentSlide].dataset.duration);
-        
-        // Only set interval for images, videos handle their own timing
-        if (slides[currentSlide].dataset.type === 'image') {
-            autoSlideInterval = setInterval(nextSlide, currentSlideDuration);
-        } else {
-            // For videos, clear any existing interval
-            // The video's onended event will trigger nextSlide()
-            if (autoSlideInterval) {
-                clearInterval(autoSlideInterval);
-                autoSlideInterval = null;
-            }
-        }
-    }
-
     // Initialize first slide
     showSlide(currentSlide);
-    startAutoSlide();
 
     // Dot navigation
     dots.forEach((dot, index) => {
         dot.addEventListener('click', () => {
             currentSlide = index;
             showSlide(currentSlide);
-            startAutoSlide();
         });
     });
 
