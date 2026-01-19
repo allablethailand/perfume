@@ -93,7 +93,7 @@ function ht($key, $lang) {
     }
 
     .hero {
-        height: 90vh;
+        height: 110vh;
         position: relative;
         overflow: hidden;
         background: var(--luxury-black);
