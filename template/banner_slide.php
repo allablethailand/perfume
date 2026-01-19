@@ -3,15 +3,18 @@
 $imagesItems = [
     [
         'type' => 'video',
-        'src' => 'public/ai_videos/video_696db72785bea_1768797991.mp4'
+        'src' => 'public/ai_videos/video_696db72785bea_1768797991.mp4',
+        'duration' => 14 // Duration in seconds
     ],
     [
         'type' => 'image',
-        'src' => 'public/product_images/696089dc2fa56_1767934428.jpg'
+        'src' => 'public/product_images/696089dc2fa56_1767934428.jpg',
+        'duration' => 5 // Duration in seconds
     ],
     [
         'type' => 'image',
-        'src' => 'public/product_images/69606aab3b72e_1767926443.jpg'
+        'src' => 'public/product_images/69606aab3b72e_1767926443.jpg',
+        'duration' => 5 // Duration in seconds
     ],
 ];
 
@@ -207,10 +210,38 @@ function ht($key, $lang) {
         transition: all 0.4s ease;
         border: none;
         padding: 0;
+        position: relative;
+        overflow: hidden;
     }
 
     .hero-dot.active {
-        background: white;
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* Progress bar animation - ขวาไปซ้าย */
+    .hero-dot-progress {
+        position: absolute;
+        top: 0;
+        right: 0;
+        height: 100%;
+        width: 0;
+        background: rgba(255, 255, 255, 1);
+        transition: none;
+    }
+
+    .hero-dot.active .hero-dot-progress {
+        animation: progressBar linear forwards;
+    }
+
+    @keyframes progressBar {
+        from {
+            width: 0;
+            right: 0;
+        }
+        to {
+            width: 100%;
+            right: 0;
+        }
     }
 
     /* Responsive */
@@ -229,7 +260,9 @@ function ht($key, $lang) {
 <section class="hero">
     <div class="hero-slider">
         <?php foreach ($imagesItems as $index => $item): ?>
-            <div class="hero-slide <?= ($index === 0) ? 'active' : '' ?>" data-type="<?= $item['type'] ?>">
+            <div class="hero-slide <?= ($index === 0) ? 'active' : '' ?>" 
+                 data-type="<?= $item['type'] ?>"
+                 data-duration="<?= $item['duration'] ?>">
                 <?php if ($item['type'] === 'image'): ?>
                     <?php
                         $loading_attribute = ($index === 0) ? 'loading="eager"' : 'loading="lazy"';
@@ -249,6 +282,7 @@ function ht($key, $lang) {
                         muted 
                         loop 
                         playsinline
+                        preload="auto"
                         <?= ($index === 0) ? 'autoplay' : '' ?>>
                         <source src="<?= $item['src'] ?>" type="video/mp4">
                     </video>
@@ -268,7 +302,9 @@ function ht($key, $lang) {
 
     <div class="hero-nav">
         <?php foreach ($imagesItems as $index => $item): ?>
-            <span class="hero-dot <?= ($index === 0) ? 'active' : '' ?>"></span>
+            <span class="hero-dot <?= ($index === 0) ? 'active' : '' ?>">
+                <span class="hero-dot-progress"></span>
+            </span>
         <?php endforeach; ?>
     </div>
 </section>
@@ -279,9 +315,15 @@ function ht($key, $lang) {
     const slides = document.querySelectorAll('.hero-slide');
     const dots = document.querySelectorAll('.hero-dot');
     const totalSlides = slides.length;
-    let autoSlideInterval;
+    let autoSlideTimeout;
+    let isPaused = false;
 
     function showSlide(index) {
+        // Clear any existing timeout
+        if (autoSlideTimeout) {
+            clearTimeout(autoSlideTimeout);
+        }
+
         // Pause all videos
         slides.forEach(slide => {
             const video = slide.querySelector('.hero-video');
@@ -292,19 +334,55 @@ function ht($key, $lang) {
             slide.classList.remove('active');
         });
         
-        dots.forEach(dot => dot.classList.remove('active'));
+        dots.forEach(dot => {
+            dot.classList.remove('active');
+            // Reset progress bar
+            const progress = dot.querySelector('.hero-dot-progress');
+            if (progress) {
+                progress.style.animation = 'none';
+                progress.offsetHeight; // Trigger reflow
+            }
+        });
         
         // Show current slide
         slides[index].classList.add('active');
         dots[index].classList.add('active');
         
+        // Get duration from data attribute
+        const duration = parseInt(slides[index].getAttribute('data-duration')) * 1000; // Convert to milliseconds
+        
+        // Set progress bar animation duration
+        const progress = dots[index].querySelector('.hero-dot-progress');
+        if (progress) {
+            progress.style.animationDuration = duration + 'ms';
+        }
+        
         // Play video if current slide is video
         const currentVideo = slides[index].querySelector('.hero-video');
         if (currentVideo) {
-            currentVideo.play().catch(e => console.log('Video autoplay failed:', e));
+            // Ensure video is ready
+            currentVideo.load();
+            
+            // Play with better error handling
+            const playPromise = currentVideo.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(e => {
+                    console.log('Video autoplay prevented:', e);
+                    // Try to play with user interaction
+                    document.addEventListener('click', function playOnClick() {
+                        currentVideo.play();
+                        document.removeEventListener('click', playOnClick);
+                    }, { once: true });
+                });
+            }
         }
         
-        // document.querySelector('.current').textContent = String(index + 1).padStart(2, '0');
+        // Schedule next slide based on duration
+        if (!isPaused) {
+            autoSlideTimeout = setTimeout(() => {
+                nextSlide();
+            }, duration);
+        }
     }
 
     function nextSlide() {
@@ -312,34 +390,57 @@ function ht($key, $lang) {
         showSlide(currentSlide);
     }
 
-    function startAutoSlide() {
-        if (autoSlideInterval) {
-            clearInterval(autoSlideInterval);
-        }
-        autoSlideInterval = setInterval(nextSlide, 5000);
-    }
-
-    // Start auto slide
-    startAutoSlide();
+    // Initialize first slide
+    showSlide(0);
 
     // Dot navigation
     dots.forEach((dot, index) => {
         dot.addEventListener('click', () => {
             currentSlide = index;
             showSlide(currentSlide);
-            startAutoSlide(); // Restart auto slide on manual navigation
         });
     });
 
-    // Pause auto-slide when user interacts
+    // Pause/Resume on hover
     document.querySelector('.hero-slider').addEventListener('mouseenter', () => {
-        if (autoSlideInterval) {
-            clearInterval(autoSlideInterval);
+        isPaused = true;
+        if (autoSlideTimeout) {
+            clearTimeout(autoSlideTimeout);
+        }
+        // Pause progress bar animation
+        const activeDot = document.querySelector('.hero-dot.active .hero-dot-progress');
+        if (activeDot) {
+            activeDot.style.animationPlayState = 'paused';
         }
     });
 
     document.querySelector('.hero-slider').addEventListener('mouseleave', () => {
-        startAutoSlide();
+        isPaused = false;
+        // Resume progress bar animation
+        const activeDot = document.querySelector('.hero-dot.active .hero-dot-progress');
+        if (activeDot) {
+            activeDot.style.animationPlayState = 'running';
+        }
+        
+        // Calculate remaining time and schedule next slide
+        const duration = parseInt(slides[currentSlide].getAttribute('data-duration')) * 1000;
+        autoSlideTimeout = setTimeout(() => {
+            nextSlide();
+        }, duration);
+    });
+
+    // Handle video ended event (in case loop fails)
+    slides.forEach(slide => {
+        const video = slide.querySelector('.hero-video');
+        if (video) {
+            video.addEventListener('ended', () => {
+                if (slide.classList.contains('active')) {
+                    // Restart video smoothly
+                    video.currentTime = 0;
+                    video.play();
+                }
+            });
+        }
     });
 })();
 </script>
