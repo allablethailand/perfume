@@ -302,7 +302,7 @@ function ht($key, $lang) {
         <p class="hero-description">
             <?= ht('description', $lang) ?>
         </p>
-        <a href="#" class="hero-cta"><?= ht('cta', $lang) ?></a>
+       <a href="?product&lang=<?= $lang ?>" class="hero-cta"><?= ht('cta', $lang) ?></a>
     </div>
 
     <div class="hero-nav">
