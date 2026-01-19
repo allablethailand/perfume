@@ -45,14 +45,22 @@ if ($result->num_rows === 0) {
 $ai = $result->fetch_assoc();
 $stmt->close();
 
-// Get products for dropdown
-$products_query = "SELECT product_id, name_th, name_en FROM products WHERE del = 0 ORDER BY name_th";
-$products_result = $conn->query($products_query);
+$products_query = "
+    SELECT p.product_id, p.name_th, p.name_en 
+    FROM products p
+    LEFT JOIN ai_companions ai ON p.product_id = ai.product_id AND ai.del = 0 AND ai.ai_id != ?
+    WHERE p.del = 0 
+    AND (ai.ai_id IS NULL OR p.product_id = ?)
+    ORDER BY p.name_th
+";
+$stmt = $conn->prepare($products_query);
+$stmt->bind_param("ii", $ai_id, $ai['product_id']);
+$stmt->execute();
+$products_result = $stmt->get_result();
 $products = [];
 while ($row = $products_result->fetch_assoc()) {
     $products[] = $row;
 }
-
 include '../template/header.php';
 ?>
 
@@ -83,17 +91,22 @@ include '../template/header.php';
                             </div>
                             <div class="card-body">
                                 
-                                <!-- Product Selection -->
+                                <!-- HTML Form for Edit -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-box"></i> Select Product (Perfume) *</label>
                                     <select class="form-control" id="product_id" name="product_id" required>
                                         <option value="">-- Select Product --</option>
                                         <?php foreach ($products as $prod): ?>
-                                            <option value="<?= $prod['product_id'] ?>" <?= $ai['product_id'] == $prod['product_id'] ? 'selected' : '' ?>>
+                                            <option value="<?= $prod['product_id'] ?>" 
+                                                    <?= $ai['product_id'] == $prod['product_id'] ? 'selected' : '' ?>>
                                                 <?= htmlspecialchars($prod['name_th']) ?> (<?= htmlspecialchars($prod['name_en']) ?>)
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Each product can only have one AI Companion
+                                    </small>
                                 </div>
 
                                 <!-- AI Code -->

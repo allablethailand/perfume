@@ -40,7 +40,14 @@ if (isset($_GET['lang'])) {
 }
 
 // Get products for dropdown
-$products_query = "SELECT product_id, name_th, name_en FROM products WHERE del = 0 ORDER BY name_th";
+$products_query = "
+    SELECT p.product_id, p.name_th, p.name_en 
+    FROM products p
+    LEFT JOIN ai_companions ai ON p.product_id = ai.product_id AND ai.del = 0
+    WHERE p.del = 0 
+    AND ai.ai_id IS NULL
+    ORDER BY p.name_th
+";
 $products_result = $conn->query($products_query);
 $products = [];
 while ($row = $products_result->fetch_assoc()) {
