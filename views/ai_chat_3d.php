@@ -278,7 +278,7 @@ if (session_status() == PHP_SESSION_NONE) {
         .new-chat-btn {
             width: 100%;
             padding: 12px;
-            background: linear-gradient(135deg, #000000 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #fff;
             border: none;
             border-radius: 8px;
@@ -378,7 +378,7 @@ if (session_status() == PHP_SESSION_NONE) {
             
             <div class="sidebar-footer">
                 <button class="mode-toggle-btn" onclick="window.location.href='?ai_chat&lang=<?php echo $_GET['lang'] ?? 'th'; ?>'">
-                    <i class="fas fa-comments"></i> Switch to Chat Mode
+                    <i class="fas fa-comments"></i> Switch to 2D Mode
                 </button>
                 <button class="edit-prompts-btn" onclick="window.location.href='?ai_edit_prompts&lang=<?php echo $_GET['lang'] ?? 'th'; ?>'">
                     <i class="fas fa-cog"></i> Edit Preferences
@@ -426,5 +426,56 @@ if (session_status() == PHP_SESSION_NONE) {
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="app/js/ai_chat_3d.js?v=<?php echo time(); ?>"></script>
+    <script>
+        // แสดง available voices เมื่อโหลดหน้า
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                if (window.speechSynthesis) {
+                    const voices = window.speechSynthesis.getVoices();
+                    
+                    if (voices.length > 0) {
+                        console.log('=== 🎤 TEXT-TO-SPEECH VOICES ===');
+                        console.log('Total voices:', voices.length);
+                        
+                        // จัดกลุ่มตามภาษา
+                        const languages = {
+                            'Thai': voices.filter(v => v.lang.startsWith('th')),
+                            'Chinese': voices.filter(v => v.lang.startsWith('zh')),
+                            'Japanese': voices.filter(v => v.lang.startsWith('ja')),
+                            'Korean': voices.filter(v => v.lang.startsWith('ko')),
+                            'English': voices.filter(v => v.lang.startsWith('en'))
+                        };
+                        
+                        Object.keys(languages).forEach(lang => {
+                            if (languages[lang].length > 0) {
+                                console.log(`✅ ${lang}:`, languages[lang].map(v => v.name).join(', '));
+                            } else {
+                                console.warn(`⚠️ ${lang}: No voices available`);
+                            }
+                        });
+                        
+                        console.log('================================');
+                        
+                        // แจ้งเตือนถ้าไม่มีเสียงไทย
+                        if (languages['Thai'].length === 0) {
+                            console.warn('⚠️ Thai voice not found!');
+                            console.warn('💡 Recommendation: Use Chrome or Edge browser for Thai language support');
+                        }
+                    } else {
+                        console.warn('⚠️ No voices loaded yet. They may load later.');
+                    }
+                } else {
+                    console.error('❌ Web Speech API not supported in this browser');
+                }
+            }, 1000);
+            
+            // รอ voices โหลด (สำหรับบาง browser)
+            if (window.speechSynthesis.onvoiceschanged !== undefined) {
+                window.speechSynthesis.onvoiceschanged = function() {
+                    console.log('🔄 Voices changed/loaded');
+                };
+            }
+        });
+    </script>
 </body>
 </html>
