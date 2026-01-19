@@ -1,17 +1,14 @@
 /**
- * AI Chat 3D JavaScript
- * 
- * จัดการ 3D Avatar, Text-to-Speech และการสื่อสารกับ API
+ * AI Chat 3D - Pastel Cyberpunk Sheep Character
+ * ตัวละครแกะสีพาสเทลสไตล์ cyberpunk เหมือนในรูป
  */
 
 let currentConversationId = 0;
 const jwt = sessionStorage.getItem("jwt");
 
-// Three.js variables
-let scene, camera, renderer, avatar, mouth;
+let scene, camera, renderer, avatar, mouth, leftEye, rightEye, leftEyePupil, rightEyePupil;
 let isSpeaking = false;
 
-// ✅ เริ่มต้น
 $(document).ready(function() {
     if (!jwt) {
         window.location.href = '?login';
@@ -21,143 +18,391 @@ $(document).ready(function() {
     init3DAvatar();
     loadConversations();
     
-    // Auto-resize textarea
     $('#messageInput').on('input', function() {
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
     });
 });
 
-// ✅ สร้าง 3D Avatar
 function init3DAvatar() {
     const canvas = document.getElementById('avatarCanvas');
     
-    // Scene
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x1a1a2e);
     
-    // Camera
     camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
-    camera.position.z = 5;
+    camera.position.z = 7;
     
-    // Renderer
     renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     renderer.shadowMap.enabled = true;
     
-    // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    // ไฟสไตล์ cyberpunk
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
     scene.add(ambientLight);
     
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.6);
     directionalLight.position.set(5, 10, 7);
     directionalLight.castShadow = true;
     scene.add(directionalLight);
     
-    const pointLight1 = new THREE.PointLight(0x667eea, 1, 100);
-    pointLight1.position.set(-5, 3, 5);
-    scene.add(pointLight1);
+    // Neon lights
+    const pinkLight = new THREE.PointLight(0xff69b4, 1.5, 100);
+    pinkLight.position.set(-5, 3, 5);
+    scene.add(pinkLight);
     
-    const pointLight2 = new THREE.PointLight(0x764ba2, 1, 100);
-    pointLight2.position.set(5, 3, 5);
-    scene.add(pointLight2);
+    const cyanLight = new THREE.PointLight(0x00ffff, 1.5, 100);
+    cyanLight.position.set(5, 3, 5);
+    scene.add(cyanLight);
     
-    // Create Avatar
-    createAvatar();
+    const purpleLight = new THREE.PointLight(0x9d4edd, 1, 100);
+    purpleLight.position.set(0, -2, 5);
+    scene.add(purpleLight);
     
-    // Animation loop
+    createPastelSheepCharacter();
     animate();
     
-    // Handle resize
     window.addEventListener('resize', onWindowResize);
 }
 
-// ✅ สร้างตัวละคร Avatar
-function createAvatar() {
-    const avatarGroup = new THREE.Group();
+function createPastelSheepCharacter() {
+    const character = new THREE.Group();
     
-    // Head
-    const headGeometry = new THREE.SphereGeometry(1, 32, 32);
+    // 🐑 หัว - ฟ้าพาสเทลเหมือนในรูป
+    const headGeometry = new THREE.SphereGeometry(1.4, 32, 32);
     const headMaterial = new THREE.MeshPhongMaterial({ 
-        color: 0xffdbac,
-        shininess: 30
+        color: 0x87CEEB,
+        shininess: 60,
+        emissive: 0x5dade2,
+        emissiveIntensity: 0.15
     });
     const head = new THREE.Mesh(headGeometry, headMaterial);
     head.castShadow = true;
-    avatarGroup.add(head);
+    character.add(head);
     
-    // Eyes
-    const eyeGeometry = new THREE.SphereGeometry(0.15, 16, 16);
-    const eyeMaterial = new THREE.MeshPhongMaterial({ color: 0x000000 });
+    // 🌸 ผมหยิกสีทองอ่อนด้านบน (เด่นชัดเหมือนในรูป)
+    const curlGeometry = new THREE.SphereGeometry(0.45, 16, 16);
+    const curlMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0xFFE4B5,
+        shininess: 90
+    });
     
-    const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-    leftEye.position.set(-0.3, 0.3, 0.8);
-    avatarGroup.add(leftEye);
+    // วางผมเป็นทรง pompadour
+    for (let i = 0; i < 10; i++) {
+        const curl = new THREE.Mesh(curlGeometry, curlMaterial);
+        const angle = (i / 10) * Math.PI * 2;
+        const radius = 0.85;
+        curl.position.set(
+            Math.cos(angle) * radius,
+            1.0 + Math.sin(i * 2) * 0.25,
+            Math.sin(angle) * radius
+        );
+        curl.scale.set(0.85, 1.3, 0.85);
+        character.add(curl);
+    }
     
-    const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-    rightEye.position.set(0.3, 0.3, 0.8);
-    avatarGroup.add(rightEye);
+    // เพิ่มผมกลางๆ บน
+    for (let i = 0; i < 5; i++) {
+        const topCurl = new THREE.Mesh(curlGeometry, curlMaterial);
+        const angle = (i / 5) * Math.PI * 2;
+        topCurl.position.set(
+            Math.cos(angle) * 0.4,
+            1.4 + i * 0.1,
+            Math.sin(angle) * 0.4
+        );
+        topCurl.scale.set(0.7, 1.4, 0.7);
+        character.add(topCurl);
+    }
     
-    // Mouth (ที่จะขยับได้)
-    const mouthGeometry = new THREE.TorusGeometry(0.3, 0.1, 16, 100, Math.PI);
-    const mouthMaterial = new THREE.MeshPhongMaterial({ color: 0xff6b6b });
-    mouth = new THREE.Mesh(mouthGeometry, mouthMaterial);
-    mouth.position.set(0, -0.3, 0.8);
+    // 👁️ ตาซ้าย - ขนาดใหญ่ชัดเจน
+    const eyeWhiteGeometry = new THREE.SphereGeometry(0.28, 24, 24);
+    const eyeWhiteMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0xffffff,
+        shininess: 100
+    });
+    
+    leftEye = new THREE.Mesh(eyeWhiteGeometry, eyeWhiteMaterial);
+    leftEye.position.set(-0.45, 0.35, 1.15);
+    character.add(leftEye);
+    
+    // ม่านตาดำ
+    const pupilGeometry = new THREE.SphereGeometry(0.18, 20, 20);
+    const pupilMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x000000,
+        shininess: 80
+    });
+    
+    leftEyePupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
+    leftEyePupil.position.set(-0.45, 0.35, 1.35);
+    character.add(leftEyePupil);
+    
+    // จุดแสงในตา
+    const highlightGeometry = new THREE.SphereGeometry(0.08, 12, 12);
+    const highlightMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xffffff
+    });
+    
+    const leftHighlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
+    leftHighlight.position.set(-0.38, 0.42, 1.42);
+    character.add(leftHighlight);
+    
+    // 👁️ ตาขวา - เหมือนตาซ้าย
+    rightEye = new THREE.Mesh(eyeWhiteGeometry, eyeWhiteMaterial);
+    rightEye.position.set(0.45, 0.35, 1.15);
+    character.add(rightEye);
+    
+    rightEyePupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
+    rightEyePupil.position.set(0.45, 0.35, 1.35);
+    character.add(rightEyePupil);
+    
+    const rightHighlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
+    rightHighlight.position.set(0.52, 0.42, 1.42);
+    character.add(rightHighlight);
+    
+    // ขนตา (เส้นบางๆ)
+    const lashGeometry = new THREE.BoxGeometry(0.02, 0.15, 0.02);
+    const lashMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+    
+    for (let i = 0; i < 3; i++) {
+        const leftLash = new THREE.Mesh(lashGeometry, lashMaterial);
+        leftLash.position.set(-0.45 + (i - 1) * 0.12, 0.55, 1.3);
+        leftLash.rotation.z = (i - 1) * 0.1;
+        character.add(leftLash);
+        
+        const rightLash = new THREE.Mesh(lashGeometry, lashMaterial);
+        rightLash.position.set(0.45 + (i - 1) * 0.12, 0.55, 1.3);
+        rightLash.rotation.z = (i - 1) * 0.1;
+        character.add(rightLash);
+    }
+    
+    // 👄 ปาก - ชัดเจน ยิ้มน่ารัก
+    const smileGeometry = new THREE.TorusGeometry(0.35, 0.12, 16, 100, Math.PI);
+    const smileMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0xff69b4,
+        emissive: 0xff1493,
+        emissiveIntensity: 0.3,
+        shininess: 80
+    });
+    
+    mouth = new THREE.Mesh(smileGeometry, smileMaterial);
+    mouth.position.set(0, -0.15, 1.15);
     mouth.rotation.x = Math.PI;
-    avatarGroup.add(mouth);
+    character.add(mouth);
     
-    // Body
-    const bodyGeometry = new THREE.CylinderGeometry(0.6, 0.8, 2, 32);
+    // ลิ้น
+    const tongueGeometry = new THREE.SphereGeometry(0.15, 16, 16, 0, Math.PI);
+    const tongueMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0xff6b9d,
+        shininess: 40
+    });
+    const tongue = new THREE.Mesh(tongueGeometry, tongueMaterial);
+    tongue.position.set(0, -0.25, 1.1);
+    tongue.rotation.x = -Math.PI / 2;
+    tongue.scale.z = 0.5;
+    character.add(tongue);
+    
+    // 👂 หูแกะ - ชมพูพาสเทล เหมือนในรูป
+    const earGeometry = new THREE.ConeGeometry(0.35, 0.9, 8);
+    const earMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0xffb3d9,
+        shininess: 50,
+        emissive: 0xffb3d9,
+        emissiveIntensity: 0.1
+    });
+    
+    const leftEar = new THREE.Mesh(earGeometry, earMaterial);
+    leftEar.position.set(-1.1, 0.9, 0.2);
+    leftEar.rotation.z = -0.5;
+    leftEar.castShadow = true;
+    character.add(leftEar);
+    
+    const rightEar = new THREE.Mesh(earGeometry, earMaterial);
+    rightEar.position.set(1.1, 0.9, 0.2);
+    rightEar.rotation.z = 0.5;
+    rightEar.castShadow = true;
+    character.add(rightEar);
+    
+    // ขนนุ่ม ๆ บนหู
+    const furGeometry = new THREE.SphereGeometry(0.12, 12, 12);
+    const furMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0xffc0e3,
+        shininess: 70
+    });
+    
+    for (let i = 0; i < 3; i++) {
+        const leftFur = new THREE.Mesh(furGeometry, furMaterial);
+        leftFur.position.set(-1.05, 1.1 - i * 0.2, 0.15);
+        character.add(leftFur);
+        
+        const rightFur = new THREE.Mesh(furGeometry, furMaterial);
+        rightFur.position.set(1.05, 1.1 - i * 0.2, 0.15);
+        character.add(rightFur);
+    }
+    
+    // 🦾 แขนเมทัลลิก - เหมือนในรูป
+    const armGeometry = new THREE.CylinderGeometry(0.22, 0.18, 1.6, 16);
+    const metalMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xc0c0c0,
+        metalness: 0.95,
+        roughness: 0.05,
+        emissive: 0x4dd0e1,
+        emissiveIntensity: 0.4
+    });
+    
+    const leftArm = new THREE.Mesh(armGeometry, metalMaterial);
+    leftArm.position.set(-1.35, -1.6, 0);
+    leftArm.rotation.z = 0.5;
+    leftArm.castShadow = true;
+    character.add(leftArm);
+    
+    const rightArm = new THREE.Mesh(armGeometry, metalMaterial);
+    rightArm.position.set(1.35, -1.6, 0);
+    rightArm.rotation.z = -0.5;
+    rightArm.castShadow = true;
+    character.add(rightArm);
+    
+    // มือโลหะ
+    const handGeometry = new THREE.SphereGeometry(0.25, 16, 16);
+    const leftHand = new THREE.Mesh(handGeometry, metalMaterial);
+    leftHand.position.set(-1.7, -2.3, 0);
+    character.add(leftHand);
+    
+    const rightHand = new THREE.Mesh(handGeometry, metalMaterial);
+    rightHand.position.set(1.7, -2.3, 0);
+    character.add(rightHand);
+    
+    // 👕 เสื้อยีนส์แจ็คเก็ต - สีฟ้าเข้ม
+    const bodyGeometry = new THREE.CylinderGeometry(0.9, 1.1, 2.4, 32);
     const bodyMaterial = new THREE.MeshPhongMaterial({ 
-        color: 0x667eea,
-        shininess: 50
+        color: 0x1e3a5f,
+        shininess: 25,
+        emissive: 0x0d1b2a,
+        emissiveIntensity: 0.2
     });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = -2;
+    body.position.y = -2.4;
     body.castShadow = true;
-    avatarGroup.add(body);
+    character.add(body);
     
-    // Arms
-    const armGeometry = new THREE.CylinderGeometry(0.15, 0.15, 1.5, 16);
-    const armMaterial = new THREE.MeshPhongMaterial({ color: 0xffdbac });
+    // 🌟 แถบ neon บนเสื้อ
+    const stripGeometry = new THREE.BoxGeometry(0.12, 0.35, 0.12);
+    const neonMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x00ffff,
+        emissive: 0x00ffff,
+        emissiveIntensity: 1.2,
+        metalness: 0.5,
+        roughness: 0.3
+    });
     
-    const leftArm = new THREE.Mesh(armGeometry, armMaterial);
-    leftArm.position.set(-0.8, -1.8, 0);
-    leftArm.rotation.z = 0.3;
-    avatarGroup.add(leftArm);
+    for (let i = -2; i <= 2; i++) {
+        const strip = new THREE.Mesh(stripGeometry, neonMaterial);
+        strip.position.set(i * 0.35, -2.2, 1.0);
+        character.add(strip);
+    }
     
-    const rightArm = new THREE.Mesh(armGeometry, armMaterial);
-    rightArm.position.set(0.8, -1.8, 0);
-    rightArm.rotation.z = -0.3;
-    avatarGroup.add(rightArm);
+    // ปก jacket
+    const collarGeometry = new THREE.BoxGeometry(0.4, 0.6, 0.1);
+    const collarMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0x2c5f8d,
+        shininess: 30
+    });
     
-    avatar = avatarGroup;
+    const leftCollar = new THREE.Mesh(collarGeometry, collarMaterial);
+    leftCollar.position.set(-0.4, -1.5, 0.95);
+    leftCollar.rotation.z = -0.3;
+    character.add(leftCollar);
+    
+    const rightCollar = new THREE.Mesh(collarGeometry, collarMaterial);
+    rightCollar.position.set(0.4, -1.5, 0.95);
+    rightCollar.rotation.z = 0.3;
+    character.add(rightCollar);
+    
+    // 🦵 ขา - ฟ้าพาสเทล
+    const legGeometry = new THREE.CylinderGeometry(0.28, 0.24, 2.0, 16);
+    const legMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0xb8e6f5,
+        shininess: 35
+    });
+    
+    const leftLeg = new THREE.Mesh(legGeometry, legMaterial);
+    leftLeg.position.set(-0.45, -4.3, 0);
+    leftLeg.castShadow = true;
+    character.add(leftLeg);
+    
+    const rightLeg = new THREE.Mesh(legGeometry, legMaterial);
+    rightLeg.position.set(0.45, -4.3, 0);
+    rightLeg.castShadow = true;
+    character.add(rightLeg);
+    
+    // 👟 รองเท้า - ขาวเหมือนในรูป
+    const shoeGeometry = new THREE.BoxGeometry(0.5, 0.35, 0.7);
+    const shoeMaterial = new THREE.MeshPhongMaterial({ 
+        color: 0xf5f5f5,
+        shininess: 70
+    });
+    
+    const leftShoe = new THREE.Mesh(shoeGeometry, shoeMaterial);
+    leftShoe.position.set(-0.45, -5.4, 0.15);
+    leftShoe.castShadow = true;
+    character.add(leftShoe);
+    
+    const rightShoe = new THREE.Mesh(shoeGeometry, shoeMaterial);
+    rightShoe.position.set(0.45, -5.4, 0.15);
+    rightShoe.castShadow = true;
+    character.add(rightShoe);
+    
+    // เชือกรองเท้า
+    const laceGeometry = new THREE.BoxGeometry(0.35, 0.03, 0.03);
+    const laceMaterial = new THREE.MeshBasicMaterial({ color: 0x333333 });
+    
+    for (let i = 0; i < 3; i++) {
+        const leftLace = new THREE.Mesh(laceGeometry, laceMaterial);
+        leftLace.position.set(-0.45, -5.3 + i * 0.1, 0.4);
+        character.add(leftLace);
+        
+        const rightLace = new THREE.Mesh(laceGeometry, laceMaterial);
+        rightLace.position.set(0.45, -5.3 + i * 0.1, 0.4);
+        character.add(rightLace);
+    }
+    
+    avatar = character;
     scene.add(avatar);
 }
 
-// ✅ Animation loop
 function animate() {
     requestAnimationFrame(animate);
     
-    // Gentle idle animation
     if (!isSpeaking) {
-        avatar.rotation.y = Math.sin(Date.now() * 0.001) * 0.1;
-        avatar.position.y = Math.sin(Date.now() * 0.002) * 0.1;
+        avatar.rotation.y = Math.sin(Date.now() * 0.0008) * 0.08;
+        avatar.position.y = Math.sin(Date.now() * 0.0015) * 0.12;
+        
+        // กระพริบตา
+        if (Math.random() > 0.995) {
+            blinkEyes();
+        }
     }
     
-    // Speaking animation (ปากขยับ)
     if (isSpeaking && mouth) {
-        const mouthScale = 1 + Math.sin(Date.now() * 0.02) * 0.3;
+        const mouthScale = 1 + Math.sin(Date.now() * 0.025) * 0.5;
         mouth.scale.y = mouthScale;
-        
-        // เอียงหัวเล็กน้อยตอนพูด
-        avatar.rotation.x = Math.sin(Date.now() * 0.005) * 0.05;
+        avatar.rotation.x = Math.sin(Date.now() * 0.004) * 0.04;
     }
     
     renderer.render(scene, camera);
 }
 
-// ✅ Handle window resize
+function blinkEyes() {
+    if (leftEye && rightEye) {
+        leftEye.scale.y = 0.1;
+        rightEye.scale.y = 0.1;
+        
+        setTimeout(() => {
+            leftEye.scale.y = 1;
+            rightEye.scale.y = 1;
+        }, 150);
+    }
+}
+
 function onWindowResize() {
     const canvas = document.getElementById('avatarCanvas');
     camera.aspect = canvas.clientWidth / canvas.clientHeight;
@@ -165,14 +410,11 @@ function onWindowResize() {
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
 }
 
-// ✅ โหลดรายการ conversations
 function loadConversations() {
     $.ajax({
         url: 'app/actions/get_chat_data.php?action=list_conversations',
         type: 'GET',
-        headers: {
-            'Authorization': 'Bearer ' + jwt
-        },
+        headers: { 'Authorization': 'Bearer ' + jwt },
         dataType: 'json',
         success: function(response) {
             if (response.status === 'success') {
@@ -184,7 +426,6 @@ function loadConversations() {
     });
 }
 
-// ✅ แสดงรายการ conversations
 function displayConversations(conversations) {
     const $list = $('#conversationsList');
     $list.empty();
@@ -217,7 +458,6 @@ function displayConversations(conversations) {
     });
 }
 
-// ✅ โหลดประวัติแชท
 function loadConversation(conversationId) {
     currentConversationId = conversationId;
     
@@ -227,43 +467,30 @@ function loadConversation(conversationId) {
     $.ajax({
         url: 'app/actions/get_chat_data.php?action=get_history&conversation_id=' + conversationId,
         type: 'GET',
-        headers: {
-            'Authorization': 'Bearer ' + jwt
-        },
+        headers: { 'Authorization': 'Bearer ' + jwt },
         dataType: 'json',
         success: function(response) {
-            if (response.status === 'success') {
-                // แสดงข้อความล่าสุด
-                if (response.messages.length > 0) {
-                    const lastMessage = response.messages[response.messages.length - 1];
-                    if (lastMessage.role === 'assistant') {
-                        showMessage(lastMessage.message);
-                    }
+            if (response.status === 'success' && response.messages.length > 0) {
+                const lastMessage = response.messages[response.messages.length - 1];
+                if (lastMessage.role === 'assistant') {
+                    showMessage(lastMessage.message);
                 }
             }
         }
     });
 }
 
-// ✅ ส่งข้อความ
 function sendMessage() {
     const message = $('#messageInput').val().trim();
     
-    if (!message) {
-        return;
-    }
+    if (!message) return;
     
-    // Disable input
     $('#messageInput').prop('disabled', true);
     $('#sendBtn').prop('disabled', true);
-    
-    // Clear input
     $('#messageInput').val('').css('height', 'auto');
     
-    // Update status
     updateStatus('Thinking...', false);
     
-    // Send to API
     $.ajax({
         url: 'app/actions/ai_chat.php',
         type: 'POST',
@@ -279,13 +506,11 @@ function sendMessage() {
         dataType: 'json',
         success: function(response) {
             if (response.status === 'success') {
-                // Update conversation ID
                 if (currentConversationId === 0) {
                     currentConversationId = response.conversation_id;
                     loadConversations();
                 }
                 
-                // แสดงข้อความและพูด
                 showMessage(response.ai_message);
                 speakText(response.ai_message);
             } else {
@@ -293,72 +518,51 @@ function sendMessage() {
                 updateStatus('Ready to chat', false);
             }
             
-            // Enable input
             $('#messageInput').prop('disabled', false).focus();
             $('#sendBtn').prop('disabled', false);
         },
         error: function() {
             Swal.fire('Error', 'Failed to send message', 'error');
             updateStatus('Ready to chat', false);
-            
             $('#messageInput').prop('disabled', false).focus();
             $('#sendBtn').prop('disabled', false);
         }
     });
 }
 
-// ✅ แสดงข้อความบนหน้าจอ
 function showMessage(text) {
     $('#messageText').text(text);
     $('#currentMessage').fadeIn();
 }
 
-// ✅ Text-to-Speech รองรับหลายภาษาด้วย Google Translate TTS
 function speakText(text) {
-    console.log('🎤 Preparing to speak:', text.substring(0, 100));
-    
-    // ตรวจจับภาษา
-    let langCode = 'th'; // Default Thai
+    let langCode = 'th';
     let detectedLang = 'Thai';
     
-    // Thai
     if (/[\u0E00-\u0E7F]/.test(text)) {
         langCode = 'th';
         detectedLang = 'Thai';
-    }
-    // Chinese (Mandarin)
-    else if (/[\u4E00-\u9FFF]/.test(text)) {
+    } else if (/[\u4E00-\u9FFF]/.test(text)) {
         langCode = 'zh-CN';
         detectedLang = 'Chinese';
-    }
-    // Japanese
-    else if (/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) {
+    } else if (/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) {
         langCode = 'ja';
         detectedLang = 'Japanese';
-    }
-    // Korean
-    else if (/[\uAC00-\uD7AF]/.test(text)) {
+    } else if (/[\uAC00-\uD7AF]/.test(text)) {
         langCode = 'ko';
         detectedLang = 'Korean';
-    }
-    // English
-    else {
+    } else {
         langCode = 'en';
         detectedLang = 'English';
     }
     
-    console.log('🗣️ Detected:', detectedLang, '(', langCode, ')');
-    
-    // Update status
     isSpeaking = true;
     updateStatus('Speaking in ' + detectedLang + '...', true);
     
-    // แบ่งข้อความถ้ายาวเกิน 200 ตัวอักษร
     const maxLength = 200;
     const chunks = [];
     
     if (text.length > maxLength) {
-        // แบ่งตามประโยค
         const sentences = text.match(/[^.!?。！？]+[.!?。！？]+/g) || [text];
         let currentChunk = '';
         
@@ -375,80 +579,52 @@ function speakText(text) {
         chunks.push(text);
     }
     
-    console.log('📝 Split into', chunks.length, 'chunks');
-    
-    // เล่น audio ทีละชิ้น
     playGoogleTTSChunks(chunks, 0, langCode);
 }
 
-// ✅ เล่น Google TTS ทีละชิ้น
 let currentAudio = null;
 
 function playGoogleTTSChunks(chunks, index, langCode) {
     if (index >= chunks.length) {
-        // เล่นจบแล้ว
-        console.log('✅ Finished speaking all chunks');
         isSpeaking = false;
         updateStatus('Ready to chat', false);
         $('#currentMessage').fadeOut();
-        
-        // Reset mouth
-        if (mouth) {
-            mouth.scale.y = 1;
-        }
+        if (mouth) mouth.scale.y = 1;
         return;
     }
     
     const chunk = chunks[index];
-    console.log('🔊 Playing chunk', (index + 1), 'of', chunks.length, ':', chunk.substring(0, 50));
-    
-    // สร้าง Google TTS URL
     const encodedText = encodeURIComponent(chunk);
     const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${langCode}&client=tw-ob&q=${encodedText}`;
     
-    // สร้าง audio element
     currentAudio = new Audio();
     
     currentAudio.oncanplaythrough = function() {
-        console.log('✅ Audio ready, playing chunk', (index + 1));
         this.play().catch(err => {
-            console.error('❌ Play error:', err);
-            // ลอง fallback
             playGoogleTTSChunks(chunks, index + 1, langCode);
         });
     };
     
     currentAudio.onplay = function() {
-        console.log('▶️ Playing audio chunk', (index + 1));
         isSpeaking = true;
     };
     
     currentAudio.onended = function() {
-        console.log('✅ Chunk', (index + 1), 'finished');
-        // เล่นชิ้นถัดไป
         setTimeout(() => {
             playGoogleTTSChunks(chunks, index + 1, langCode);
-        }, 300); // หน่วงเวลาเล็กน้อยระหว่างชิ้น
+        }, 300);
     };
     
     currentAudio.onerror = function(e) {
-        console.error('❌ Audio error on chunk', (index + 1), ':', e);
-        console.warn('⚠️ Falling back to Web Speech API');
-        // Fallback to Web Speech API
         fallbackToWebSpeech(chunks.join(' '), langCode);
     };
     
-    // ตั้ง src และโหลด
     currentAudio.src = ttsUrl;
     currentAudio.load();
 }
 
-// ✅ Fallback: ใช้ Web Speech API ถ้า Google TTS ไม่ทำงาน
 function fallbackToWebSpeech(text, langCode) {
-    console.log('⚠️ Falling back to Web Speech API');
-    
     if (!window.speechSynthesis) {
-        console.error('❌ Web Speech API not supported');
         isSpeaking = false;
         updateStatus('Ready to chat', false);
         
@@ -464,7 +640,6 @@ function fallbackToWebSpeech(text, langCode) {
         return;
     }
     
-    // Stop current speech
     window.speechSynthesis.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
@@ -477,181 +652,8 @@ function fallbackToWebSpeech(text, langCode) {
     utterance.volume = 1.0;
     
     utterance.onstart = function() {
-        console.log('✅ Fallback speech started');
         isSpeaking = true;
     };
-    
-    utterance.onend = function() {
-        console.log('✅ Fallback speech ended');
-        isSpeaking = false;
-        updateStatus('Ready to chat', false);
-        $('#currentMessage').fadeOut();
-        
-        if (mouth) {
-            mouth.scale.y = 1;
-        }
-    };
-    
-    utterance.onerror = function(event) {
-        console.error('❌ Fallback speech error:', event.error);
-        isSpeaking = false;
-        updateStatus('Ready to chat', false);
-    };
-    
-    window.speechSynthesis.speak(utterance);
-}
-
-// ✅ ฟังก์ชันพูดจริง
-function speakWithVoice(text, langCode, detectedLang, preferredVoiceName, voices) {
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = langCode;
-    
-    console.log('📢 Total available voices:', voices.length);
-    console.log('🔍 Looking for language:', langCode);
-    
-    // แสดง voices ที่มีทั้งหมด (เพื่อ debug)
-    if (voices.length > 0) {
-        console.log('📋 All voices:', voices.map(v => `${v.name} (${v.lang})`).slice(0, 10).join(', '));
-    }
-    
-    // หา voice ที่เหมาะสมที่สุด
-    let selectedVoice = null;
-    const langPrefix = langCode.split('-')[0]; // เช่น 'th', 'zh', 'ja', 'ko', 'en'
-    
-    // 1. หาจากภาษาที่ตรงทั้งหมด (เช่น th-TH)
-    selectedVoice = voices.find(voice => voice.lang === langCode);
-    
-    // 2. ถ้าไม่เจอ ให้หาจากภาษาคร่าวๆ (เช่น th)
-    if (!selectedVoice) {
-        selectedVoice = voices.find(voice => voice.lang.startsWith(langPrefix));
-    }
-    
-    // 3. ถ้ายังไม่เจอ ให้หาจากชื่อ voice
-    if (!selectedVoice && preferredVoiceName) {
-        selectedVoice = voices.find(voice => 
-            voice.name.toLowerCase().includes(preferredVoiceName.toLowerCase())
-        );
-    }
-    
-    // 4. หา Google voices (มักจะดีที่สุด)
-    if (!selectedVoice) {
-        selectedVoice = voices.find(voice => 
-            voice.name.includes('Google') && voice.lang.startsWith(langPrefix)
-        );
-    }
-    
-    // 5. หา Microsoft voices
-    if (!selectedVoice) {
-        selectedVoice = voices.find(voice => 
-            voice.name.includes('Microsoft') && voice.lang.startsWith(langPrefix)
-        );
-    }
-    
-    // 6. หาจาก local voice ใดๆ ที่ตรงกับภาษา
-    if (!selectedVoice) {
-        selectedVoice = voices.find(voice => voice.lang.includes(langPrefix));
-    }
-    
-    if (selectedVoice) {
-        utterance.voice = selectedVoice;
-        console.log('✅ Selected voice:', selectedVoice.name, `(${selectedVoice.lang})`);
-    } else {
-        console.warn('⚠️ No matching voice found for', langCode);
-        console.warn('💡 Using browser default voice');
-        
-        // แสดง voices ที่มีเพื่อให้ผู้ใช้ทราบ
-        const availableLangs = [...new Set(voices.map(v => v.lang))];
-        console.log('🌍 Available languages:', availableLangs.join(', '));
-        
-        // แจ้งเตือนผู้ใช้
-        if (detectedLang !== 'English') {
-            console.warn(`⚠️ ${detectedLang} voice not found. The speech may sound incorrect.`);
-            console.warn('💡 Try using Chrome or Edge for better language support.');
-        }
-    }
-    
-    // ตั้งค่าเสียง
-    utterance.rate = 0.85;  // ความเร็ว (0.1 - 10)
-    utterance.pitch = 1.0;  // ระดับเสียง (0 - 2)
-    utterance.volume = 1.0; // ความดัง (0 - 1)
-    
-    // Events
-    utterance.onstart = function() {
-        console.log('✅ Started speaking in ' + detectedLang);
-        isSpeaking = true;
-        updateStatus('Speaking in ' + detectedLang + '...', true);
-    };
-    
-    utterance.onend = function() {
-        console.log('✅ Finished speaking');
-        isSpeaking = false;
-        updateStatus('Ready to chat', false);
-        $('#currentMessage').fadeOut();
-        
-        // Reset mouth
-        if (mouth) {
-            mouth.scale.y = 1;
-        }
-    };
-    
-    utterance.onerror = function(event) {
-        console.error('❌ Speech error:', event.error);
-        isSpeaking = false;
-        updateStatus('Ready to chat', false);
-        
-        Swal.fire({
-            icon: 'error',
-            title: 'Speech Error',
-            text: 'Failed to speak: ' + event.error,
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 3000
-        });
-    };
-    
-    // พูด!
-    console.log('🎤 Speaking now...');
-    window.speechSynthesis.speak(utterance);
-}
-
-// ✅ Fallback: Web Speech API (สำหรับกรณี ResponsiveVoice ไม่ทำงาน)
-function useWebSpeechAPI(text) {
-    if (!window.speechSynthesis) {
-        console.error('Web Speech API not supported');
-        Swal.fire({
-            icon: 'warning',
-            title: 'TTS Not Available',
-            text: 'Your browser does not support text-to-speech',
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 3000
-        });
-        return;
-    }
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    // ตรวจจับภาษา
-    if (/[\u0E00-\u0E7F]/.test(text)) {
-        utterance.lang = 'th-TH';
-    } else if (/[\u4E00-\u9FFF]/.test(text)) {
-        utterance.lang = 'zh-CN';
-    } else if (/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) {
-        utterance.lang = 'ja-JP';
-    } else if (/[\uAC00-\uD7AF]/.test(text)) {
-        utterance.lang = 'ko-KR';
-    } else {
-        utterance.lang = 'en-US';
-    }
-    
-    utterance.rate = 0.9;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    
-    isSpeaking = true;
-    updateStatus('Speaking (fallback)...', true);
     
     utterance.onend = function() {
         isSpeaking = false;
@@ -660,8 +662,7 @@ function useWebSpeechAPI(text) {
         if (mouth) mouth.scale.y = 1;
     };
     
-    utterance.onerror = function(e) {
-        console.error('Web Speech API error:', e);
+    utterance.onerror = function(event) {
         isSpeaking = false;
         updateStatus('Ready to chat', false);
     };
@@ -669,7 +670,6 @@ function useWebSpeechAPI(text) {
     window.speechSynthesis.speak(utterance);
 }
 
-// ✅ Update status indicator
 function updateStatus(text, speaking) {
     $('#statusText').text(text);
     
@@ -680,22 +680,19 @@ function updateStatus(text, speaking) {
     }
 }
 
-// ✅ สร้าง conversation ใหม่
 function createNewChat() {
     currentConversationId = 0;
     $('.conversation-item').removeClass('active');
     $('#messageInput').val('').focus();
     $('#currentMessage').fadeOut();
     
-    // Stop speaking
-    if (responsiveVoice.isPlaying()) {
-        responsiveVoice.cancel();
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
     }
     
     updateStatus('Ready to chat', false);
 }
 
-// ✅ ลบ conversation
 function deleteConversation(conversationId, event) {
     event.stopPropagation();
     
@@ -712,9 +709,7 @@ function deleteConversation(conversationId, event) {
             $.ajax({
                 url: 'app/actions/get_chat_data.php?action=delete_conversation&conversation_id=' + conversationId,
                 type: 'GET',
-                headers: {
-                    'Authorization': 'Bearer ' + jwt
-                },
+                headers: { 'Authorization': 'Bearer ' + jwt },
                 dataType: 'json',
                 success: function(response) {
                     if (response.status === 'success') {
@@ -734,7 +729,6 @@ function deleteConversation(conversationId, event) {
     });
 }
 
-// ✅ Handle Enter key
 function handleKeyPress(event) {
     if (event.key === 'Enter' && !event.shiftKey) {
         event.preventDefault();
@@ -742,7 +736,6 @@ function handleKeyPress(event) {
     }
 }
 
-// ✅ Helper functions
 function formatTimeAgo(timestamp) {
     const date = new Date(timestamp);
     const now = new Date();
