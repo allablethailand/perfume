@@ -3,15 +3,18 @@
 $imagesItems = [
     [
         'type' => 'video',
-        'src' => 'public/ai_videos/video_696d992f4f2d9_1768790319.mp4'
+        'src' => 'public/ai_videos/video_696db72785bea_1768797991.mp4',
+        'duration' => 15 // กำหนดความยาววิดีโอเป็นวินาที
     ],
     [
         'type' => 'image',
-        'src' => 'public/product_images/696089dc2fa56_1767934428.jpg'
+        'src' => 'public/product_images/696089dc2fa56_1767934428.jpg',
+        'duration' => 5 // กำหนดเวลาแสดงรูปภาพ
     ],
     [
         'type' => 'image',
-        'src' => 'public/product_images/69606aab3b72e_1767926443.jpg'
+        'src' => 'public/product_images/69606aab3b72e_1767926443.jpg',
+        'duration' => 5
     ],
 ];
 
@@ -213,6 +216,38 @@ function ht($key, $lang) {
         background: white;
     }
 
+    /* Progress Bar - เส้นสีขาวเข้มวิ่งจากซ้ายไปขวา */
+    .hero-progress-container {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.2);
+        z-index: 10;
+        overflow: hidden;
+    }
+
+    .hero-progress-bar {
+        height: 100%;
+        background: rgba(255, 255, 255, 0.9);
+        width: 0%;
+        transition: none;
+    }
+
+    .hero-progress-bar.animating {
+        animation: progressAnimation linear forwards;
+    }
+
+    @keyframes progressAnimation {
+        from {
+            width: 0%;
+        }
+        to {
+            width: 100%;
+        }
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
         .hero-title {
@@ -229,7 +264,9 @@ function ht($key, $lang) {
 <section class="hero">
     <div class="hero-slider">
         <?php foreach ($imagesItems as $index => $item): ?>
-            <div class="hero-slide <?= ($index === 0) ? 'active' : '' ?>" data-type="<?= $item['type'] ?>">
+            <div class="hero-slide <?= ($index === 0) ? 'active' : '' ?>" 
+                 data-type="<?= $item['type'] ?>"
+                 data-duration="<?= $item['duration'] ?>">
                 <?php if ($item['type'] === 'image'): ?>
                     <?php
                         $loading_attribute = ($index === 0) ? 'loading="eager"' : 'loading="lazy"';
@@ -271,6 +308,11 @@ function ht($key, $lang) {
             <span class="hero-dot <?= ($index === 0) ? 'active' : '' ?>"></span>
         <?php endforeach; ?>
     </div>
+
+    <!-- Progress Bar -->
+    <div class="hero-progress-container">
+        <div class="hero-progress-bar"></div>
+    </div>
 </section>
 
 <script>
@@ -278,8 +320,10 @@ function ht($key, $lang) {
     let currentSlide = 0;
     const slides = document.querySelectorAll('.hero-slide');
     const dots = document.querySelectorAll('.hero-dot');
+    const progressBar = document.querySelector('.hero-progress-bar');
     const totalSlides = slides.length;
     let autoSlideInterval;
+    let isPaused = false;
 
     function showSlide(index) {
         // Pause all videos
@@ -304,10 +348,28 @@ function ht($key, $lang) {
             currentVideo.play().catch(e => console.log('Video autoplay failed:', e));
         }
         
-        // document.querySelector('.current').textContent = String(index + 1).padStart(2, '0');
+        // Start progress bar animation
+        const duration = parseInt(slides[index].dataset.duration) || 5;
+        startProgressBar(duration);
+    }
+
+    function startProgressBar(duration) {
+        // Reset progress bar
+        progressBar.classList.remove('animating');
+        progressBar.style.width = '0%';
+        progressBar.style.animation = 'none';
+        
+        // Force reflow
+        void progressBar.offsetWidth;
+        
+        // Start animation
+        progressBar.style.animation = `progressAnimation ${duration}s linear forwards`;
+        progressBar.classList.add('animating');
     }
 
     function nextSlide() {
+        if (isPaused) return;
+        
         currentSlide = (currentSlide + 1) % totalSlides;
         showSlide(currentSlide);
     }
@@ -316,10 +378,16 @@ function ht($key, $lang) {
         if (autoSlideInterval) {
             clearInterval(autoSlideInterval);
         }
-        autoSlideInterval = setInterval(nextSlide, 5000);
+        
+        // Get duration from current slide
+        const currentDuration = parseInt(slides[currentSlide].dataset.duration) || 5;
+        
+        // Set interval based on current slide duration
+        autoSlideInterval = setInterval(nextSlide, currentDuration * 1000);
     }
 
-    // Start auto slide
+    // Initialize first slide
+    showSlide(currentSlide);
     startAutoSlide();
 
     // Dot navigation
@@ -327,19 +395,32 @@ function ht($key, $lang) {
         dot.addEventListener('click', () => {
             currentSlide = index;
             showSlide(currentSlide);
-            startAutoSlide(); // Restart auto slide on manual navigation
+            startAutoSlide(); // Restart auto slide with new duration
         });
     });
 
-    // Pause auto-slide when user interacts
+    // Pause auto-slide when user hovers
     document.querySelector('.hero-slider').addEventListener('mouseenter', () => {
+        isPaused = true;
         if (autoSlideInterval) {
             clearInterval(autoSlideInterval);
         }
+        // Pause progress bar
+        const computedStyle = window.getComputedStyle(progressBar);
+        const currentWidth = computedStyle.width;
+        progressBar.style.animation = 'none';
+        progressBar.style.width = currentWidth;
     });
 
     document.querySelector('.hero-slider').addEventListener('mouseleave', () => {
+        isPaused = false;
+        showSlide(currentSlide); // Restart from beginning
         startAutoSlide();
+    });
+
+    // Listen to animation end to ensure smooth transition
+    progressBar.addEventListener('animationend', () => {
+        // Animation completed, next slide will be triggered by interval
     });
 })();
 </script>
