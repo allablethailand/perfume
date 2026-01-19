@@ -3,8 +3,8 @@
 $imagesItems = [
     [
         'type' => 'video',
-        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696df29136eaf_1768813201.mp4',
-        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696df29136eaf_1768813201.mp4', // เพิ่ม poster image
+        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696dfa625689f_1768815202.mp4',
+        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696dfa625689f_1768815202.mp4', // เพิ่ม poster image
         'duration' => 14000
     ],
     [
@@ -97,12 +97,13 @@ function ht($key, $lang) {
         position: relative;
         overflow: hidden;
         background: var(--luxury-black);
-        margin-top: 5em;
+        /* margin-top: 5em; */
     }
 
     .hero-slider {
         height: 100%;
         position: relative;
+        top: 0;
     }
 
     .hero-slide {

@@ -241,7 +241,7 @@ $languages = [
         left: 0;
         width: 100%;
         z-index: 1000;
-        background: rgba(255, 255, 255, 0.95);
+        background: #f8f8f861;
         backdrop-filter: blur(20px);
         border-bottom: 1px solid rgba(0, 0, 0, 0.05);
         transition: all 0.4s var(--transition);
@@ -986,7 +986,7 @@ $languages = [
 
 <!-- HEADER -->
 <header class="header">
-    <div class="header-content">
+    <div class="header-content" style="background: #f8f8f861;">
         <!-- Hamburger Menu (Mobile) -->
         <button class="hamburger" id="hamburgerBtn" aria-label="Menu">
             <span></span>
