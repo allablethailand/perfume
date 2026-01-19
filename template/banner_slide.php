@@ -7,6 +7,17 @@ $imagesItems = [
         'duration' => 14000 // 14 seconds in milliseconds
     ],
     [
+        'type' => 'video',
+        'src' => 'public/ai_videos/video_696de657cc980_1768810071.mp4',
+        'duration' => 14000 // 14 seconds in milliseconds
+    ],
+    [
+        'type' => 'video',
+        'src' => 'public/ai_videos/video_696de647ce56d_1768810055.mp4',
+        'duration' => 14000 // 14 seconds in milliseconds
+    ],
+
+    [
         'type' => 'image',
         'src' => 'public/product_images/696089dc2fa56_1767934428.jpg',
         'duration' => 5000 // 5 seconds for images
