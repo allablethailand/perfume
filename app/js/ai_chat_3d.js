@@ -10,11 +10,6 @@ const jwt = sessionStorage.getItem("jwt");
 // Three.js variables
 let scene, camera, renderer, avatar, mouth;
 let isSpeaking = false;
-let speechQueue = [];
-
-// Speech Synthesis
-const synth = window.speechSynthesis;
-let currentUtterance = null;
 
 // ✅ เริ่มต้น
 $(document).ready(function() {
@@ -318,38 +313,277 @@ function showMessage(text) {
     $('#currentMessage').fadeIn();
 }
 
-// ✅ Text-to-Speech
+// ✅ Text-to-Speech รองรับหลายภาษาด้วย Google Translate TTS
 function speakText(text) {
-    // Stop current speech
-    if (currentUtterance) {
-        synth.cancel();
+    console.log('🎤 Preparing to speak:', text.substring(0, 100));
+    
+    // ตรวจจับภาษา
+    let langCode = 'th'; // Default Thai
+    let detectedLang = 'Thai';
+    
+    // Thai
+    if (/[\u0E00-\u0E7F]/.test(text)) {
+        langCode = 'th';
+        detectedLang = 'Thai';
+    }
+    // Chinese (Mandarin)
+    else if (/[\u4E00-\u9FFF]/.test(text)) {
+        langCode = 'zh-CN';
+        detectedLang = 'Chinese';
+    }
+    // Japanese
+    else if (/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) {
+        langCode = 'ja';
+        detectedLang = 'Japanese';
+    }
+    // Korean
+    else if (/[\uAC00-\uD7AF]/.test(text)) {
+        langCode = 'ko';
+        detectedLang = 'Korean';
+    }
+    // English
+    else {
+        langCode = 'en';
+        detectedLang = 'English';
     }
     
-    // Create new utterance
-    currentUtterance = new SpeechSynthesisUtterance(text);
+    console.log('🗣️ Detected:', detectedLang, '(', langCode, ')');
     
-    // ตั้งค่าเสียง (ใช้เสียงไทยถ้ามี)
-    const voices = synth.getVoices();
-    const thaiVoice = voices.find(voice => voice.lang === 'th-TH') || 
-                      voices.find(voice => voice.lang.startsWith('th')) ||
-                      voices[0];
+    // Update status
+    isSpeaking = true;
+    updateStatus('Speaking in ' + detectedLang + '...', true);
     
-    if (thaiVoice) {
-        currentUtterance.voice = thaiVoice;
+    // แบ่งข้อความถ้ายาวเกิน 200 ตัวอักษร
+    const maxLength = 200;
+    const chunks = [];
+    
+    if (text.length > maxLength) {
+        // แบ่งตามประโยค
+        const sentences = text.match(/[^.!?。！？]+[.!?。！？]+/g) || [text];
+        let currentChunk = '';
+        
+        for (let sentence of sentences) {
+            if ((currentChunk + sentence).length <= maxLength) {
+                currentChunk += sentence;
+            } else {
+                if (currentChunk) chunks.push(currentChunk.trim());
+                currentChunk = sentence;
+            }
+        }
+        if (currentChunk) chunks.push(currentChunk.trim());
+    } else {
+        chunks.push(text);
     }
     
-    currentUtterance.lang = 'th-TH';
-    currentUtterance.rate = 0.9;
-    currentUtterance.pitch = 1.1;
-    currentUtterance.volume = 1;
+    console.log('📝 Split into', chunks.length, 'chunks');
     
-    // Events
-    currentUtterance.onstart = function() {
-        isSpeaking = true;
-        updateStatus('Speaking...', true);
+    // เล่น audio ทีละชิ้น
+    playGoogleTTSChunks(chunks, 0, langCode);
+}
+
+// ✅ เล่น Google TTS ทีละชิ้น
+let currentAudio = null;
+
+function playGoogleTTSChunks(chunks, index, langCode) {
+    if (index >= chunks.length) {
+        // เล่นจบแล้ว
+        console.log('✅ Finished speaking all chunks');
+        isSpeaking = false;
+        updateStatus('Ready to chat', false);
+        $('#currentMessage').fadeOut();
+        
+        // Reset mouth
+        if (mouth) {
+            mouth.scale.y = 1;
+        }
+        return;
+    }
+    
+    const chunk = chunks[index];
+    console.log('🔊 Playing chunk', (index + 1), 'of', chunks.length, ':', chunk.substring(0, 50));
+    
+    // สร้าง Google TTS URL
+    const encodedText = encodeURIComponent(chunk);
+    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${langCode}&client=tw-ob&q=${encodedText}`;
+    
+    // สร้าง audio element
+    currentAudio = new Audio();
+    
+    currentAudio.oncanplaythrough = function() {
+        console.log('✅ Audio ready, playing chunk', (index + 1));
+        this.play().catch(err => {
+            console.error('❌ Play error:', err);
+            // ลอง fallback
+            playGoogleTTSChunks(chunks, index + 1, langCode);
+        });
     };
     
-    currentUtterance.onend = function() {
+    currentAudio.onplay = function() {
+        console.log('▶️ Playing audio chunk', (index + 1));
+        isSpeaking = true;
+    };
+    
+    currentAudio.onended = function() {
+        console.log('✅ Chunk', (index + 1), 'finished');
+        // เล่นชิ้นถัดไป
+        setTimeout(() => {
+            playGoogleTTSChunks(chunks, index + 1, langCode);
+        }, 300); // หน่วงเวลาเล็กน้อยระหว่างชิ้น
+    };
+    
+    currentAudio.onerror = function(e) {
+        console.error('❌ Audio error on chunk', (index + 1), ':', e);
+        console.warn('⚠️ Falling back to Web Speech API');
+        // Fallback to Web Speech API
+        fallbackToWebSpeech(chunks.join(' '), langCode);
+    };
+    
+    // ตั้ง src และโหลด
+    currentAudio.src = ttsUrl;
+    currentAudio.load();
+}
+
+// ✅ Fallback: ใช้ Web Speech API ถ้า Google TTS ไม่ทำงาน
+function fallbackToWebSpeech(text, langCode) {
+    console.log('⚠️ Falling back to Web Speech API');
+    
+    if (!window.speechSynthesis) {
+        console.error('❌ Web Speech API not supported');
+        isSpeaking = false;
+        updateStatus('Ready to chat', false);
+        
+        Swal.fire({
+            icon: 'warning',
+            title: 'TTS Not Available',
+            text: 'Text-to-speech is not available. Please try using Chrome or Edge browser.',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 4000
+        });
+        return;
+    }
+    
+    // Stop current speech
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = langCode === 'th' ? 'th-TH' : 
+                     langCode === 'zh-CN' ? 'zh-CN' :
+                     langCode === 'ja' ? 'ja-JP' :
+                     langCode === 'ko' ? 'ko-KR' : 'en-US';
+    utterance.rate = 0.85;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    
+    utterance.onstart = function() {
+        console.log('✅ Fallback speech started');
+        isSpeaking = true;
+    };
+    
+    utterance.onend = function() {
+        console.log('✅ Fallback speech ended');
+        isSpeaking = false;
+        updateStatus('Ready to chat', false);
+        $('#currentMessage').fadeOut();
+        
+        if (mouth) {
+            mouth.scale.y = 1;
+        }
+    };
+    
+    utterance.onerror = function(event) {
+        console.error('❌ Fallback speech error:', event.error);
+        isSpeaking = false;
+        updateStatus('Ready to chat', false);
+    };
+    
+    window.speechSynthesis.speak(utterance);
+}
+
+// ✅ ฟังก์ชันพูดจริง
+function speakWithVoice(text, langCode, detectedLang, preferredVoiceName, voices) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = langCode;
+    
+    console.log('📢 Total available voices:', voices.length);
+    console.log('🔍 Looking for language:', langCode);
+    
+    // แสดง voices ที่มีทั้งหมด (เพื่อ debug)
+    if (voices.length > 0) {
+        console.log('📋 All voices:', voices.map(v => `${v.name} (${v.lang})`).slice(0, 10).join(', '));
+    }
+    
+    // หา voice ที่เหมาะสมที่สุด
+    let selectedVoice = null;
+    const langPrefix = langCode.split('-')[0]; // เช่น 'th', 'zh', 'ja', 'ko', 'en'
+    
+    // 1. หาจากภาษาที่ตรงทั้งหมด (เช่น th-TH)
+    selectedVoice = voices.find(voice => voice.lang === langCode);
+    
+    // 2. ถ้าไม่เจอ ให้หาจากภาษาคร่าวๆ (เช่น th)
+    if (!selectedVoice) {
+        selectedVoice = voices.find(voice => voice.lang.startsWith(langPrefix));
+    }
+    
+    // 3. ถ้ายังไม่เจอ ให้หาจากชื่อ voice
+    if (!selectedVoice && preferredVoiceName) {
+        selectedVoice = voices.find(voice => 
+            voice.name.toLowerCase().includes(preferredVoiceName.toLowerCase())
+        );
+    }
+    
+    // 4. หา Google voices (มักจะดีที่สุด)
+    if (!selectedVoice) {
+        selectedVoice = voices.find(voice => 
+            voice.name.includes('Google') && voice.lang.startsWith(langPrefix)
+        );
+    }
+    
+    // 5. หา Microsoft voices
+    if (!selectedVoice) {
+        selectedVoice = voices.find(voice => 
+            voice.name.includes('Microsoft') && voice.lang.startsWith(langPrefix)
+        );
+    }
+    
+    // 6. หาจาก local voice ใดๆ ที่ตรงกับภาษา
+    if (!selectedVoice) {
+        selectedVoice = voices.find(voice => voice.lang.includes(langPrefix));
+    }
+    
+    if (selectedVoice) {
+        utterance.voice = selectedVoice;
+        console.log('✅ Selected voice:', selectedVoice.name, `(${selectedVoice.lang})`);
+    } else {
+        console.warn('⚠️ No matching voice found for', langCode);
+        console.warn('💡 Using browser default voice');
+        
+        // แสดง voices ที่มีเพื่อให้ผู้ใช้ทราบ
+        const availableLangs = [...new Set(voices.map(v => v.lang))];
+        console.log('🌍 Available languages:', availableLangs.join(', '));
+        
+        // แจ้งเตือนผู้ใช้
+        if (detectedLang !== 'English') {
+            console.warn(`⚠️ ${detectedLang} voice not found. The speech may sound incorrect.`);
+            console.warn('💡 Try using Chrome or Edge for better language support.');
+        }
+    }
+    
+    // ตั้งค่าเสียง
+    utterance.rate = 0.85;  // ความเร็ว (0.1 - 10)
+    utterance.pitch = 1.0;  // ระดับเสียง (0 - 2)
+    utterance.volume = 1.0; // ความดัง (0 - 1)
+    
+    // Events
+    utterance.onstart = function() {
+        console.log('✅ Started speaking in ' + detectedLang);
+        isSpeaking = true;
+        updateStatus('Speaking in ' + detectedLang + '...', true);
+    };
+    
+    utterance.onend = function() {
+        console.log('✅ Finished speaking');
         isSpeaking = false;
         updateStatus('Ready to chat', false);
         $('#currentMessage').fadeOut();
@@ -360,14 +594,79 @@ function speakText(text) {
         }
     };
     
-    currentUtterance.onerror = function(event) {
-        console.error('Speech error:', event);
+    utterance.onerror = function(event) {
+        console.error('❌ Speech error:', event.error);
+        isSpeaking = false;
+        updateStatus('Ready to chat', false);
+        
+        Swal.fire({
+            icon: 'error',
+            title: 'Speech Error',
+            text: 'Failed to speak: ' + event.error,
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000
+        });
+    };
+    
+    // พูด!
+    console.log('🎤 Speaking now...');
+    window.speechSynthesis.speak(utterance);
+}
+
+// ✅ Fallback: Web Speech API (สำหรับกรณี ResponsiveVoice ไม่ทำงาน)
+function useWebSpeechAPI(text) {
+    if (!window.speechSynthesis) {
+        console.error('Web Speech API not supported');
+        Swal.fire({
+            icon: 'warning',
+            title: 'TTS Not Available',
+            text: 'Your browser does not support text-to-speech',
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000
+        });
+        return;
+    }
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // ตรวจจับภาษา
+    if (/[\u0E00-\u0E7F]/.test(text)) {
+        utterance.lang = 'th-TH';
+    } else if (/[\u4E00-\u9FFF]/.test(text)) {
+        utterance.lang = 'zh-CN';
+    } else if (/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) {
+        utterance.lang = 'ja-JP';
+    } else if (/[\uAC00-\uD7AF]/.test(text)) {
+        utterance.lang = 'ko-KR';
+    } else {
+        utterance.lang = 'en-US';
+    }
+    
+    utterance.rate = 0.9;
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    
+    isSpeaking = true;
+    updateStatus('Speaking (fallback)...', true);
+    
+    utterance.onend = function() {
+        isSpeaking = false;
+        updateStatus('Ready to chat', false);
+        $('#currentMessage').fadeOut();
+        if (mouth) mouth.scale.y = 1;
+    };
+    
+    utterance.onerror = function(e) {
+        console.error('Web Speech API error:', e);
         isSpeaking = false;
         updateStatus('Ready to chat', false);
     };
     
-    // Speak
-    synth.speak(currentUtterance);
+    window.speechSynthesis.speak(utterance);
 }
 
 // ✅ Update status indicator
@@ -389,8 +688,8 @@ function createNewChat() {
     $('#currentMessage').fadeOut();
     
     // Stop speaking
-    if (synth.speaking) {
-        synth.cancel();
+    if (responsiveVoice.isPlaying()) {
+        responsiveVoice.cancel();
     }
     
     updateStatus('Ready to chat', false);
@@ -466,11 +765,4 @@ function escapeHtml(text) {
         "'": '&#039;'
     };
     return text.replace(/[&<>"']/g, m => map[m]);
-}
-
-// ✅ Load voices when available
-if (synth.onvoiceschanged !== undefined) {
-    synth.onvoiceschanged = function() {
-        synth.getVoices();
-    };
 }
