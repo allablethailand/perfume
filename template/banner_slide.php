@@ -218,11 +218,11 @@ function ht($key, $lang) {
         background: rgba(255, 255, 255, 0.3);
     }
 
-    /* Progress bar animation - ขวาไปซ้าย */
+    /* Progress bar animation - ซ้ายไปขวา */
     .hero-dot-progress {
         position: absolute;
         top: 0;
-        right: 0;
+        left: 0;
         height: 100%;
         width: 0;
         background: rgba(255, 255, 255, 1);
@@ -236,11 +236,9 @@ function ht($key, $lang) {
     @keyframes progressBar {
         from {
             width: 0;
-            right: 0;
         }
         to {
             width: 100%;
-            right: 0;
         }
     }
 
@@ -317,8 +315,10 @@ function ht($key, $lang) {
     const totalSlides = slides.length;
     let autoSlideTimeout;
     let isPaused = false;
+    let startTime;
+    let remainingTime;
 
-    function showSlide(index) {
+    function showSlide(index, resumeTime = null) {
         // Clear any existing timeout
         if (autoSlideTimeout) {
             clearTimeout(autoSlideTimeout);
@@ -354,7 +354,11 @@ function ht($key, $lang) {
         // Set progress bar animation duration
         const progress = dots[index].querySelector('.hero-dot-progress');
         if (progress) {
-            progress.style.animationDuration = duration + 'ms';
+            if (resumeTime) {
+                progress.style.animationDuration = resumeTime + 'ms';
+            } else {
+                progress.style.animationDuration = duration + 'ms';
+            }
         }
         
         // Play video if current slide is video
@@ -368,20 +372,19 @@ function ht($key, $lang) {
             if (playPromise !== undefined) {
                 playPromise.catch(e => {
                     console.log('Video autoplay prevented:', e);
-                    // Try to play with user interaction
-                    document.addEventListener('click', function playOnClick() {
-                        currentVideo.play();
-                        document.removeEventListener('click', playOnClick);
-                    }, { once: true });
                 });
             }
         }
         
         // Schedule next slide based on duration
+        const timeToWait = resumeTime || duration;
+        startTime = Date.now();
+        remainingTime = timeToWait;
+        
         if (!isPaused) {
             autoSlideTimeout = setTimeout(() => {
                 nextSlide();
-            }, duration);
+            }, timeToWait);
         }
     }
 
@@ -407,6 +410,11 @@ function ht($key, $lang) {
         if (autoSlideTimeout) {
             clearTimeout(autoSlideTimeout);
         }
+        
+        // Calculate remaining time
+        const elapsed = Date.now() - startTime;
+        remainingTime = remainingTime - elapsed;
+        
         // Pause progress bar animation
         const activeDot = document.querySelector('.hero-dot.active .hero-dot-progress');
         if (activeDot) {
@@ -416,17 +424,18 @@ function ht($key, $lang) {
 
     document.querySelector('.hero-slider').addEventListener('mouseleave', () => {
         isPaused = false;
+        
         // Resume progress bar animation
         const activeDot = document.querySelector('.hero-dot.active .hero-dot-progress');
         if (activeDot) {
             activeDot.style.animationPlayState = 'running';
         }
         
-        // Calculate remaining time and schedule next slide
-        const duration = parseInt(slides[currentSlide].getAttribute('data-duration')) * 1000;
+        // Resume with remaining time
+        startTime = Date.now();
         autoSlideTimeout = setTimeout(() => {
             nextSlide();
-        }, duration);
+        }, remainingTime);
     });
 
     // Handle video ended event (in case loop fails)
