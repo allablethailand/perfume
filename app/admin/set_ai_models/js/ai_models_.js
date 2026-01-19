@@ -67,7 +67,7 @@ $(document).ready(function () {
                 "target": 2,
                 data: null,
                 render: function (data, type, row) {
-                    return `<span class="badge badge-secondary">${data.provider}</span>`;
+                    return `<span class="badge badge-dark" style="color: #6f0000">${data.provider}</span>`;
                 }
             },
             {
@@ -85,7 +85,7 @@ $(document).ready(function () {
                 "target": 4,
                 data: null,
                 render: function (data, type, row) {
-                    return `<span class="badge badge-primary priority-badge">${data.priority}</span>`;
+                    return `<span class="badge badge-primary priority-badge" style="color: #6f0000">${data.priority}</span>`;
                 }
             },
             {
