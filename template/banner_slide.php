@@ -9,12 +9,12 @@ $imagesItems = [
     [
         'type' => 'video',
         'src' => 'public/ai_videos/video_696de657cc980_1768810071.mp4',
-        'duration' => 14000 // 14 seconds in milliseconds
+        'duration' => 17000 // 14 seconds in milliseconds
     ],
     [
         'type' => 'video',
         'src' => 'public/ai_videos/video_696de647ce56d_1768810055.mp4',
-        'duration' => 14000 // 14 seconds in milliseconds
+        'duration' => 16000 // 14 seconds in milliseconds
     ],
 
     [
@@ -138,6 +138,12 @@ function ht($key, $lang) {
         text-align: center;
         color: white;
         z-index: 10;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+    }
+
+    .hero-content.show {
+        opacity: 1;
     }
 
     .hero-subtitle {
@@ -307,7 +313,7 @@ function ht($key, $lang) {
         <?php endforeach; ?>
     </div>
 
-    <div class="hero-content">
+    <div class="hero-content <?= ($imagesItems[0]['type'] === 'image') ? 'show' : '' ?>">
         <p class="hero-subtitle"><?= ht('subtitle', $lang) ?></p>
         <h1 class="hero-title"><?= ht('title_line1', $lang) ?><br><?= ht('title_line2', $lang) ?></h1>
         <p class="hero-description">
@@ -330,6 +336,7 @@ function ht($key, $lang) {
     let currentSlide = 0;
     const slides = document.querySelectorAll('.hero-slide');
     const dots = document.querySelectorAll('.hero-dot');
+    const heroContent = document.querySelector('.hero-content');
     const totalSlides = slides.length;
     let autoSlideInterval;
     let isPaused = false;
@@ -341,6 +348,14 @@ function ht($key, $lang) {
             progress.style.animation = 'none';
             progress.style.width = '0%';
         });
+    }
+
+    function updateContentVisibility(slideType) {
+        if (slideType === 'image') {
+            heroContent.classList.add('show');
+        } else {
+            heroContent.classList.remove('show');
+        }
     }
 
     function showSlide(index) {
@@ -356,7 +371,7 @@ function ht($key, $lang) {
             if (video) {
                 video.pause();
                 video.currentTime = 0;
-                video.onended = null; // Remove old event listeners
+                video.onended = null;
             }
             slide.classList.remove('active');
         });
@@ -369,13 +384,17 @@ function ht($key, $lang) {
         slides[index].classList.add('active');
         dots[index].classList.add('active');
         
+        // Update content visibility based on slide type
+        const slideType = slides[index].dataset.type;
+        updateContentVisibility(slideType);
+        
         // Get duration from data attribute
         const duration = parseInt(slides[index].dataset.duration);
         
         // Animate progress bar
         const progress = dots[index].querySelector('.hero-dot-progress');
         progress.style.animation = 'none';
-        void progress.offsetWidth; // Trigger reflow
+        void progress.offsetWidth;
         progress.style.animation = `progressBar ${duration}ms linear forwards`;
         
         // Check if current slide is video or image
@@ -389,12 +408,10 @@ function ht($key, $lang) {
             if (playPromise !== undefined) {
                 playPromise.catch(e => {
                     console.log('Video autoplay prevented:', e);
-                    // If video can't play, use fallback timer
                     autoSlideInterval = setTimeout(nextSlide, duration);
                 });
             }
             
-            // Use BOTH timeupdate and ended events for reliability
             let videoTransitioned = false;
             
             video.onended = () => {
@@ -404,25 +421,22 @@ function ht($key, $lang) {
                 }
             };
             
-            // Fallback: check video time periodically
             video.ontimeupdate = () => {
-                // When video is near the end (within 0.5s), transition
                 if (video.duration - video.currentTime < 0.5 && !videoTransitioned && !isPaused) {
                     videoTransitioned = true;
                     nextSlide();
                 }
             };
             
-            // Safety fallback: use duration as absolute maximum
             autoSlideInterval = setTimeout(() => {
                 if (!videoTransitioned && !isPaused) {
                     videoTransitioned = true;
                     nextSlide();
                 }
-            }, duration + 500); // Add 500ms buffer
+            }, duration + 500);
             
         } else {
-            // Handle IMAGE - use simple timer
+            // Handle IMAGE
             autoSlideInterval = setTimeout(nextSlide, duration);
         }
     }
