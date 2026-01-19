@@ -346,7 +346,7 @@ function ht($key, $lang) {
         }, 100);
     }
 
-    function showSlide(index, userClick = false) {
+    function showSlide(index) {
         if (progressInterval) {
             clearTimeout(progressInterval);
         }
@@ -383,20 +383,16 @@ function ht($key, $lang) {
                 const videoDuration = currentVideo.duration * 1000;
                 updateVideoProgress(currentDot, currentVideo);
                 
-                if (!userClick) {
-                    progressInterval = setTimeout(() => {
-                        nextSlide();
-                    }, videoDuration);
-                }
+                progressInterval = setTimeout(() => {
+                    nextSlide();
+                }, videoDuration);
             }, { once: true });
         } else {
             updateProgress(currentDot, 7000);
             
-            if (!userClick) {
-                progressInterval = setTimeout(() => {
-                    nextSlide();
-                }, 7000);
-            }
+            progressInterval = setTimeout(() => {
+                nextSlide();
+            }, 7000);
         }
     }
 
@@ -443,36 +439,16 @@ function ht($key, $lang) {
         isDragging = false;
         slider.style.cursor = 'grab';
         
-        // คืนค่า opacity
         slides[currentSlide].style.opacity = '1';
         
-        // ตรวจสอบทิศทาง
         if (Math.abs(dragDistance) > threshold) {
             if (dragDistance > 0) {
-                // เลื่อนจากซ้าย → ขวา = ภาพก่อนหน้า
                 prevSlide();
             } else {
-                // เลื่อนจากขวา → ซ้าย = ภาพถัดไป
                 nextSlide();
             }
         } else {
-            // ไม่ถึง threshold, เริ่ม auto-slide ต่อ
-            const currentVideo = slides[currentSlide].querySelector('.hero-video');
-            const currentDot = dots[currentSlide];
-            
-            if (currentVideo) {
-                const videoDuration = currentVideo.duration * 1000;
-                const remainingTime = (1 - currentVideo.currentTime / currentVideo.duration) * videoDuration;
-                updateVideoProgress(currentDot, currentVideo);
-                progressInterval = setTimeout(() => {
-                    nextSlide();
-                }, remainingTime);
-            } else {
-                updateProgress(currentDot, 7000);
-                progressInterval = setTimeout(() => {
-                    nextSlide();
-                }, 7000);
-            }
+            showSlide(currentSlide);
         }
         
         dragDistance = 0;
@@ -497,25 +473,7 @@ function ht($key, $lang) {
     dots.forEach((dot, index) => {
         dot.addEventListener('click', () => {
             currentSlide = index;
-            showSlide(currentSlide, true);
-            
-            if (progressInterval) {
-                clearTimeout(progressInterval);
-            }
-            
-            const currentVideo = slides[index].querySelector('.hero-video');
-            if (currentVideo) {
-                currentVideo.addEventListener('loadedmetadata', function() {
-                    const videoDuration = currentVideo.duration * 1000;
-                    progressInterval = setTimeout(() => {
-                        nextSlide();
-                    }, videoDuration);
-                }, { once: true });
-            } else {
-                progressInterval = setTimeout(() => {
-                    nextSlide();
-                }, 7000);
-            }
+            showSlide(currentSlide);
         });
     });
 })();
