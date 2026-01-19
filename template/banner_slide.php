@@ -90,10 +90,6 @@ function ht($key, $lang) {
     .hero-slider {
         height: 100%;
         position: relative;
-        user-select: none;
-        -webkit-user-select: none;
-        -moz-user-select: none;
-        -ms-user-select: none;
     }
 
     .hero-slide {
@@ -102,12 +98,10 @@ function ht($key, $lang) {
         height: 100%;
         opacity: 0;
         transition: opacity 1.5s var(--transition);
-        pointer-events: none;
     }
 
     .hero-slide.active {
         opacity: 1;
-        pointer-events: auto;
     }
 
     .hero-image,
@@ -210,33 +204,13 @@ function ht($key, $lang) {
         height: 2px;
         background: rgba(255, 255, 255, 0.3);
         cursor: pointer;
+        transition: all 0.4s ease;
         border: none;
         padding: 0;
-        position: relative;
-        overflow: hidden;
     }
 
-    .hero-dot-progress {
-        position: absolute;
-        top: 0;
-        left: 0;
-        height: 100%;
-        width: 0;
+    .hero-dot.active {
         background: white;
-        transition: none;
-    }
-
-    .hero-dot.active .hero-dot-progress {
-        animation: progressBar 7s linear forwards;
-    }
-
-    @keyframes progressBar {
-        from {
-            width: 0;
-        }
-        to {
-            width: 100%;
-        }
     }
 
     /* Responsive */
@@ -294,9 +268,7 @@ function ht($key, $lang) {
 
     <div class="hero-nav">
         <?php foreach ($imagesItems as $index => $item): ?>
-            <button class="hero-dot <?= ($index === 0) ? 'active' : '' ?>" data-slide="<?= $index ?>">
-                <div class="hero-dot-progress"></div>
-            </button>
+            <span class="hero-dot <?= ($index === 0) ? 'active' : '' ?>"></span>
         <?php endforeach; ?>
     </div>
 </section>
@@ -306,54 +278,11 @@ function ht($key, $lang) {
     let currentSlide = 0;
     const slides = document.querySelectorAll('.hero-slide');
     const dots = document.querySelectorAll('.hero-dot');
-    const slider = document.querySelector('.hero-slider');
     const totalSlides = slides.length;
     let autoSlideInterval;
-    let progressInterval;
-    let videoProgressInterval;
-    
-    // Swipe/Drag variables
-    let isDragging = false;
-    let startX = 0;
-    let currentX = 0;
-    let dragDistance = 0;
-    const threshold = 100; // ระยะทางขั้นต่ำที่ต้องเลื่อนเพื่อเปลี่ยนภาพ
-
-    function updateProgress(dot, duration) {
-        const progress = dot.querySelector('.hero-dot-progress');
-        progress.style.transition = 'none';
-        progress.style.width = '0';
-        
-        setTimeout(() => {
-            progress.style.transition = `width ${duration}ms linear`;
-            progress.style.width = '100%';
-        }, 50);
-    }
-
-    function updateVideoProgress(dot, video) {
-        if (videoProgressInterval) {
-            clearInterval(videoProgressInterval);
-        }
-
-        const progress = dot.querySelector('.hero-dot-progress');
-        progress.style.transition = 'none';
-        
-        videoProgressInterval = setInterval(() => {
-            if (video.duration > 0) {
-                const percentage = (video.currentTime / video.duration) * 100;
-                progress.style.width = percentage + '%';
-            }
-        }, 100);
-    }
 
     function showSlide(index) {
-        if (progressInterval) {
-            clearTimeout(progressInterval);
-        }
-        if (videoProgressInterval) {
-            clearInterval(videoProgressInterval);
-        }
-
+        // Pause all videos
         slides.forEach(slide => {
             const video = slide.querySelector('.hero-video');
             if (video) {
@@ -363,37 +292,19 @@ function ht($key, $lang) {
             slide.classList.remove('active');
         });
         
-        dots.forEach(dot => {
-            dot.classList.remove('active');
-            const progress = dot.querySelector('.hero-dot-progress');
-            progress.style.transition = 'none';
-            progress.style.width = '0';
-        });
+        dots.forEach(dot => dot.classList.remove('active'));
         
+        // Show current slide
         slides[index].classList.add('active');
         dots[index].classList.add('active');
         
+        // Play video if current slide is video
         const currentVideo = slides[index].querySelector('.hero-video');
-        const currentDot = dots[index];
-        
         if (currentVideo) {
             currentVideo.play().catch(e => console.log('Video autoplay failed:', e));
-            
-            currentVideo.addEventListener('loadedmetadata', function() {
-                const videoDuration = currentVideo.duration * 1000;
-                updateVideoProgress(currentDot, currentVideo);
-                
-                progressInterval = setTimeout(() => {
-                    nextSlide();
-                }, videoDuration);
-            }, { once: true });
-        } else {
-            updateProgress(currentDot, 7000);
-            
-            progressInterval = setTimeout(() => {
-                nextSlide();
-            }, 7000);
         }
+        
+        // document.querySelector('.current').textContent = String(index + 1).padStart(2, '0');
     }
 
     function nextSlide() {
@@ -401,80 +312,34 @@ function ht($key, $lang) {
         showSlide(currentSlide);
     }
 
-    function prevSlide() {
-        currentSlide = (currentSlide - 1 + totalSlides) % totalSlides;
-        showSlide(currentSlide);
-    }
-
-    // Swipe/Drag handlers
-    function handleDragStart(e) {
-        isDragging = true;
-        startX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-        slider.style.cursor = 'grabbing';
-        
-        // หยุด auto-slide ชั่วคราว
-        if (progressInterval) {
-            clearTimeout(progressInterval);
+    function startAutoSlide() {
+        if (autoSlideInterval) {
+            clearInterval(autoSlideInterval);
         }
-        if (videoProgressInterval) {
-            clearInterval(videoProgressInterval);
-        }
+        autoSlideInterval = setInterval(nextSlide, 5000);
     }
 
-    function handleDragMove(e) {
-        if (!isDragging) return;
-        
-        e.preventDefault();
-        currentX = e.type.includes('mouse') ? e.clientX : e.touches[0].clientX;
-        dragDistance = currentX - startX;
-        
-        // แสดง visual feedback เบาๆ
-        const opacity = 1 - Math.abs(dragDistance) / 500;
-        slides[currentSlide].style.opacity = Math.max(0.7, opacity);
-    }
+    // Start auto slide
+    startAutoSlide();
 
-    function handleDragEnd(e) {
-        if (!isDragging) return;
-        
-        isDragging = false;
-        slider.style.cursor = 'grab';
-        
-        slides[currentSlide].style.opacity = '1';
-        
-        if (Math.abs(dragDistance) > threshold) {
-            if (dragDistance > 0) {
-                prevSlide();
-            } else {
-                nextSlide();
-            }
-        } else {
-            showSlide(currentSlide);
-        }
-        
-        dragDistance = 0;
-    }
-
-    // Event listeners สำหรับ mouse
-    slider.addEventListener('mousedown', handleDragStart);
-    slider.addEventListener('mousemove', handleDragMove);
-    slider.addEventListener('mouseup', handleDragEnd);
-    slider.addEventListener('mouseleave', handleDragEnd);
-
-    // Event listeners สำหรับ touch
-    slider.addEventListener('touchstart', handleDragStart, { passive: false });
-    slider.addEventListener('touchmove', handleDragMove, { passive: false });
-    slider.addEventListener('touchend', handleDragEnd);
-
-    // เปลี่ยน cursor
-    slider.style.cursor = 'grab';
-
-    showSlide(0);
-
+    // Dot navigation
     dots.forEach((dot, index) => {
         dot.addEventListener('click', () => {
             currentSlide = index;
             showSlide(currentSlide);
+            startAutoSlide(); // Restart auto slide on manual navigation
         });
+    });
+
+    // Pause auto-slide when user interacts
+    document.querySelector('.hero-slider').addEventListener('mouseenter', () => {
+        if (autoSlideInterval) {
+            clearInterval(autoSlideInterval);
+        }
+    });
+
+    document.querySelector('.hero-slider').addEventListener('mouseleave', () => {
+        startAutoSlide();
     });
 })();
 </script>
