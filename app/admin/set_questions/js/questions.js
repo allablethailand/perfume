@@ -130,6 +130,14 @@ $(document).ready(function() {
                     },
                     {
                         "target": 4,
+                        data: null,
+                        render: function(data, type, row) {
+                            // จะต้องดึงจำนวน choices จาก backend
+                            return `<span class="choices-count-badge" id="choices-count-${row.question_id}">0</span>`;
+                        }
+                    },
+                    {
+                        "target": 5,
                         data: "status",
                         render: function(data) {
                             if (data == 1) {
@@ -140,7 +148,7 @@ $(document).ready(function() {
                         }
                     },
                     {
-                        "target": 5,
+                        "target": 6,
                         data: "created_at",
                         render: function(data) {
                             if (data) {
@@ -151,13 +159,19 @@ $(document).ready(function() {
                         }
                     },
                     {
-                        "target": 6,
+                        "target": 7,
                         data: null,
                         render: function(data, type, row) {
                             let toggleIcon = row.status == 1 ? 'fa-toggle-on' : 'fa-toggle-off';
                             let toggleColor = row.status == 1 ? 'btn-toggle' : 'btn-secondary';
                             
                             return `
+                                <button type="button" class="btn-circle btn-info btn-manage-choices" 
+                                        data-id="${row.question_id}" 
+                                        data-text="${escapeHtml(row.question_text_th)}"
+                                        title="จัดการตัวเลือก">
+                                    <i class="fas fa-list-ul"></i>
+                                </button>
                                 <button type="button" class="btn-circle ${toggleColor} btn-toggle-status" 
                                         data-id="${row.question_id}" 
                                         data-status="${row.status}"
@@ -190,6 +204,7 @@ $(document).ready(function() {
                     
                     // Reload counts after table draw
                     loadStatusCounts();
+                    loadAllChoicesCounts();
                 }
             });
 
@@ -197,6 +212,13 @@ $(document).ready(function() {
             $('#td_list_questions').on('click', '.btn-edit-question', function() {
                 let questionId = $(this).data('id');
                 editQuestion(questionId);
+            });
+
+            // Event delegation for Manage Choices button
+            $('#td_list_questions').on('click', '.btn-manage-choices', function() {
+                let questionId = $(this).data('id');
+                let questionText = $(this).data('text');
+                openChoicesModal(questionId, questionText);
             });
 
             // Event delegation for Delete button
@@ -465,5 +487,294 @@ function alertError(message) {
     Toast.fire({
         icon: "error",
         title: message
+    });
+}
+
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text ? text.replace(/[&<>"']/g, m => map[m]) : '';
+}
+
+// ========================================
+// CHOICES MANAGEMENT FUNCTIONS
+// ========================================
+let choicesModal = null;
+
+// Initialize choices modal
+$(document).ready(function() {
+    choicesModal = new bootstrap.Modal(document.getElementById('choicesModal'));
+});
+
+// Open Choices Modal
+function openChoicesModal(questionId, questionText) {
+    $('#choices_question_id').val(questionId);
+    $('#choicesQuestionText').text('"' + questionText + '"');
+    
+    // Hide form if showing
+    $('#choiceFormContainer').hide();
+    
+    // Load choices
+    loadChoices(questionId);
+    
+    choicesModal.show();
+}
+
+// Load Choices for a question
+function loadChoices(questionId) {
+    $('#loading-overlay').css('display', 'flex');
+    
+    $.ajax({
+        url: 'actions/process_questions.php',
+        type: 'POST',
+        data: {
+            action: 'getChoices',
+            question_id: questionId
+        },
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                displayChoices(response.choices);
+                
+                // Update choices count in main table
+                const count = response.choices.filter(c => c.del == 0).length;
+                $(`#choices-count-${questionId}`).text(count);
+            } else {
+                alertError(response.message);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error:', error);
+            alertError('เกิดข้อผิดพลาดในการโหลดตัวเลือก');
+        },
+        complete: function() {
+            $('#loading-overlay').css('display', 'none');
+        }
+    });
+}
+
+// Display choices in table
+function displayChoices(choices) {
+    let html = '';
+    
+    if (choices.length === 0) {
+        html = '<tr><td colspan="6" class="text-center text-muted">ยังไม่มีตัวเลือก</td></tr>';
+    } else {
+        choices.forEach((choice, index) => {
+            const statusBadge = choice.status == 1 
+                ? '<span class="badge badge-success">✓ เปิดใช้งาน</span>'
+                : '<span class="badge badge-danger">✗ ปิดใช้งาน</span>';
+            
+            html += `
+                <tr>
+                    <td class="text-center"><strong>${index + 1}</strong></td>
+                    <td class="text-center"><span class="choice-order-badge">${choice.choice_order}</span></td>
+                    <td class="choice-text">${escapeHtml(choice.choice_text_th) || '-'}</td>
+                    <td class="choice-text">${escapeHtml(choice.choice_text_en) || '-'}</td>
+                    <td class="text-center">${statusBadge}</td>
+                    <td class="text-center">
+                        <button type="button" class="btn-circle btn-edit" onclick="editChoice(${choice.choice_id})" title="แก้ไข">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button type="button" class="btn-circle btn-delete" onclick="deleteChoice(${choice.choice_id})" title="ลบ">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+    
+    $('#choicesTableBody').html(html);
+}
+
+// Open Add Choice Form
+function openAddChoiceForm() {
+    $('#choiceFormTitle').html('<i class="fas fa-plus-circle"></i> เพิ่มตัวเลือกใหม่');
+    $('#formChoice')[0].reset();
+    $('#choice_id').val('');
+    $('#choice_question_id').val($('#choices_question_id').val());
+    $('#choice_status').prop('checked', true);
+    
+    // Reset to first tab
+    $('#choice-th-tab').tab('show');
+    
+    $('#choiceFormContainer').slideDown(300);
+}
+
+// Cancel Choice Form
+function cancelChoiceForm() {
+    $('#choiceFormContainer').slideUp(300);
+}
+
+// Edit Choice
+function editChoice(choiceId) {
+    $('#loading-overlay').css('display', 'flex');
+    
+    $.ajax({
+        url: 'actions/process_questions.php',
+        type: 'POST',
+        data: {
+            action: 'getChoiceDetails',
+            choice_id: choiceId
+        },
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                const c = response.choice;
+                
+                $('#choiceFormTitle').html('<i class="fas fa-edit"></i> แก้ไขตัวเลือก');
+                $('#choice_id').val(c.choice_id);
+                $('#choice_question_id').val(c.question_id);
+                $('#choice_order').val(c.choice_order);
+                $('#choice_text_th').val(c.choice_text_th);
+                $('#choice_text_en').val(c.choice_text_en);
+                $('#choice_text_cn').val(c.choice_text_cn);
+                $('#choice_text_jp').val(c.choice_text_jp);
+                $('#choice_text_kr').val(c.choice_text_kr);
+                $('#choice_status').prop('checked', c.status == 1);
+                
+                // Reset to first tab
+                $('#choice-th-tab').tab('show');
+                
+                $('#choiceFormContainer').slideDown(300);
+            } else {
+                alertError(response.message);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error:', error);
+            alertError('เกิดข้อผิดพลาดในการโหลดข้อมูล');
+        },
+        complete: function() {
+            $('#loading-overlay').css('display', 'none');
+        }
+    });
+}
+
+// Save Choice
+function saveChoice() {
+    const choiceId = $('#choice_id').val();
+    const action = choiceId ? 'updateChoice' : 'addChoice';
+    
+    // Validate required fields
+    if (!$('#choice_order').val()) {
+        alertError('กรุณากรอกลำดับตัวเลือก');
+        return;
+    }
+    
+    if (!$('#choice_text_th').val().trim()) {
+        alertError('กรุณากรอกข้อความตัวเลือกภาษาไทย');
+        return;
+    }
+    
+    const formData = new FormData($('#formChoice')[0]);
+    formData.append('action', action);
+    formData.append('choice_status', $('#choice_status').is(':checked'));
+    
+    $('#loading-overlay').css('display', 'flex');
+    
+    $.ajax({
+        url: 'actions/process_questions.php',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: '✓ สำเร็จ!',
+                    text: response.message,
+                    timer: 2000,
+                    showConfirmButton: false
+                }).then(() => {
+                    $('#choiceFormContainer').slideUp(300);
+                    loadChoices($('#choices_question_id').val());
+                });
+            } else {
+                alertError(response.message);
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('Error:', error);
+            alertError('เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+        },
+        complete: function() {
+            $('#loading-overlay').css('display', 'none');
+        }
+    });
+}
+
+// Delete Choice
+function deleteChoice(choiceId) {
+    Swal.fire({
+        title: '⚠️ ยืนยันการลบ',
+        html: 'ต้องการลบตัวเลือกนี้หรือไม่?<br><small class="text-danger">*การลบจะไม่สามารถกู้คืนได้</small>',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: '✓ ลบ',
+        cancelButtonText: '✗ ยกเลิก'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            $('#loading-overlay').css('display', 'flex');
+            
+            $.ajax({
+                url: 'actions/process_questions.php',
+                type: 'POST',
+                data: {
+                    action: 'deleteChoice',
+                    choice_id: choiceId
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: '✓ สำเร็จ!',
+                            text: response.message,
+                            timer: 2000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            loadChoices($('#choices_question_id').val());
+                        });
+                    } else {
+                        alertError(response.message);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error:', error);
+                    alertError('เกิดข้อผิดพลาดในการลบข้อมูล');
+                },
+                complete: function() {
+                    $('#loading-overlay').css('display', 'none');
+                }
+            });
+        }
+    });
+}
+
+// Load choices count for all questions
+function loadAllChoicesCounts() {
+    $.ajax({
+        url: 'actions/process_questions.php',
+        type: 'POST',
+        data: { action: 'getAllChoicesCounts' },
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                response.counts.forEach(item => {
+                    $(`#choices-count-${item.question_id}`).text(item.count);
+                });
+            }
+        }
     });
 }
