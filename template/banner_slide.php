@@ -15,8 +15,8 @@ $imagesItems = [
     ],
     [
         'type' => 'video',
-        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696df2e7d8de4_1768813287.mp4',
-        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696df2e7d8de4_1768813287.mp4',
+        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696dfba720790_1768815527.mp4',
+        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696dfba720790_1768815527.mp4',
         'duration' => 16000
     ],
     [
