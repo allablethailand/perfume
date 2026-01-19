@@ -278,7 +278,7 @@ if (session_status() == PHP_SESSION_NONE) {
         .new-chat-btn {
             width: 100%;
             padding: 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #000000 0%, #000000 100%);
             color: #fff;
             border: none;
             border-radius: 8px;
