@@ -4,19 +4,19 @@ $imagesItems = [
     [
         'type' => 'video',
         'src' => 'public/ai_videos/video_696db72785bea_1768797991.mp4',
-        'poster' => 'public/ai_videos/video_696db72785bea_1768797991_poster.jpg', // เพิ่ม poster image
+        'poster' => 'public/ai_videos/video_696df29136eaf_1768813201.mp4', // เพิ่ม poster image
         'duration' => 14000
     ],
     [
         'type' => 'video',
         'src' => 'public/ai_videos/video_696de657cc980_1768810071.mp4',
-        'poster' => 'public/ai_videos/video_696de657cc980_1768810071_poster.jpg',
+        'poster' => 'public/ai_videos/video_696df2e7d8de4_1768813287.mp4',
         'duration' => 17000
     ],
     [
         'type' => 'video',
         'src' => 'public/ai_videos/video_696de647ce56d_1768810055.mp4',
-        'poster' => 'public/ai_videos/video_696de647ce56d_1768810055_poster.jpg',
+        'poster' => 'public/ai_videos/video_696df2c56c4dc_1768813253.mp4',
         'duration' => 16000
     ],
     [
