@@ -438,11 +438,12 @@ function getTextByLang($key) {
                             <tr>
                                 <th style="width: 50px;">#</th>
                                 <th style="width: 80px;">ลำดับ</th>
-                                <th style="width: 400px;">คำถาม (TH)</th>
-                                <th style="width: 120px;">ประเภท</th>
-                                <th style="width: 100px;">สถานะ</th>
-                                <th style="width: 150px;">วันที่สร้าง</th>
-                                <th style="width: 120px;">จัดการ</th>
+                                <th style="width: 350px;">คำถาม (TH)</th>
+                                <th style="width: 100px;">ประเภท</th>
+                                <th style="width: 90px;">ตัวเลือก</th>
+                                <th style="width: 90px;">สถานะ</th>
+                                <th style="width: 130px;">วันที่สร้าง</th>
+                                <th style="width: 150px;">จัดการ</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -569,5 +570,220 @@ function getTextByLang($key) {
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src='../js/index_.js?v=<?php echo time(); ?>'></script>
     <script src='js/questions.js?v=<?php echo time(); ?>'></script>
+
+    <!-- Choices Management Modal -->
+    <div class="modal fade" id="choicesModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-list-ul"></i> จัดการตัวเลือกคำตอบ
+                        <span id="choicesQuestionText" class="ms-2" style="font-size: 14px; color: #ecf0f1;"></span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="choices_question_id">
+                    
+                    <!-- Add Choice Button -->
+                    <div class="mb-3">
+                        <button type="button" class="btn btn-success btn-modern" onclick="openAddChoiceForm()">
+                            <i class="fas fa-plus"></i> เพิ่มตัวเลือกใหม่
+                        </button>
+                    </div>
+
+                    <!-- Add/Edit Choice Form (Hidden by default) -->
+                    <div id="choiceFormContainer" style="display: none;" class="mb-4">
+                        <div class="card">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0" id="choiceFormTitle">
+                                    <i class="fas fa-plus-circle"></i> เพิ่มตัวเลือกใหม่
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <form id="formChoice">
+                                    <input type="hidden" id="choice_id" name="choice_id">
+                                    <input type="hidden" id="choice_question_id" name="choice_question_id">
+                                    
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label class="form-label">ลำดับตัวเลือก <span class="text-danger">*</span></label>
+                                            <input type="number" class="form-control" id="choice_order" name="choice_order" min="1" required>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label class="form-label">สถานะ</label>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" id="choice_status" name="choice_status" checked>
+                                                <label class="form-check-label" for="choice_status">เปิดใช้งาน</label>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Language Tabs for Choices -->
+                                    <div class="card">
+                                        <div class="card-header p-0">
+                                            <ul class="nav nav-tabs" id="choiceLanguageTabs" role="tablist">
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link active" id="choice-th-tab" data-bs-toggle="tab" data-bs-target="#choice-th" type="button" role="tab">
+                                                        <img src="https://flagcdn.com/w320/th.png" alt="Thai Flag" class="flag-icon">ไทย
+                                                    </button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link" id="choice-en-tab" data-bs-toggle="tab" data-bs-target="#choice-en" type="button" role="tab">
+                                                        <img src="https://flagcdn.com/w320/gb.png" alt="English Flag" class="flag-icon">English
+                                                    </button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link" id="choice-cn-tab" data-bs-toggle="tab" data-bs-target="#choice-cn" type="button" role="tab">
+                                                        <img src="https://flagcdn.com/w320/cn.png" alt="Chinese Flag" class="flag-icon">中文
+                                                    </button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link" id="choice-jp-tab" data-bs-toggle="tab" data-bs-target="#choice-jp" type="button" role="tab">
+                                                        <img src="https://flagcdn.com/w320/jp.png" alt="Japanese Flag" class="flag-icon">日本語
+                                                    </button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link" id="choice-kr-tab" data-bs-toggle="tab" data-bs-target="#choice-kr" type="button" role="tab">
+                                                        <img src="https://flagcdn.com/w320/kr.png" alt="Korean Flag" class="flag-icon">한국어
+                                                    </button>
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="tab-content" id="choiceLanguageTabsContent">
+                                                <div class="tab-pane fade show active" id="choice-th" role="tabpanel">
+                                                    <label class="form-label">ข้อความตัวเลือก (ไทย) <span class="text-danger">*</span></label>
+                                                    <input type="text" class="form-control" id="choice_text_th" name="choice_text_th" required>
+                                                </div>
+                                                <div class="tab-pane fade" id="choice-en" role="tabpanel">
+                                                    <label class="form-label">Choice Text (English)</label>
+                                                    <input type="text" class="form-control" id="choice_text_en" name="choice_text_en">
+                                                </div>
+                                                <div class="tab-pane fade" id="choice-cn" role="tabpanel">
+                                                    <label class="form-label">选项文本 (Chinese)</label>
+                                                    <input type="text" class="form-control" id="choice_text_cn" name="choice_text_cn">
+                                                </div>
+                                                <div class="tab-pane fade" id="choice-jp" role="tabpanel">
+                                                    <label class="form-label">選択肢のテキスト (Japanese)</label>
+                                                    <input type="text" class="form-control" id="choice_text_jp" name="choice_text_jp">
+                                                </div>
+                                                <div class="tab-pane fade" id="choice-kr" role="tabpanel">
+                                                    <label class="form-label">선택 텍스트 (Korean)</label>
+                                                    <input type="text" class="form-control" id="choice_text_kr" name="choice_text_kr">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mt-3 text-end">
+                                        <button type="button" class="btn btn-secondary" onclick="cancelChoiceForm()">
+                                            <i class="fas fa-times"></i> ยกเลิก
+                                        </button>
+                                        <button type="button" class="btn btn-primary" onclick="saveChoice()">
+                                            <i class="fas fa-save"></i> บันทึก
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Choices List -->
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-hover" id="choicesTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50px;">#</th>
+                                    <th style="width: 80px;">ลำดับ</th>
+                                    <th>ตัวเลือก (TH)</th>
+                                    <th>ตัวเลือก (EN)</th>
+                                    <th style="width: 100px;">สถานะ</th>
+                                    <th style="width: 120px;">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="choicesTableBody">
+                                <!-- Choices will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> ปิด
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        #choicesModal .modal-dialog {
+            max-width: 1000px;
+        }
+
+        #choicesTable {
+            font-size: 13px;
+        }
+
+        #choicesTable thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        #choicesTable tbody tr {
+            transition: all 0.2s;
+        }
+
+        #choicesTable tbody tr:hover {
+            background: #f8f9fa;
+        }
+
+        .choice-order-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 13px;
+            min-width: 35px;
+            text-align: center;
+            display: inline-block;
+        }
+
+        .choice-text {
+            color: #2d3748;
+            font-weight: 500;
+            line-height: 1.5;
+        }
+
+        #choiceFormContainer {
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .choices-count-badge {
+            background: #17a2b8;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            display: inline-block;
+            min-width: 30px;
+            text-align: center;
+        }
+    </style>
+
 </body>
 </html>

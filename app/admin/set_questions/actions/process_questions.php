@@ -333,6 +333,240 @@ try {
             throw $e;
         }
         
+    // ========================================
+    // GET CHOICES FOR A QUESTION
+    // ========================================
+    } elseif ($action == 'getChoices') {
+        
+        $question_id = $_POST['question_id'] ?? 0;
+        
+        if (empty($question_id)) {
+            throw new Exception("Question ID is missing.");
+        }
+        
+        $stmt = $conn->prepare("SELECT * FROM ai_question_choices 
+                               WHERE question_id = ? AND del = 0 
+                               ORDER BY choice_order ASC, choice_id ASC");
+        $stmt->bind_param("i", $question_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        $choices = [];
+        while ($row = $result->fetch_assoc()) {
+            $choices[] = $row;
+        }
+        
+        $stmt->close();
+        
+        $response = [
+            'status' => 'success',
+            'choices' => $choices
+        ];
+        
+    // ========================================
+    // GET ALL CHOICES COUNTS
+    // ========================================
+    } elseif ($action == 'getAllChoicesCounts') {
+        
+        $query = "SELECT question_id, COUNT(*) as count 
+                  FROM ai_question_choices 
+                  WHERE del = 0 
+                  GROUP BY question_id";
+        
+        $result = $conn->query($query);
+        $counts = [];
+        
+        if ($result) {
+            while ($row = $result->fetch_assoc()) {
+                $counts[] = [
+                    'question_id' => $row['question_id'],
+                    'count' => intval($row['count'])
+                ];
+            }
+        }
+        
+        $response = [
+            'status' => 'success',
+            'counts' => $counts
+        ];
+        
+    // ========================================
+    // GET CHOICE DETAILS
+    // ========================================
+    } elseif ($action == 'getChoiceDetails') {
+        
+        $choice_id = $_POST['choice_id'] ?? 0;
+        
+        if (empty($choice_id)) {
+            throw new Exception("Choice ID is missing.");
+        }
+        
+        $stmt = $conn->prepare("SELECT * FROM ai_question_choices WHERE choice_id = ? AND del = 0");
+        $stmt->bind_param("i", $choice_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows === 0) {
+            throw new Exception("Choice not found.");
+        }
+        
+        $choice = $result->fetch_assoc();
+        $stmt->close();
+        
+        $response = [
+            'status' => 'success',
+            'choice' => $choice
+        ];
+        
+    // ========================================
+    // ADD NEW CHOICE
+    // ========================================
+    } elseif ($action == 'addChoice') {
+        
+        $choice_question_id = $_POST['choice_question_id'] ?? 0;
+        $choice_order = $_POST['choice_order'] ?? 0;
+        $choice_text_th = $_POST['choice_text_th'] ?? '';
+        $choice_text_en = $_POST['choice_text_en'] ?? '';
+        $choice_text_cn = $_POST['choice_text_cn'] ?? '';
+        $choice_text_jp = $_POST['choice_text_jp'] ?? '';
+        $choice_text_kr = $_POST['choice_text_kr'] ?? '';
+        $choice_status = isset($_POST['choice_status']) && $_POST['choice_status'] == 'true' ? 1 : 0;
+        
+        if (empty($choice_question_id) || empty($choice_text_th) || empty($choice_order)) {
+            throw new Exception("กรุณากรอกข้อมูลให้ครบถ้วน (คำถาม, ข้อความภาษาไทย, และลำดับ)");
+        }
+        
+        $conn->begin_transaction();
+        
+        try {
+            $stmt = $conn->prepare("INSERT INTO ai_question_choices 
+                (question_id, choice_order, choice_text_th, choice_text_en, choice_text_cn, choice_text_jp, choice_text_kr, status, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())");
+            
+            $stmt->bind_param("iisssssi", 
+                $choice_question_id,
+                $choice_order,
+                $choice_text_th,
+                $choice_text_en,
+                $choice_text_cn,
+                $choice_text_jp,
+                $choice_text_kr,
+                $choice_status
+            );
+            
+            if (!$stmt->execute()) {
+                throw new Exception("Failed to add choice: " . $stmt->error);
+            }
+            
+            $new_choice_id = $conn->insert_id;
+            $stmt->close();
+            
+            $conn->commit();
+            
+            $response = [
+                'status' => 'success',
+                'message' => 'เพิ่มตัวเลือกสำเร็จ!',
+                'choice_id' => $new_choice_id
+            ];
+            
+        } catch (Exception $e) {
+            $conn->rollback();
+            throw $e;
+        }
+        
+    // ========================================
+    // UPDATE CHOICE
+    // ========================================
+    } elseif ($action == 'updateChoice') {
+        
+        $choice_id = $_POST['choice_id'] ?? 0;
+        $choice_order = $_POST['choice_order'] ?? 0;
+        $choice_text_th = $_POST['choice_text_th'] ?? '';
+        $choice_text_en = $_POST['choice_text_en'] ?? '';
+        $choice_text_cn = $_POST['choice_text_cn'] ?? '';
+        $choice_text_jp = $_POST['choice_text_jp'] ?? '';
+        $choice_text_kr = $_POST['choice_text_kr'] ?? '';
+        $choice_status = isset($_POST['choice_status']) && $_POST['choice_status'] == 'true' ? 1 : 0;
+        
+        if (empty($choice_id) || empty($choice_text_th) || empty($choice_order)) {
+            throw new Exception("กรุณากรอกข้อมูลให้ครบถ้วน");
+        }
+        
+        $conn->begin_transaction();
+        
+        try {
+            $stmt = $conn->prepare("UPDATE ai_question_choices SET 
+                choice_order = ?,
+                choice_text_th = ?,
+                choice_text_en = ?,
+                choice_text_cn = ?,
+                choice_text_jp = ?,
+                choice_text_kr = ?,
+                status = ?
+                WHERE choice_id = ? AND del = 0");
+            
+            $stmt->bind_param("isssssii", 
+                $choice_order,
+                $choice_text_th,
+                $choice_text_en,
+                $choice_text_cn,
+                $choice_text_jp,
+                $choice_text_kr,
+                $choice_status,
+                $choice_id
+            );
+            
+            if (!$stmt->execute()) {
+                throw new Exception("Failed to update choice: " . $stmt->error);
+            }
+            
+            $stmt->close();
+            $conn->commit();
+            
+            $response = [
+                'status' => 'success',
+                'message' => 'แก้ไขตัวเลือกสำเร็จ!'
+            ];
+            
+        } catch (Exception $e) {
+            $conn->rollback();
+            throw $e;
+        }
+        
+    // ========================================
+    // DELETE CHOICE (Soft Delete)
+    // ========================================
+    } elseif ($action == 'deleteChoice') {
+        
+        $choice_id = $_POST['choice_id'] ?? 0;
+        
+        if (empty($choice_id)) {
+            throw new Exception("Choice ID is missing.");
+        }
+        
+        $conn->begin_transaction();
+        
+        try {
+            $stmt = $conn->prepare("UPDATE ai_question_choices SET del = 1 WHERE choice_id = ?");
+            $stmt->bind_param("i", $choice_id);
+            
+            if (!$stmt->execute()) {
+                throw new Exception("Failed to delete choice: " . $stmt->error);
+            }
+            
+            $stmt->close();
+            $conn->commit();
+            
+            $response = [
+                'status' => 'success',
+                'message' => 'ลบตัวเลือกสำเร็จ!'
+            ];
+            
+        } catch (Exception $e) {
+            $conn->rollback();
+            throw $e;
+        }
+        
     } else {
         throw new Exception("Invalid action: $action");
     }
