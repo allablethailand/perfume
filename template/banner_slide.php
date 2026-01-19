@@ -4,23 +4,25 @@ $imagesItems = [
     [
         'type' => 'video',
         'src' => 'public/ai_videos/video_696db72785bea_1768797991.mp4',
-        'duration' => 14000 // 14 seconds in milliseconds
+        'poster' => 'public/ai_videos/video_696db72785bea_1768797991_poster.jpg', // เพิ่ม poster image
+        'duration' => 14000
     ],
     [
         'type' => 'video',
         'src' => 'public/ai_videos/video_696de657cc980_1768810071.mp4',
-        'duration' => 17000 // 14 seconds in milliseconds
+        'poster' => 'public/ai_videos/video_696de657cc980_1768810071_poster.jpg',
+        'duration' => 17000
     ],
     [
         'type' => 'video',
         'src' => 'public/ai_videos/video_696de647ce56d_1768810055.mp4',
-        'duration' => 16000 // 14 seconds in milliseconds
+        'poster' => 'public/ai_videos/video_696de647ce56d_1768810055_poster.jpg',
+        'duration' => 16000
     ],
-
     [
         'type' => 'image',
         'src' => 'public/product_images/696089dc2fa56_1767934428.jpg',
-        'duration' => 5000 // 5 seconds for images
+        'duration' => 5000
     ],
     [
         'type' => 'image',
@@ -29,15 +31,17 @@ $imagesItems = [
     ],
 ];
 
-// Preload first image for LCP optimization
+// Preload first video poster for LCP optimization
+if (!empty($imagesItems) && $imagesItems[0]['type'] === 'video' && isset($imagesItems[0]['poster'])) {
+    echo '<link rel="preload" as="image" href="' . $imagesItems[0]['poster'] . '">';
+}
+// Preload first image
 if (!empty($imagesItems) && $imagesItems[0]['type'] === 'image') {
     echo '<link rel="preload" as="image" href="' . $imagesItems[0]['src'] . '">'; 
 }
 
-// Get language from session
 $lang = isset($_SESSION['lang']) ? $_SESSION['lang'] : 'th';
 
-// Translation arrays
 $hero_translations = [
     'subtitle' => [
         'th' => 'น้ำหอมพรีเมียมพร้อม AI Companion',
@@ -82,17 +86,12 @@ function ht($key, $lang) {
 }
 ?>
 
-<!-- Banner Styles -->
 <style>
     :root {
         --luxury-black: #000000;
         --transition: cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* ========================================
-       HERO BANNER - FULL SCREEN
-       ======================================== */
-    
     .hero {
         height: 90vh;
         position: relative;
@@ -111,11 +110,43 @@ function ht($key, $lang) {
         width: 100%;
         height: 100%;
         opacity: 0;
-        transition: opacity 1.5s var(--transition);
+        visibility: hidden;
+        transition: opacity 1s var(--transition), visibility 0s linear 1s;
     }
 
     .hero-slide.active {
         opacity: 1;
+        visibility: visible;
+        transition: opacity 1s var(--transition), visibility 0s linear 0s;
+    }
+
+    /* Loading skeleton for smooth experience */
+    .hero-slide::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, 
+            rgba(255,255,255,0.05) 25%, 
+            rgba(255,255,255,0.1) 50%, 
+            rgba(255,255,255,0.05) 75%
+        );
+        background-size: 200% 100%;
+        animation: shimmer 2s infinite;
+        z-index: 1;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .hero-slide:not(.loaded)::before {
+        opacity: 1;
+    }
+
+    @keyframes shimmer {
+        0% { background-position: -200% 0; }
+        100% { background-position: 200% 0; }
     }
 
     .hero-image,
@@ -124,10 +155,15 @@ function ht($key, $lang) {
         height: 100%;
         object-fit: cover;
         filter: brightness(0.7);
+        transform: scale(1.01); /* Slight scale to prevent white edges during transition */
     }
 
     .hero-video {
         pointer-events: none;
+        /* Optimize video rendering */
+        will-change: opacity;
+        backface-visibility: hidden;
+        transform: translateZ(0) scale(1.01);
     }
 
     .hero-content {
@@ -140,6 +176,7 @@ function ht($key, $lang) {
         z-index: 10;
         opacity: 0;
         transition: opacity 0.5s ease;
+        will-change: opacity;
     }
 
     .hero-content.show {
@@ -209,10 +246,6 @@ function ht($key, $lang) {
         }
     }
 
-    /* ========================================
-       PROGRESS BAR NAVIGATION (Gentle Monster Style)
-       ======================================== */
-    
     .hero-nav {
         position: absolute;
         bottom: 60px;
@@ -250,35 +283,27 @@ function ht($key, $lang) {
     }
 
     @keyframes progressBar {
-        from {
-            width: 0%;
-        }
-        to {
-            width: 100%;
-        }
+        from { width: 0%; }
+        to { width: 100%; }
     }
 
     .hero-dot:hover {
         background: rgba(255, 255, 255, 0.4);
     }
 
-    /* Responsive */
     @media (max-width: 768px) {
         .hero-title {
             font-size: 48px;
         }
-
         .hero-nav {
             bottom: 40px;
         }
-
         .hero-dot {
             width: 35px;
         }
     }
 </style>
 
-<!-- HERO BANNER -->
 <section class="hero">
     <div class="hero-slider">
         <?php foreach ($imagesItems as $index => $item): ?>
@@ -288,15 +313,13 @@ function ht($key, $lang) {
                 <?php if ($item['type'] === 'image'): ?>
                     <?php
                         $loading_attribute = ($index === 0) ? 'loading="eager"' : 'loading="lazy"';
-                        $width_attribute = 'width="1920"'; 
-                        $height_attribute = 'height="1080"';
                         $alt_text = "Hero Slide " . ($index + 1);
                     ?>
                     <img src="<?= $item['src'] ?>" 
                          alt="<?= $alt_text ?>" 
                          class="hero-image" 
-                         <?= $width_attribute ?> 
-                         <?= $height_attribute ?>
+                         width="1920" 
+                         height="1080"
                          <?= $loading_attribute ?>>
                 <?php else: ?>
                     <video 
@@ -304,7 +327,8 @@ function ht($key, $lang) {
                         muted 
                         loop 
                         playsinline
-                        preload="auto"
+                        preload="<?= ($index === 0) ? 'auto' : 'none' ?>"
+                        <?= isset($item['poster']) ? 'poster="' . $item['poster'] . '"' : '' ?>
                         <?= ($index === 0) ? 'autoplay' : '' ?>>
                         <source src="<?= $item['src'] ?>" type="video/mp4">
                     </video>
@@ -316,10 +340,8 @@ function ht($key, $lang) {
     <div class="hero-content <?= ($imagesItems[0]['type'] === 'image') ? 'show' : '' ?>">
         <p class="hero-subtitle"><?= ht('subtitle', $lang) ?></p>
         <h1 class="hero-title"><?= ht('title_line1', $lang) ?><br><?= ht('title_line2', $lang) ?></h1>
-        <p class="hero-description">
-            <?= ht('description', $lang) ?>
-        </p>
-       <a href="?product&lang=<?= $lang ?>" class="hero-cta"><?= ht('cta', $lang) ?></a>
+        <p class="hero-description"><?= ht('description', $lang) ?></p>
+        <a href="?product&lang=<?= $lang ?>" class="hero-cta"><?= ht('cta', $lang) ?></a>
     </div>
 
     <div class="hero-nav">
@@ -340,7 +362,24 @@ function ht($key, $lang) {
     const totalSlides = slides.length;
     let autoSlideInterval;
     let isPaused = false;
-    let currentVideo = null;
+    let loadedVideos = new Set();
+
+    // Preload next video/image
+    function preloadNext(index) {
+        const nextIndex = (index + 1) % totalSlides;
+        const nextSlide = slides[nextIndex];
+        const video = nextSlide.querySelector('.hero-video');
+        const image = nextSlide.querySelector('.hero-image');
+
+        if (video && !loadedVideos.has(nextIndex)) {
+            video.preload = 'auto';
+            video.load();
+            loadedVideos.add(nextIndex);
+        } else if (image && image.loading === 'lazy') {
+            const img = new Image();
+            img.src = image.src;
+        }
+    }
 
     function resetProgress() {
         dots.forEach(dot => {
@@ -359,70 +398,77 @@ function ht($key, $lang) {
     }
 
     function showSlide(index) {
-        // Clear any existing interval
         if (autoSlideInterval) {
             clearInterval(autoSlideInterval);
             autoSlideInterval = null;
         }
         
-        // Stop all videos and reset
-        slides.forEach(slide => {
+        // Stop all videos
+        slides.forEach((slide, i) => {
             const video = slide.querySelector('.hero-video');
-            if (video) {
+            if (video && i !== index) {
                 video.pause();
                 video.currentTime = 0;
-                video.onended = null;
             }
-            slide.classList.remove('active');
+            if (i !== index) {
+                slide.classList.remove('active');
+            }
         });
         
-        // Reset all progress bars
         resetProgress();
         dots.forEach(dot => dot.classList.remove('active'));
         
         // Show current slide
-        slides[index].classList.add('active');
+        const currentSlideElement = slides[index];
+        currentSlideElement.classList.add('active');
         dots[index].classList.add('active');
         
-        // Update content visibility based on slide type
-        const slideType = slides[index].dataset.type;
+        const slideType = currentSlideElement.dataset.type;
         updateContentVisibility(slideType);
         
-        // Get duration from data attribute
-        const duration = parseInt(slides[index].dataset.duration);
+        const duration = parseInt(currentSlideElement.dataset.duration);
         
-        // Animate progress bar
+        // Animate progress
         const progress = dots[index].querySelector('.hero-dot-progress');
         progress.style.animation = 'none';
         void progress.offsetWidth;
         progress.style.animation = `progressBar ${duration}ms linear forwards`;
         
-        // Check if current slide is video or image
-        const video = slides[index].querySelector('.hero-video');
+        const video = currentSlideElement.querySelector('.hero-video');
+        const image = currentSlideElement.querySelector('.hero-image');
+        
+        // Mark as loaded when media is ready
+        if (video) {
+            video.addEventListener('loadeddata', function onLoaded() {
+                currentSlideElement.classList.add('loaded');
+                video.removeEventListener('loadeddata', onLoaded);
+            }, { once: true });
+        } else if (image) {
+            if (image.complete) {
+                currentSlideElement.classList.add('loaded');
+            } else {
+                image.addEventListener('load', function onLoaded() {
+                    currentSlideElement.classList.add('loaded');
+                }, { once: true });
+            }
+        }
         
         if (video) {
-            // Handle VIDEO
-            currentVideo = video;
+            let videoTransitioned = false;
             
             const playPromise = video.play();
             if (playPromise !== undefined) {
-                playPromise.catch(e => {
+                playPromise.then(() => {
+                    // Preload next slide
+                    preloadNext(index);
+                }).catch(e => {
                     console.log('Video autoplay prevented:', e);
                     autoSlideInterval = setTimeout(nextSlide, duration);
                 });
             }
             
-            let videoTransitioned = false;
-            
             video.onended = () => {
                 if (!isPaused && !videoTransitioned) {
-                    videoTransitioned = true;
-                    nextSlide();
-                }
-            };
-            
-            video.ontimeupdate = () => {
-                if (video.duration - video.currentTime < 0.5 && !videoTransitioned && !isPaused) {
                     videoTransitioned = true;
                     nextSlide();
                 }
@@ -436,7 +482,9 @@ function ht($key, $lang) {
             }, duration + 500);
             
         } else {
-            // Handle IMAGE
+            // Image slide - preload next immediately
+            currentSlideElement.classList.add('loaded');
+            preloadNext(index);
             autoSlideInterval = setTimeout(nextSlide, duration);
         }
     }
@@ -446,7 +494,8 @@ function ht($key, $lang) {
         showSlide(currentSlide);
     }
 
-    // Initialize first slide
+    // Initialize
+    slides[0].classList.add('loaded');
     showSlide(currentSlide);
 
     // Dot navigation
@@ -457,15 +506,19 @@ function ht($key, $lang) {
         });
     });
 
-    // Handle video loading errors
-    document.querySelectorAll('.hero-video').forEach(video => {
-        video.addEventListener('error', (e) => {
-            console.error('Video loading error:', e);
-        });
-        
-        video.addEventListener('loadeddata', () => {
-            console.log('Video loaded successfully');
-        });
+    // Pause on visibility change
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            isPaused = true;
+            slides.forEach(slide => {
+                const video = slide.querySelector('.hero-video');
+                if (video) video.pause();
+            });
+            if (autoSlideInterval) clearInterval(autoSlideInterval);
+        } else {
+            isPaused = false;
+            showSlide(currentSlide);
+        }
     });
 })();
 </script>
