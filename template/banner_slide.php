@@ -4,7 +4,7 @@ $imagesItems = [
     [
         'type' => 'video',
         'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696dfb876e488_1768815495.mp4',
-        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696dfb876e488_1768815495.mp4', // เพิ่ม poster image
+        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696dfb876e488_1768815495.mp4',
         'duration' => 14000
     ],
     [
@@ -97,13 +97,14 @@ function ht($key, $lang) {
         position: relative;
         overflow: hidden;
         background: var(--luxury-black);
-        /* margin-top: 5em; */
+        /* ลบ white flash ตอนโหลด */
     }
 
     .hero-slider {
         height: 100%;
         position: relative;
         top: 0;
+        background: var(--luxury-black); /* ป้องกัน white flash */
     }
 
     .hero-slide {
@@ -112,42 +113,26 @@ function ht($key, $lang) {
         height: 100%;
         opacity: 0;
         visibility: hidden;
-        transition: opacity 1s var(--transition), visibility 0s linear 1s;
+        /* ใช้ crossfade แทน fade in/out เพื่อความ smooth */
+        transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
+        background: var(--luxury-black); /* ป้องกัน white flash */
     }
 
     .hero-slide.active {
         opacity: 1;
         visibility: visible;
-        transition: opacity 1s var(--transition), visibility 0s linear 0s;
+        z-index: 2;
     }
 
-    /* Loading skeleton for smooth experience */
-    .hero-slide::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, 
-            rgba(255,255,255,0.05) 25%, 
-            rgba(255,255,255,0.1) 50%, 
-            rgba(255,255,255,0.05) 75%
-        );
-        background-size: 200% 100%;
-        animation: shimmer 2s infinite;
+    /* เตรียม slide ถัดไปให้พร้อม */
+    .hero-slide.preparing {
+        visibility: visible;
         z-index: 1;
-        opacity: 0;
-        transition: opacity 0.3s;
     }
 
-    .hero-slide:not(.loaded)::before {
-        opacity: 1;
-    }
-
-    @keyframes shimmer {
-        0% { background-position: -200% 0; }
-        100% { background-position: 200% 0; }
+    /* ลบ skeleton loading ที่ทำให้วูบขาว */
+    .hero-slide::before {
+        display: none;
     }
 
     .hero-image,
@@ -156,15 +141,32 @@ function ht($key, $lang) {
         height: 100%;
         object-fit: cover;
         filter: brightness(0.7);
-        transform: scale(1.01); /* Slight scale to prevent white edges during transition */
+        /* ลบ scale ที่ไม่จำเป็น */
+        transform: translateZ(0); /* GPU acceleration */
     }
 
     .hero-video {
         pointer-events: none;
-        /* Optimize video rendering */
-        will-change: opacity;
+        /* Performance optimization สำหรับ video */
+        will-change: auto; /* ใช้แค่ตอนจำเป็น */
         backface-visibility: hidden;
-        transform: translateZ(0) scale(1.01);
+        -webkit-backface-visibility: hidden;
+        transform: translate3d(0, 0, 0); /* Force GPU */
+        /* ป้องกัน flickering */
+        -webkit-transform: translate3d(0, 0, 0);
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+    }
+
+    /* ให้ video เล่นราบรื่น 60fps */
+    @media (prefers-reduced-motion: no-preference) {
+        .hero-video {
+            animation: smoothPlayback 0.1s linear infinite;
+        }
+    }
+
+    @keyframes smoothPlayback {
+        0%, 100% { transform: translate3d(0, 0, 0); }
     }
 
     .hero-content {
@@ -176,8 +178,7 @@ function ht($key, $lang) {
         color: white;
         z-index: 10;
         opacity: 0;
-        transition: opacity 0.5s ease;
-        will-change: opacity;
+        transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .hero-content.show {
@@ -267,6 +268,7 @@ function ht($key, $lang) {
         border: none;
         padding: 0;
         overflow: hidden;
+        transition: background 0.3s ease;
     }
 
     .hero-dot-progress {
@@ -303,6 +305,11 @@ function ht($key, $lang) {
             width: 35px;
         }
     }
+
+    /* ป้องกัน flash of white content */
+    html {
+        background: var(--luxury-black);
+    }
 </style>
 
 <section class="hero">
@@ -328,9 +335,10 @@ function ht($key, $lang) {
                         muted 
                         loop 
                         playsinline
-                        preload="<?= ($index === 0) ? 'auto' : 'none' ?>"
+                        preload="<?= ($index === 0) ? 'auto' : 'metadata' ?>"
                         <?= isset($item['poster']) ? 'poster="' . $item['poster'] . '"' : '' ?>
-                        <?= ($index === 0) ? 'autoplay' : '' ?>>
+                        <?= ($index === 0) ? 'autoplay' : '' ?>
+                        disablePictureInPicture>
                         <source src="<?= $item['src'] ?>" type="video/mp4">
                     </video>
                 <?php endif; ?>
@@ -364,9 +372,10 @@ function ht($key, $lang) {
     let autoSlideInterval;
     let isPaused = false;
     let loadedVideos = new Set();
+    let isTransitioning = false;
 
-    // Preload next video/image
-    function preloadNext(index) {
+    // Preload และเตรียม video ให้พร้อมเล่น
+    function preloadAndPrepareNext(index) {
         const nextIndex = (index + 1) % totalSlides;
         const nextSlide = slides[nextIndex];
         const video = nextSlide.querySelector('.hero-video');
@@ -375,7 +384,13 @@ function ht($key, $lang) {
         if (video && !loadedVideos.has(nextIndex)) {
             video.preload = 'auto';
             video.load();
-            loadedVideos.add(nextIndex);
+            
+            // เตรียม video ให้พร้อมเล่น (ลด lag)
+            video.addEventListener('loadeddata', () => {
+                loadedVideos.add(nextIndex);
+                // Seek to start เพื่อให้ first frame พร้อม
+                video.currentTime = 0;
+            }, { once: true });
         } else if (image && image.loading === 'lazy') {
             const img = new Image();
             img.src = image.src;
@@ -386,6 +401,7 @@ function ht($key, $lang) {
         dots.forEach(dot => {
             const progress = dot.querySelector('.hero-dot-progress');
             progress.style.animation = 'none';
+            progress.offsetHeight; // Force reflow
             progress.style.width = '0%';
         });
     }
@@ -398,30 +414,25 @@ function ht($key, $lang) {
         }
     }
 
-    function showSlide(index) {
+    function showSlide(index, immediate = false) {
+        if (isTransitioning) return;
+        isTransitioning = true;
+
         if (autoSlideInterval) {
-            clearInterval(autoSlideInterval);
+            clearTimeout(autoSlideInterval);
             autoSlideInterval = null;
         }
         
-        // Stop all videos
-        slides.forEach((slide, i) => {
-            const video = slide.querySelector('.hero-video');
-            if (video && i !== index) {
-                video.pause();
-                video.currentTime = 0;
-            }
-            if (i !== index) {
-                slide.classList.remove('active');
-            }
-        });
+        const previousIndex = currentSlide;
+        const currentSlideElement = slides[index];
+        const previousSlideElement = slides[previousIndex];
         
+        // เตรียม slide ถัดไปก่อน transition
+        currentSlideElement.classList.add('preparing');
+        
+        // Reset และเตรียม progress bar
         resetProgress();
         dots.forEach(dot => dot.classList.remove('active'));
-        
-        // Show current slide
-        const currentSlideElement = slides[index];
-        currentSlideElement.classList.add('active');
         dots[index].classList.add('active');
         
         const slideType = currentSlideElement.dataset.type;
@@ -429,64 +440,95 @@ function ht($key, $lang) {
         
         const duration = parseInt(currentSlideElement.dataset.duration);
         
-        // Animate progress
-        const progress = dots[index].querySelector('.hero-dot-progress');
-        progress.style.animation = 'none';
-        void progress.offsetWidth;
-        progress.style.animation = `progressBar ${duration}ms linear forwards`;
-        
+        // จัดการ video
         const video = currentSlideElement.querySelector('.hero-video');
-        const image = currentSlideElement.querySelector('.hero-image');
+        const previousVideo = previousSlideElement.querySelector('.hero-video');
         
-        // Mark as loaded when media is ready
-        if (video) {
-            video.addEventListener('loadeddata', function onLoaded() {
-                currentSlideElement.classList.add('loaded');
-                video.removeEventListener('loadeddata', onLoaded);
-            }, { once: true });
-        } else if (image) {
-            if (image.complete) {
-                currentSlideElement.classList.add('loaded');
-            } else {
-                image.addEventListener('load', function onLoaded() {
-                    currentSlideElement.classList.add('loaded');
-                }, { once: true });
-            }
+        // Pause previous video
+        if (previousVideo && previousIndex !== index) {
+            previousVideo.pause();
         }
         
+        // เตรียม video ให้พร้อม
         if (video) {
-            let videoTransitioned = false;
+            video.currentTime = 0;
             
+            // Play video ก่อน transition เพื่อให้ first frame พร้อม
             const playPromise = video.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    // Preload next slide
-                    preloadNext(index);
+                    // Video พร้อมแล้ว เริ่ม transition
+                    performTransition();
                 }).catch(e => {
-                    console.log('Video autoplay prevented:', e);
-                    autoSlideInterval = setTimeout(nextSlide, duration);
+                    console.log('Video play prevented:', e);
+                    performTransition();
                 });
+            } else {
+                performTransition();
+            }
+        } else {
+            performTransition();
+        }
+        
+        function performTransition() {
+            // Crossfade transition
+            slides.forEach((slide, i) => {
+                if (i === index) {
+                    slide.classList.add('active');
+                } else if (i === previousIndex) {
+                    // ค่อยๆ ซ่อน slide เก่า
+                    setTimeout(() => {
+                        slide.classList.remove('active');
+                        slide.classList.remove('preparing');
+                    }, 100);
+                } else {
+                    slide.classList.remove('active');
+                    slide.classList.remove('preparing');
+                }
+            });
+            
+            // Animate progress bar
+            const progress = dots[index].querySelector('.hero-dot-progress');
+            progress.style.animation = 'none';
+            progress.offsetHeight; // Force reflow
+            progress.style.animation = `progressBar ${duration}ms linear forwards`;
+            
+            // Preload slide ถัดไป
+            preloadAndPrepareNext(index);
+            
+            // Setup next transition
+            if (video) {
+                let videoEnded = false;
+                
+                video.onended = () => {
+                    if (!isPaused && !videoEnded) {
+                        videoEnded = true;
+                        isTransitioning = false;
+                        nextSlide();
+                    }
+                };
+                
+                // Fallback timeout
+                autoSlideInterval = setTimeout(() => {
+                    if (!videoEnded && !isPaused) {
+                        videoEnded = true;
+                        isTransitioning = false;
+                        nextSlide();
+                    }
+                }, duration + 300);
+                
+            } else {
+                // Image slide
+                autoSlideInterval = setTimeout(() => {
+                    isTransitioning = false;
+                    if (!isPaused) nextSlide();
+                }, duration);
             }
             
-            video.onended = () => {
-                if (!isPaused && !videoTransitioned) {
-                    videoTransitioned = true;
-                    nextSlide();
-                }
-            };
-            
-            autoSlideInterval = setTimeout(() => {
-                if (!videoTransitioned && !isPaused) {
-                    videoTransitioned = true;
-                    nextSlide();
-                }
-            }, duration + 500);
-            
-        } else {
-            // Image slide - preload next immediately
-            currentSlideElement.classList.add('loaded');
-            preloadNext(index);
-            autoSlideInterval = setTimeout(nextSlide, duration);
+            // Reset transition lock after transition duration
+            setTimeout(() => {
+                isTransitioning = false;
+            }, 1200); // Match CSS transition duration
         }
     }
 
@@ -495,15 +537,28 @@ function ht($key, $lang) {
         showSlide(currentSlide);
     }
 
-    // Initialize
-    slides[0].classList.add('loaded');
-    showSlide(currentSlide);
+    // Initialize - เตรียม video แรก
+    const firstVideo = slides[0].querySelector('.hero-video');
+    if (firstVideo) {
+        firstVideo.addEventListener('canplay', () => {
+            showSlide(0, true);
+        }, { once: true });
+        
+        // Fallback if video doesn't load
+        setTimeout(() => {
+            showSlide(0, true);
+        }, 1000);
+    } else {
+        showSlide(0, true);
+    }
 
     // Dot navigation
     dots.forEach((dot, index) => {
         dot.addEventListener('click', () => {
-            currentSlide = index;
-            showSlide(currentSlide);
+            if (!isTransitioning && currentSlide !== index) {
+                currentSlide = index;
+                showSlide(currentSlide);
+            }
         });
     });
 
@@ -515,11 +570,24 @@ function ht($key, $lang) {
                 const video = slide.querySelector('.hero-video');
                 if (video) video.pause();
             });
-            if (autoSlideInterval) clearInterval(autoSlideInterval);
+            if (autoSlideInterval) clearTimeout(autoSlideInterval);
         } else {
             isPaused = false;
+            isTransitioning = false;
             showSlide(currentSlide);
         }
+    });
+
+    // ป้องกัน memory leaks
+    window.addEventListener('beforeunload', () => {
+        slides.forEach(slide => {
+            const video = slide.querySelector('.hero-video');
+            if (video) {
+                video.pause();
+                video.src = '';
+                video.load();
+            }
+        });
     });
 })();
 </script>
