@@ -6,6 +6,7 @@
  * POST: /app/actions/ai_chat.php
  * 
  * ✅ เพิ่มฟีเจอร์ dump_prompt เพื่อดูข้อมูลที่ส่งไปยัง AI
+ * ✅ แก้ไข: ดึงภาษาจาก preferred_language และใช้แทน language ที่ส่งมา
  */
 
 require_once('../../lib/connect.php');
@@ -48,7 +49,6 @@ if (!$user_id) {
 $input = json_decode(file_get_contents('php://input'), true);
 $conversation_id = isset($input['conversation_id']) ? intval($input['conversation_id']) : 0;
 $user_message = isset($input['message']) ? trim($input['message']) : '';
-$language = isset($input['language']) ? $input['language'] : 'th';
 
 // ✅ เพิ่ม parameter สำหรับ dump prompt (สำหรับ debug)
 $dump_prompt = isset($input['dump_prompt']) ? (bool)$input['dump_prompt'] : false;
@@ -64,6 +64,9 @@ if (empty($user_message)) {
 
 try {
     $conn->begin_transaction();
+    
+    // ✅ ดึงภาษาจาก user_ai_companions (preferred_language)
+    $language = 'th'; // default fallback
     
     // ✅ ถ้าไม่มี conversation_id ให้สร้างใหม่
     if ($conversation_id === 0) {
@@ -86,11 +89,11 @@ try {
         $companion_data = $companion_result->fetch_assoc();
         $user_companion_id = $companion_data['user_companion_id'];
         $ai_id = $companion_data['ai_id'];
-        // ✅ ใช้ภาษาที่ user เลือกไว้ (ถ้ามี) หรือใช้ค่าที่ส่งมา
-        $language = !empty($companion_data['preferred_language']) ? $companion_data['preferred_language'] : $language;
+        // ✅ ใช้ภาษาที่ user เลือกไว้ใน preferred_language (ถ้ามี)
+        $language = !empty($companion_data['preferred_language']) ? $companion_data['preferred_language'] : 'th';
         $companion_stmt->close();
         
-        // สร้าง conversation ใหม่
+        // สร้าง conversation ใหม่ (บันทึกภาษาที่ใช้)
         $conv_title = mb_substr($user_message, 0, 50) . (mb_strlen($user_message) > 50 ? '...' : '');
         $conv_stmt = $conn->prepare("
             INSERT INTO ai_chat_conversations 
@@ -124,13 +127,15 @@ try {
         $conv_data = $conv_result->fetch_assoc();
         $user_companion_id = $conv_data['user_companion_id'];
         $ai_id = $conv_data['ai_id'];
-        // ✅ ใช้ภาษาจาก conversation (ถ้ามี) หรือใช้ preferred_language
-        $language = !empty($conv_data['language_used']) ? $conv_data['language_used'] : 
-                   (!empty($conv_data['preferred_language']) ? $conv_data['preferred_language'] : $language);
+        
+        // ✅ ลำดับความสำคัญ: preferred_language > language_used > default 'th'
+        $language = !empty($conv_data['preferred_language']) ? $conv_data['preferred_language'] : 
+                   (!empty($conv_data['language_used']) ? $conv_data['language_used'] : 'th');
+        
         $conv_stmt->close();
     }
     
-    // ✅ บันทึกข้อความของ user
+    // ✅ บันทึกข้อความของ user พร้อมภาษาที่ใช้
     $user_chat_stmt = $conn->prepare("
         INSERT INTO ai_chat_history 
         (conversation_id, user_companion_id, user_id, ai_id, role, message_text, language_used) 
@@ -140,7 +145,7 @@ try {
     $user_chat_stmt->execute();
     $user_chat_stmt->close();
     
-    // ✅ ดึงข้อมูล AI companion (ครบทุก field)
+    // ✅ ดึงข้อมูล AI companion (ครบทุก field) ตามภาษาที่เลือก
     $lang_col = $language;
     $ai_stmt = $conn->prepare("
         SELECT 
@@ -164,7 +169,7 @@ try {
     $ai_companion = $ai_result->fetch_assoc();
     $ai_stmt->close();
     
-    // ✅ ดึง personality ของ user พร้อม choices
+    // ✅ ดึง personality ของ user พร้อม choices ตามภาษาที่เลือก
     $personality_stmt = $conn->prepare("
         SELECT 
             q.question_text_{$lang_col} as question,
@@ -207,7 +212,7 @@ try {
     // ✅ สร้าง AI Model Manager
     $aiManager = new AIModelManager($conn);
     
-    // สร้าง system prompt
+    // สร้าง system prompt โดยใช้ภาษาจาก preferred_language
     $system_prompt_result = $aiManager->buildSystemPrompt($ai_companion, $user_personality, $language);
     $system_prompt = $system_prompt_result['prompt'];
     $prompt_details = $system_prompt_result['details'];
@@ -228,6 +233,10 @@ try {
             'status' => 'success',
             'dump_mode' => true,
             'conversation_id' => $conversation_id,
+            'language_info' => [
+                'language_code' => $language,
+                'source' => 'preferred_language from user_ai_companions'
+            ],
             'ai_companion' => [
                 'ai_id' => $ai_companion['ai_id'],
                 'ai_code' => $ai_companion['ai_code'],
@@ -241,7 +250,7 @@ try {
                 'total_messages' => count($messages),
                 'system_message_length' => mb_strlen($messages[0]['content']),
                 'history_messages' => count($formatted_history),
-                'estimated_tokens' => intval(mb_strlen(json_encode($messages)) / 4) // ประมาณการ
+                'estimated_tokens' => intval(mb_strlen(json_encode($messages)) / 4)
             ]
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         exit;
@@ -263,7 +272,7 @@ try {
     $response_time = $ai_response['response_time_ms'];
     $provider_used = $ai_response['provider'];
     
-    // ✅ บันทึกคำตอบของ AI
+    // ✅ บันทึกคำตอบของ AI พร้อมภาษาที่ใช้
     $ai_chat_stmt = $conn->prepare("
         INSERT INTO ai_chat_history 
         (conversation_id, user_companion_id, user_id, ai_id, role, message_text, ai_model_used, tokens_used, response_time_ms, language_used) 
@@ -296,10 +305,11 @@ try {
     
     $conn->commit();
     
-    // ส่งคำตอบกลับพร้อม prompt details
+    // ส่งคำตอบกลับพร้อม prompt details และข้อมูลภาษา
     echo json_encode([
         'status' => 'success',
         'conversation_id' => $conversation_id,
+        'language_used' => $language,
         'ai_message' => $ai_message,
         'ai_name' => $ai_companion['ai_name'],
         'tokens_used' => $tokens_used,
