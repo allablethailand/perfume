@@ -85,6 +85,13 @@ $hero_translations = [
         'jp' => 'ミュート解除',
         'kr' => '음소거 해제'
     ],
+    'unmute' => [
+        'th' => 'เปิดเสียง',
+        'en' => 'Unmute',
+        'cn' => '取消静音',
+        'jp' => 'ミュート解除',
+        'kr' => '음소거 해제'
+    ],
     'mute' => [
         'th' => 'ปิดเสียง',
         'en' => 'Mute',
@@ -344,36 +351,6 @@ function ht($key, $lang) {
         to { opacity: 1; }
     }
 
-    /* Unmute Hint */
-    .unmute-hint {
-        position: absolute;
-        bottom: 130px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 15;
-        background: rgba(0, 0, 0, 0.7);
-        backdrop-filter: blur(10px);
-        color: white;
-        padding: 12px 24px;
-        border-radius: 25px;
-        font-size: 14px;
-        letter-spacing: 0.05em;
-        opacity: 0;
-        pointer-events: none;
-        transition: opacity 0.5s ease;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-    }
-
-    .unmute-hint.show {
-        opacity: 1;
-        animation: pulse 2s ease-in-out infinite;
-    }
-
-    @keyframes pulse {
-        0%, 100% { transform: translateX(-50%) scale(1); }
-        50% { transform: translateX(-50%) scale(1.05); }
-    }
-
     @media (max-width: 768px) {
         .hero-title {
             font-size: 48px;
@@ -388,11 +365,6 @@ function ht($key, $lang) {
             right: 20px;
             width: 45px;
             height: 45px;
-        }
-        .unmute-hint {
-            bottom: 110px;
-            font-size: 12px;
-            padding: 10px 20px;
         }
     }
 
@@ -478,20 +450,8 @@ function ht($key, $lang) {
 
     // Sound Control Elements
     const soundToggle = document.getElementById('soundToggle');
-    const unmuteHint = document.getElementById('unmuteHint');
     const soundOnIcon = soundToggle.querySelector('.sound-on');
     const soundOffIcon = soundToggle.querySelector('.sound-off');
-
-    // แสดง hint หลังจาก 3 วินาที
-    setTimeout(() => {
-        if (isMuted) {
-            unmuteHint.classList.add('show');
-            // ซ่อน hint หลังจาก 5 วินาที
-            setTimeout(() => {
-                unmuteHint.classList.remove('show');
-            }, 5000);
-        }
-    }, 3000);
 
     // Toggle Sound
     soundToggle.addEventListener('click', function() {
@@ -514,7 +474,6 @@ function ht($key, $lang) {
             soundToggle.title = '<?= ht('mute', $lang) ?>';
             soundOffIcon.style.display = 'none';  // ซ่อนไอคอน muted
             soundOnIcon.style.display = 'block';  // แสดงไอคอน speaker
-            unmuteHint.classList.remove('show');
         }
     });
 
