@@ -3,26 +3,26 @@
 $imagesItems = [
     [
         'type' => 'video',
-        'src' => 'http://cdn.origami.life/uploads/purfume/72003.mp4',
-        'poster' => 'http://cdn.origami.life/uploads/purfume/72003.mp4',
+        'src' => '//cdn.origami.life/uploads/purfume/72003.mp4',
+        'poster' => '//cdn.origami.life/uploads/purfume/72003.mp4',
         'duration' => 17000
     ],
     [
         'type' => 'video',
-        'src' => 'http://cdn.origami.life/uploads/purfume/72002.mp4',
-        'poster' => 'http://cdn.origami.life/uploads/purfume/72002.mp4',
+        'src' => '//cdn.origami.life/uploads/purfume/72002.mp4',
+        'poster' => '//cdn.origami.life/uploads/purfume/72002.mp4',
         'duration' => 23000
     ],
     [
         'type' => 'video',
-        'src' => 'http://cdn.origami.life/uploads/purfume/04720.mp4',
-        'poster' => 'http://cdn.origami.life/uploads/purfume/04720.mp4',
+        'src' => '//cdn.origami.life/uploads/purfume/04720.mp4',
+        'poster' => '//cdn.origami.life/uploads/purfume/04720.mp4',
         'duration' => 16000
     ],
     [
         'type' => 'video',
-        'src' => 'http://cdn.origami.life/uploads/purfume/ai_videos/72001.mp4',
-        'poster' => 'http://cdn.origami.life/uploads/purfume/ai_videos/72001.mp4',
+        'src' => '//cdn.origami.life/uploads/purfume/ai_videos/72001.mp4',
+        'poster' => '//cdn.origami.life/uploads/purfume/ai_videos/72001.mp4',
         'duration' => 20000
     ],
     [
