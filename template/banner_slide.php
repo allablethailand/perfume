@@ -3,26 +3,26 @@
 $imagesItems = [
     [
         'type' => 'video',
-        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6ed709994_1768910551.mp4',
-        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6ed709994_1768910551.mp4',
+        'src' => '//cdn.origami.life/uploads/purfume/72003.mp4',
+        'poster' => '//cdn.origami.life/uploads/purfume/72003.mp4',
         'duration' => 17000
     ],
     [
         'type' => 'video',
-        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6d21e1507_1768910113.mp4',
-        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6d21e1507_1768910113.mp4',
+        'src' => '//cdn.origami.life/uploads/purfume/72002.mp4',
+        'poster' => '//cdn.origami.life/uploads/purfume/72002.mp4',
         'duration' => 23000
     ],
     [
         'type' => 'video',
-        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6c58b3a21_1768909912.mp4',
-        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6c58b3a21_1768909912.mp4',
+        'src' => '//cdn.origami.life/uploads/purfume/04720.mp4',
+        'poster' => '//cdn.origami.life/uploads/purfume/04720.mp4',
         'duration' => 16000
     ],
     [
         'type' => 'video',
-        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6d5edbc00_1768910174.mp4',
-        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6d5edbc00_1768910174.mp4',
+        'src' => '//cdn.origami.life/uploads/purfume/ai_videos/72001.mp4',
+        'poster' => '//cdn.origami.life/uploads/purfume/ai_videos/72001.mp4',
         'duration' => 20000
     ],
     [
