@@ -3,27 +3,27 @@
 $imagesItems = [
     [
         'type' => 'video',
-        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696dfb876e488_1768815495.mp4',
-        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696dfb876e488_1768815495.mp4',
-        'duration' => 14000
+        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6ed709994_1768910551.mp4',
+        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6ed709994_1768910551.mp4',
+        'duration' => 17000
     ],
     [
         'type' => 'video',
-        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f289740b65_1768892567.mp4',
-        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f289740b65_1768892567.mp4',
-        'duration' => 24000
+        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6d21e1507_1768910113.mp4',
+        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6d21e1507_1768910113.mp4',
+        'duration' => 23000
     ],
     [
         'type' => 'video',
-        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696dfba720790_1768815527.mp4',
-        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696dfba720790_1768815527.mp4',
+        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6c58b3a21_1768909912.mp4',
+        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6c58b3a21_1768909912.mp4',
         'duration' => 16000
     ],
     [
         'type' => 'video',
-        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f602b97149_1768906795.mp4',
-        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f602b97149_1768906795.mp4',
-        'duration' => 21000
+        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6d5edbc00_1768910174.mp4',
+        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f6d5edbc00_1768910174.mp4',
+        'duration' => 20000
     ],
     [
         'type' => 'image',
