@@ -9,9 +9,9 @@ $imagesItems = [
     ],
     [
         'type' => 'video',
-        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696df2e7d8de4_1768813287.mp4',
-        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696df2e7d8de4_1768813287.mp4',
-        'duration' => 17000
+        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f289740b65_1768892567.mp4',
+        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f289740b65_1768892567.mp4',
+        'duration' => 24000
     ],
     [
         'type' => 'video',
@@ -77,6 +77,20 @@ $hero_translations = [
         'cn' => '探索系列',
         'jp' => 'コレクションを探す',
         'kr' => '컬렉션 탐색'
+    ],
+    'unmute' => [
+        'th' => 'เปิดเสียง',
+        'en' => 'Unmute',
+        'cn' => '取消静音',
+        'jp' => 'ミュート解除',
+        'kr' => '음소거 해제'
+    ],
+    'mute' => [
+        'th' => 'ปิดเสียง',
+        'en' => 'Mute',
+        'cn' => '静音',
+        'jp' => 'ミュート',
+        'kr' => '음소거'
     ]
 ];
 
@@ -97,14 +111,13 @@ function ht($key, $lang) {
         position: relative;
         overflow: hidden;
         background: var(--luxury-black);
-        /* ลบ white flash ตอนโหลด */
     }
 
     .hero-slider {
         height: 100%;
         position: relative;
         top: 0;
-        background: var(--luxury-black); /* ป้องกัน white flash */
+        background: var(--luxury-black);
     }
 
     .hero-slide {
@@ -113,9 +126,8 @@ function ht($key, $lang) {
         height: 100%;
         opacity: 0;
         visibility: hidden;
-        /* ใช้ crossfade แทน fade in/out เพื่อความ smooth */
         transition: opacity 1.2s cubic-bezier(0.4, 0, 0.2, 1);
-        background: var(--luxury-black); /* ป้องกัน white flash */
+        background: var(--luxury-black);
     }
 
     .hero-slide.active {
@@ -124,13 +136,11 @@ function ht($key, $lang) {
         z-index: 2;
     }
 
-    /* เตรียม slide ถัดไปให้พร้อม */
     .hero-slide.preparing {
         visibility: visible;
         z-index: 1;
     }
 
-    /* ลบ skeleton loading ที่ทำให้วูบขาว */
     .hero-slide::before {
         display: none;
     }
@@ -141,24 +151,20 @@ function ht($key, $lang) {
         height: 100%;
         object-fit: cover;
         filter: brightness(0.7);
-        /* ลบ scale ที่ไม่จำเป็น */
-        transform: translateZ(0); /* GPU acceleration */
+        transform: translateZ(0);
     }
 
     .hero-video {
         pointer-events: none;
-        /* Performance optimization สำหรับ video */
-        will-change: auto; /* ใช้แค่ตอนจำเป็น */
+        will-change: auto;
         backface-visibility: hidden;
         -webkit-backface-visibility: hidden;
-        transform: translate3d(0, 0, 0); /* Force GPU */
-        /* ป้องกัน flickering */
+        transform: translate3d(0, 0, 0);
         -webkit-transform: translate3d(0, 0, 0);
         image-rendering: -webkit-optimize-contrast;
         image-rendering: crisp-edges;
     }
 
-    /* ให้ video เล่นราบรื่น 60fps */
     @media (prefers-reduced-motion: no-preference) {
         .hero-video {
             animation: smoothPlayback 0.1s linear infinite;
@@ -294,6 +300,80 @@ function ht($key, $lang) {
         background: rgba(255, 255, 255, 0.4);
     }
 
+    /* Sound Control Button */
+    .sound-control {
+        position: absolute;
+        top: 50%;
+        right: 40px;
+        transform: translateY(-50%);
+        z-index: 15;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        backdrop-filter: blur(10px);
+        border-radius: 50%;
+        width: 50px;
+        height: 50px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        opacity: 0;
+        animation: fadeIn 1s ease 1.8s forwards;
+    }
+
+    .sound-control:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.5);
+        transform: translateY(-50%) scale(1.1);
+    }
+
+    .sound-control svg {
+        width: 24px;
+        height: 24px;
+        fill: white;
+        transition: transform 0.3s ease;
+    }
+
+    .sound-control.muted svg {
+        opacity: 0.6;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    /* Unmute Hint */
+    .unmute-hint {
+        position: absolute;
+        bottom: 130px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 15;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(10px);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 25px;
+        font-size: 14px;
+        letter-spacing: 0.05em;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.5s ease;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .unmute-hint.show {
+        opacity: 1;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: translateX(-50%) scale(1); }
+        50% { transform: translateX(-50%) scale(1.05); }
+    }
+
     @media (max-width: 768px) {
         .hero-title {
             font-size: 48px;
@@ -304,9 +384,18 @@ function ht($key, $lang) {
         .hero-dot {
             width: 35px;
         }
+        .sound-control {
+            right: 20px;
+            width: 45px;
+            height: 45px;
+        }
+        .unmute-hint {
+            bottom: 110px;
+            font-size: 12px;
+            padding: 10px 20px;
+        }
     }
 
-    /* ป้องกัน flash of white content */
     html {
         background: var(--luxury-black);
     }
@@ -353,6 +442,23 @@ function ht($key, $lang) {
         <a href="?product&lang=<?= $lang ?>" class="hero-cta"><?= ht('cta', $lang) ?></a>
     </div>
 
+    <!-- Sound Control Button -->
+    <button class="sound-control muted" id="soundToggle" title="<?= ht('unmute', $lang) ?>">
+        <!-- แสดงไอคอน Muted เมื่อปิดเสียง -->
+        <svg class="sound-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+        </svg>
+        <!-- แสดงไอคอน Speaker เมื่อเปิดเสียง -->
+        <svg class="sound-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="display:none;">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+        </svg>
+    </button>
+
+    <!-- Unmute Hint -->
+    <div class="unmute-hint" id="unmuteHint">
+        🔊 <?= ht('unmute', $lang) ?>
+    </div>
+
     <div class="hero-nav">
         <?php foreach ($imagesItems as $index => $item): ?>
             <button class="hero-dot <?= ($index === 0) ? 'active' : '' ?>" data-index="<?= $index ?>">
@@ -373,8 +479,68 @@ function ht($key, $lang) {
     let isPaused = false;
     let loadedVideos = new Set();
     let isTransitioning = false;
+    let isMuted = true;
 
-    // Preload และเตรียม video ให้พร้อมเล่น
+    // Sound Control Elements
+    const soundToggle = document.getElementById('soundToggle');
+    const unmuteHint = document.getElementById('unmuteHint');
+    const soundOnIcon = soundToggle.querySelector('.sound-on');
+    const soundOffIcon = soundToggle.querySelector('.sound-off');
+
+    // แสดง hint หลังจาก 3 วินาที
+    setTimeout(() => {
+        if (isMuted) {
+            unmuteHint.classList.add('show');
+            // ซ่อน hint หลังจาก 5 วินาที
+            setTimeout(() => {
+                unmuteHint.classList.remove('show');
+            }, 5000);
+        }
+    }, 3000);
+
+    // Toggle Sound
+    soundToggle.addEventListener('click', function() {
+        isMuted = !isMuted;
+        
+        // อัพเดทเสียงสำหรับวิดีโอปัจจุบันเท่านั้น
+        const currentVideo = slides[currentSlide].querySelector('.hero-video');
+        if (currentVideo) {
+            currentVideo.muted = isMuted;
+        }
+
+        // อัพเดทไอคอน - สลับให้ถูกต้อง
+        if (isMuted) {
+            soundToggle.classList.add('muted');
+            soundToggle.title = '<?= ht('unmute', $lang) ?>';
+            soundOffIcon.style.display = 'block'; // แสดงไอคอน muted
+            soundOnIcon.style.display = 'none';   // ซ่อนไอคอน speaker
+        } else {
+            soundToggle.classList.remove('muted');
+            soundToggle.title = '<?= ht('mute', $lang) ?>';
+            soundOffIcon.style.display = 'none';  // ซ่อนไอคอน muted
+            soundOnIcon.style.display = 'block';  // แสดงไอคอน speaker
+            unmuteHint.classList.remove('show');
+        }
+    });
+
+    // Enable sound on any user interaction
+    let hasInteracted = false;
+    function enableSoundOnInteraction() {
+        if (!hasInteracted) {
+            hasInteracted = true;
+            // พยายามเล่นเสียงหลังจากมี interaction
+            const currentVideo = slides[currentSlide].querySelector('.hero-video');
+            if (currentVideo && !isMuted) {
+                currentVideo.muted = false;
+                currentVideo.play().catch(e => console.log('Play prevented:', e));
+            }
+        }
+    }
+
+    document.addEventListener('click', enableSoundOnInteraction, { once: true });
+    document.addEventListener('touchstart', enableSoundOnInteraction, { once: true });
+    document.addEventListener('keydown', enableSoundOnInteraction, { once: true });
+
     function preloadAndPrepareNext(index) {
         const nextIndex = (index + 1) % totalSlides;
         const nextSlide = slides[nextIndex];
@@ -385,10 +551,8 @@ function ht($key, $lang) {
             video.preload = 'auto';
             video.load();
             
-            // เตรียม video ให้พร้อมเล่น (ลด lag)
             video.addEventListener('loadeddata', () => {
                 loadedVideos.add(nextIndex);
-                // Seek to start เพื่อให้ first frame พร้อม
                 video.currentTime = 0;
             }, { once: true });
         } else if (image && image.loading === 'lazy') {
@@ -401,7 +565,7 @@ function ht($key, $lang) {
         dots.forEach(dot => {
             const progress = dot.querySelector('.hero-dot-progress');
             progress.style.animation = 'none';
-            progress.offsetHeight; // Force reflow
+            progress.offsetHeight;
             progress.style.width = '0%';
         });
     }
@@ -427,10 +591,8 @@ function ht($key, $lang) {
         const currentSlideElement = slides[index];
         const previousSlideElement = slides[previousIndex];
         
-        // เตรียม slide ถัดไปก่อน transition
         currentSlideElement.classList.add('preparing');
         
-        // Reset และเตรียม progress bar
         resetProgress();
         dots.forEach(dot => dot.classList.remove('active'));
         dots[index].classList.add('active');
@@ -440,24 +602,30 @@ function ht($key, $lang) {
         
         const duration = parseInt(currentSlideElement.dataset.duration);
         
-        // จัดการ video
         const video = currentSlideElement.querySelector('.hero-video');
         const previousVideo = previousSlideElement.querySelector('.hero-video');
         
-        // Pause previous video
-        if (previousVideo && previousIndex !== index) {
-            previousVideo.pause();
-        }
+        // **หยุดและปิดเสียงวิดีโอเก่าทั้งหมด**
+        slides.forEach((slide, i) => {
+            if (i !== index) {
+                const oldVideo = slide.querySelector('.hero-video');
+                if (oldVideo) {
+                    oldVideo.pause();
+                    oldVideo.muted = true; // บังคับ mute วิดีโอที่ไม่ได้เล่น
+                    oldVideo.currentTime = 0;
+                }
+            }
+        });
         
-        // เตรียม video ให้พร้อม
         if (video) {
             video.currentTime = 0;
+            video.muted = isMuted; // ใช้สถานะ muted ปัจจุบัน
             
-            // Play video ก่อน transition เพื่อให้ first frame พร้อม
             const playPromise = video.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    // Video พร้อมแล้ว เริ่ม transition
+                    // ตรวจสอบอีกครั้งหลังจาก play สำเร็จ เพื่อให้แน่ใจว่าเสียงถูกต้อง
+                    video.muted = isMuted;
                     performTransition();
                 }).catch(e => {
                     console.log('Video play prevented:', e);
@@ -471,12 +639,10 @@ function ht($key, $lang) {
         }
         
         function performTransition() {
-            // Crossfade transition
             slides.forEach((slide, i) => {
                 if (i === index) {
                     slide.classList.add('active');
                 } else if (i === previousIndex) {
-                    // ค่อยๆ ซ่อน slide เก่า
                     setTimeout(() => {
                         slide.classList.remove('active');
                         slide.classList.remove('preparing');
@@ -487,16 +653,13 @@ function ht($key, $lang) {
                 }
             });
             
-            // Animate progress bar
             const progress = dots[index].querySelector('.hero-dot-progress');
             progress.style.animation = 'none';
-            progress.offsetHeight; // Force reflow
+            progress.offsetHeight;
             progress.style.animation = `progressBar ${duration}ms linear forwards`;
             
-            // Preload slide ถัดไป
             preloadAndPrepareNext(index);
             
-            // Setup next transition
             if (video) {
                 let videoEnded = false;
                 
@@ -508,7 +671,6 @@ function ht($key, $lang) {
                     }
                 };
                 
-                // Fallback timeout
                 autoSlideInterval = setTimeout(() => {
                     if (!videoEnded && !isPaused) {
                         videoEnded = true;
@@ -518,17 +680,15 @@ function ht($key, $lang) {
                 }, duration + 300);
                 
             } else {
-                // Image slide
                 autoSlideInterval = setTimeout(() => {
                     isTransitioning = false;
                     if (!isPaused) nextSlide();
                 }, duration);
             }
             
-            // Reset transition lock after transition duration
             setTimeout(() => {
                 isTransitioning = false;
-            }, 1200); // Match CSS transition duration
+            }, 1200);
         }
     }
 
@@ -537,14 +697,12 @@ function ht($key, $lang) {
         showSlide(currentSlide);
     }
 
-    // Initialize - เตรียม video แรก
     const firstVideo = slides[0].querySelector('.hero-video');
     if (firstVideo) {
         firstVideo.addEventListener('canplay', () => {
             showSlide(0, true);
         }, { once: true });
         
-        // Fallback if video doesn't load
         setTimeout(() => {
             showSlide(0, true);
         }, 1000);
@@ -552,7 +710,6 @@ function ht($key, $lang) {
         showSlide(0, true);
     }
 
-    // Dot navigation
     dots.forEach((dot, index) => {
         dot.addEventListener('click', () => {
             if (!isTransitioning && currentSlide !== index) {
@@ -562,7 +719,6 @@ function ht($key, $lang) {
         });
     });
 
-    // Pause on visibility change
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             isPaused = true;
@@ -578,7 +734,6 @@ function ht($key, $lang) {
         }
     });
 
-    // ป้องกัน memory leaks
     window.addEventListener('beforeunload', () => {
         slides.forEach(slide => {
             const video = slide.querySelector('.hero-video');
