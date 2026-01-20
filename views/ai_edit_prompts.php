@@ -690,7 +690,7 @@
 
             $('#backButton').on('click', function(e) {
                 e.preventDefault();
-                window.location.href = '?ai_chat&lang=' + lang;
+                window.location.href = '?ai_chat_3d&lang=' + lang;
             });
 
             // Language selection
