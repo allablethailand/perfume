@@ -454,11 +454,6 @@ function ht($key, $lang) {
         </svg>
     </button>
 
-    <!-- Unmute Hint -->
-    <div class="unmute-hint" id="unmuteHint">
-        🔊 <?= ht('unmute', $lang) ?>
-    </div>
-
     <div class="hero-nav">
         <?php foreach ($imagesItems as $index => $item): ?>
             <button class="hero-dot <?= ($index === 0) ? 'active' : '' ?>" data-index="<?= $index ?>">
