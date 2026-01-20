@@ -1,6 +1,10 @@
 /**
  * AI Chat 3D - Pastel Cyberpunk Sheep Character
  * ตัวละครแกะสีพาสเทลสไตล์ cyberpunk เหมือนในรูป
+ * 
+ * ✅ UPDATED: ใช้ ResponsiveVoice API สำหรับภาษาไทย
+ * ทำงานได้ทุกอุปกรณ์ ไม่ต้องติดตั้งอะไร
+ * ✅ คลื่นน้ำและ particles ขยับตามเสียงที่พูด
  */
 
 let currentConversationId = 0;
@@ -8,6 +12,11 @@ const jwt = sessionStorage.getItem("jwt");
 
 let scene, camera, renderer, avatar, mouth, leftEye, rightEye, leftEyePupil, rightEyePupil;
 let isSpeaking = false;
+let waveIntensity = 0; // ความแรงของคลื่น
+
+// ทำให้ isSpeaking เป็น global variable
+window.isSpeaking = false;
+window.waveIntensity = 0;
 
 $(document).ready(function() {
     if (!jwt) {
@@ -28,12 +37,18 @@ function init3DAvatar() {
     const canvas = document.getElementById('avatarCanvas');
     
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a2e);
+    scene.background = null; 
     
     camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
     camera.position.z = 7;
     
-    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+    renderer = new THREE.WebGLRenderer({
+        canvas: canvas,
+        antialias: true,
+        alpha: true        // ✅ สำคัญ
+    });
+
+    renderer.setClearColor(0x000000, 0);
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     renderer.shadowMap.enabled = true;
     
@@ -557,6 +572,7 @@ function speakText(text) {
     }
     
     isSpeaking = true;
+    window.isSpeaking = true; // Update global
     updateStatus('Speaking in ' + detectedLang + '...', true);
     
     const maxLength = 200;
@@ -579,14 +595,19 @@ function speakText(text) {
         chunks.push(text);
     }
     
-    playGoogleTTSChunks(chunks, 0, langCode);
+    playTTSChunks(chunks, 0, langCode);
 }
 
 let currentAudio = null;
 
-function playGoogleTTSChunks(chunks, index, langCode) {
+/**
+ * ✅ UPDATED: ใช้ ResponsiveVoice สำหรับภาษาไทย
+ * ทำงานได้ทุกอุปกรณ์ ไม่ต้องติดตั้งอะไร
+ */
+function playTTSChunks(chunks, index, langCode) {
     if (index >= chunks.length) {
         isSpeaking = false;
+        window.isSpeaking = false; // Update global
         updateStatus('Ready to chat', false);
         $('#currentMessage').fadeOut();
         if (mouth) mouth.scale.y = 1;
@@ -595,27 +616,45 @@ function playGoogleTTSChunks(chunks, index, langCode) {
     
     const chunk = chunks[index];
     const encodedText = encodeURIComponent(chunk);
-    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${langCode}&client=tw-ob&q=${encodedText}`;
+    
+    let ttsUrl;
+    
+    // ✅ ภาษาไทยใช้ ResponsiveVoice API (ฟรี - รองรับทุกอุปกรณ์)
+    if (langCode === 'th') {
+        ttsUrl = `https://code.responsivevoice.org/getvoice.php?t=${encodedText}&tl=th&sv=&vn=&pitch=0.5&rate=0.5&vol=1`;
+    } else {
+        // ภาษาอื่นใช้ Google TTS ตามเดิม
+        ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${langCode}&client=tw-ob&q=${encodedText}`;
+    }
+    
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+    }
     
     currentAudio = new Audio();
     
     currentAudio.oncanplaythrough = function() {
         this.play().catch(err => {
-            playGoogleTTSChunks(chunks, index + 1, langCode);
+            console.error('TTS play error:', err);
+            playTTSChunks(chunks, index + 1, langCode);
         });
     };
     
     currentAudio.onplay = function() {
         isSpeaking = true;
+        window.isSpeaking = true; // Update global
     };
     
     currentAudio.onended = function() {
         setTimeout(() => {
-            playGoogleTTSChunks(chunks, index + 1, langCode);
+            playTTSChunks(chunks, index + 1, langCode);
         }, 300);
     };
     
     currentAudio.onerror = function(e) {
+        console.error('TTS error:', e);
+        // Fallback to Web Speech API if ResponsiveVoice fails
         fallbackToWebSpeech(chunks.join(' '), langCode);
     };
     
@@ -626,6 +665,7 @@ function playGoogleTTSChunks(chunks, index, langCode) {
 function fallbackToWebSpeech(text, langCode) {
     if (!window.speechSynthesis) {
         isSpeaking = false;
+        window.isSpeaking = false;
         updateStatus('Ready to chat', false);
         
         Swal.fire({
@@ -653,10 +693,12 @@ function fallbackToWebSpeech(text, langCode) {
     
     utterance.onstart = function() {
         isSpeaking = true;
+        window.isSpeaking = true;
     };
     
     utterance.onend = function() {
         isSpeaking = false;
+        window.isSpeaking = false;
         updateStatus('Ready to chat', false);
         $('#currentMessage').fadeOut();
         if (mouth) mouth.scale.y = 1;
@@ -664,6 +706,7 @@ function fallbackToWebSpeech(text, langCode) {
     
     utterance.onerror = function(event) {
         isSpeaking = false;
+        window.isSpeaking = false;
         updateStatus('Ready to chat', false);
     };
     
@@ -690,6 +733,13 @@ function createNewChat() {
         window.speechSynthesis.cancel();
     }
     
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+    }
+    
+    isSpeaking = false;
+    window.isSpeaking = false;
     updateStatus('Ready to chat', false);
 }
 
