@@ -21,8 +21,8 @@ $imagesItems = [
     ],
     [
         'type' => 'video',
-        'src' => '//cdn.origami.life/uploads/purfume/ai_videos/72001.mp4',
-        'poster' => '//cdn.origami.life/uploads/purfume/ai_videos/72001.mp4',
+        'src' => '//cdn.origami.life/uploads/purfume/72001.mp4',
+        'poster' => '//cdn.origami.life/uploads/purfume/72001.mp4',
         'duration' => 20000
     ],
     [
