@@ -16,57 +16,124 @@ if (session_status() == PHP_SESSION_NONE) {
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #0a0a1e;
             height: 100vh;
             overflow: hidden;
         }
         
         .chat-container-3d {
-            display: grid;
-            grid-template-columns: 320px 1fr;
+            display: flex;
             height: calc(100vh - 70px);
             margin-top: 70px;
             overflow: hidden;
-        }
-        
-        /* ========== Sidebar ========== */
-        .chat-sidebar {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-right: 1px solid rgba(255, 255, 255, 0.3);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            height: 100%;
             position: relative;
         }
         
-        .sidebar-header {
+        /* ========== Floating Menu Button ========== */
+        .floating-menu-btn {
+            position: fixed;
+            top: 90px;
+            left: 20px;
+            z-index: 1000;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            transition: all 0.3s ease;
+        }
+
+        .floating-menu-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 30px rgba(102, 126, 234, 0.7);
+        }
+
+        .floating-menu-btn.active {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+
+        /* ========== Dropdown Menu ========== */
+        .dropdown-menu {
+            position: fixed;
+            top: 160px;
+            left: 20px;
+            width: 320px;
+            max-height: calc(100vh - 180px);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            z-index: 999;
+            opacity: 0;
+            transform: translateY(-20px);
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .dropdown-menu.show {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+
+        .dropdown-header {
             padding: 20px;
             border-bottom: 1px solid rgba(0, 0, 0, 0.1);
             flex-shrink: 0;
         }
+
+        .dropdown-header h3 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .new-chat-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #000000 0%, #2d2d2d 100%);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
         
+        .new-chat-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
         .conversations-list {
             flex: 1;
             overflow-y: auto;
             padding: 10px;
             min-height: 0;
-            padding-bottom: 150px;
         }
 
-        .sidebar-footer {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(255, 255, 255, 0.95);
+        .dropdown-footer {
+            padding: 15px;
             border-top: 1px solid rgba(0, 0, 0, 0.1);
-            padding: 15px 20px;
-            z-index: 10;
+            flex-shrink: 0;
+            background: rgba(255, 255, 255, 0.5);
         }
 
-        .mode-toggle-btn {
+        .menu-action-btn {
             width: 100%;
             padding: 12px 16px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -81,46 +148,116 @@ if (session_status() == PHP_SESSION_NONE) {
             align-items: center;
             justify-content: center;
             gap: 10px;
-            margin-bottom: 10px;
-            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            margin-bottom: 8px;
         }
 
-        .mode-toggle-btn:hover {
+        .menu-action-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 16px rgba(102, 126, 234, 0.4);
         }
 
-        .edit-prompts-btn {
-            width: 100%;
-            padding: 12px 16px;
+        .menu-action-btn.secondary {
             background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
         }
 
-        .edit-prompts-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-        }
-
-        /* ========== 3D Canvas Area ========== */
+        /* ========== 3D Canvas Area (Full Screen) ========== */
         .chat-main-3d {
+            flex: 1;
             display: flex;
             flex-direction: column;
-            background: linear-gradient(180deg, #1a1a2e 0%, #16213e 100%);
+            background: #0a0a1e;
             height: 100%;
             overflow: hidden;
             position: relative;
+        }
+
+        /* Audio Wave Background - Water Wave Style */
+        .audio-wave-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1;
+            overflow: hidden;
+            background: radial-gradient(ellipse at center, rgba(0, 212, 255, 0.05) 0%, rgba(10, 10, 30, 0) 70%);
+        }
+
+        .wave-container {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .wave-svg {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40%;
+        }
+
+        .wave-path {
+            fill: none;
+            stroke: #00d4ff;
+            stroke-width: 2;
+            opacity: 0.4;
+            filter: blur(1px);
+        }
+
+        .wave-path-1 {
+            stroke: #00d4ff;
+            opacity: 0.3;
+        }
+
+        .wave-path-2 {
+            stroke: #667eea;
+            opacity: 0.25;
+        }
+
+        .wave-path-3 {
+            stroke: #764ba2;
+            opacity: 0.2;
+        }
+
+        /* Particle effects */
+        .particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: #00d4ff;
+            border-radius: 50%;
+            box-shadow: 0 0 6px rgba(0, 212, 255, 0.6);
+            animation: float-particle 12s linear infinite;
+            transition: animation-duration 0.3s ease, opacity 0.3s ease;
+        }
+
+        @keyframes float-particle {
+            0% {
+                transform: translateY(100vh) translateX(0);
+                opacity: 0;
+            }
+            10% { opacity: 0.4; }
+            90% { opacity: 0.4; }
+            100% {
+                transform: translateY(-100px) translateX(100px);
+                opacity: 0;
+            }
         }
         
         .avatar-container {
@@ -130,6 +267,7 @@ if (session_status() == PHP_SESSION_NONE) {
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            z-index: 10;
         }
 
         #avatarCanvas {
@@ -141,13 +279,12 @@ if (session_status() == PHP_SESSION_NONE) {
         .avatar-overlay {
             position: absolute;
             top: 20px;
-            left: 20px;
             right: 20px;
             display: flex;
-            justify-content: space-between;
+            gap: 15px;
             align-items: flex-start;
             pointer-events: none;
-            z-index: 10;
+            z-index: 20;
         }
 
         .avatar-status {
@@ -214,6 +351,7 @@ if (session_status() == PHP_SESSION_NONE) {
             padding: 20px 30px;
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             flex-shrink: 0;
+            z-index: 20;
         }
         
         .input-wrapper {
@@ -274,28 +412,7 @@ if (session_status() == PHP_SESSION_NONE) {
             cursor: not-allowed;
         }
 
-        /* Sidebar conversation styles */
-        .new-chat-btn {
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #000000 0%, #000000 100%);
-            color: #fff;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 500;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            transition: all 0.2s;
-        }
-        
-        .new-chat-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-        }
-        
+        /* Conversation items */
         .conversation-item {
             padding: 12px;
             border-radius: 8px;
@@ -359,34 +476,83 @@ if (session_status() == PHP_SESSION_NONE) {
             color: #fff;
         }
 
-        @media (max-width: 968px) {
-            .chat-container-3d { grid-template-columns: 1fr; }
-            .chat-sidebar { display: none; }
+        /* Scrollbar styling */
+        .conversations-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .conversations-list::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 3px;
+        }
+
+        .conversations-list::-webkit-scrollbar-thumb {
+            background: rgba(102, 126, 234, 0.5);
+            border-radius: 3px;
+        }
+
+        .conversations-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(102, 126, 234, 0.7);
+        }
+
+        @media (max-width: 768px) {
+            .floating-menu-btn {
+                width: 48px;
+                height: 48px;
+                font-size: 20px;
+            }
+
+            .dropdown-menu {
+                width: calc(100vw - 40px);
+                max-width: 320px;
+            }
+
+            .current-message {
+                max-width: calc(100vw - 100px);
+            }
         }
     </style>
     <?php include 'template/header.php' ?>
 </head>
 <body>
-    <div class="chat-container-3d">
-        <div class="chat-sidebar">
-            <div class="sidebar-header">
-                <button class="new-chat-btn" onclick="createNewChat()">
-                    <i class="fas fa-plus"></i> New Chat
-                </button>
-            </div>
-            <div class="conversations-list" id="conversationsList"></div>
-            
-            <div class="sidebar-footer">
-                <button class="mode-toggle-btn" onclick="window.location.href='?ai_chat&lang=<?php echo $_GET['lang'] ?? 'th'; ?>'">
-                    <i class="fas fa-comments"></i> Switch to 2D Mode
-                </button>
-                <button class="edit-prompts-btn" onclick="window.location.href='?ai_edit_prompts&lang=<?php echo $_GET['lang'] ?? 'th'; ?>'">
-                    <i class="fas fa-cog"></i> Edit Preferences
-                </button>
-            </div>
+    <!-- Floating Menu Button -->
+    <button class="floating-menu-btn" id="menuToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Dropdown Menu -->
+    <div class="dropdown-menu" id="dropdownMenu">
+        <div class="dropdown-header">
+            <h3>Conversations</h3>
+            <button class="new-chat-btn" onclick="createNewChat()">
+                <i class="fas fa-plus"></i> New Chat
+            </button>
         </div>
-        
+        <div class="conversations-list" id="conversationsList"></div>
+        <div class="dropdown-footer">
+            <button class="menu-action-btn" onclick="window.location.href='?ai_chat&lang=<?php echo $_GET['lang'] ?? 'th'; ?>'">
+                <i class="fas fa-comments"></i> 2D Mode
+            </button>
+            <button class="menu-action-btn secondary" onclick="window.location.href='?ai_edit_prompts&lang=<?php echo $_GET['lang'] ?? 'th'; ?>'">
+                <i class="fas fa-cog"></i> Preferences
+            </button>
+        </div>
+    </div>
+
+    <div class="chat-container-3d">
         <div class="chat-main-3d">
+            <!-- Audio Wave Background - Water Wave -->
+            <div class="audio-wave-bg">
+                <div class="wave-container">
+                    <svg class="wave-svg" viewBox="0 0 1200 300" preserveAspectRatio="none">
+                        <path class="wave-path wave-path-1" d=""></path>
+                        <path class="wave-path wave-path-2" d=""></path>
+                        <path class="wave-path wave-path-3" d=""></path>
+                    </svg>
+                </div>
+                <div class="particles" id="particlesContainer"></div>
+            </div>
+
             <div class="avatar-container">
                 <canvas id="avatarCanvas"></canvas>
                 
@@ -426,5 +592,114 @@ if (session_status() == PHP_SESSION_NONE) {
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="app/js/ai_chat_3d.js?v=<?php echo time(); ?>"></script>
+    <script>
+        // Toggle dropdown menu
+        const menuToggle = document.getElementById('menuToggle');
+        const dropdownMenu = document.getElementById('dropdownMenu');
+        
+        menuToggle.addEventListener('click', function() {
+            dropdownMenu.classList.toggle('show');
+            menuToggle.classList.toggle('active');
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', function(event) {
+            if (!menuToggle.contains(event.target) && !dropdownMenu.contains(event.target)) {
+                dropdownMenu.classList.remove('show');
+                menuToggle.classList.remove('active');
+            }
+        });
+
+        // Create water wave animation with dynamic intensity based on speaking
+        let waveAnimationFrame;
+        let waveOffset = 0;
+        
+        function createWaterWave() {
+            const paths = document.querySelectorAll('.wave-path');
+            
+            function animateWaves() {
+                // เพิ่มความเร็วเมื่อกำลังพูด
+                const speed = window.isSpeaking ? 0.04 : 0.02;
+                waveOffset += speed;
+                
+                // ค่อยๆ ปรับ intensity
+                if (!window.waveIntensity) window.waveIntensity = 0;
+                if (window.isSpeaking) {
+                    window.waveIntensity = Math.min(window.waveIntensity + 0.05, 1);
+                } else {
+                    window.waveIntensity = Math.max(window.waveIntensity - 0.02, 0);
+                }
+                
+                paths.forEach((path, index) => {
+                    const points = [];
+                    
+                    // ขยายความสูงของคลื่นเมื่อพูด
+                    const baseAmplitude = 30 + (index * 10);
+                    const speakingBoost = window.isSpeaking ? 40 + Math.random() * 30 : 0;
+                    const amplitude = baseAmplitude + (speakingBoost * window.waveIntensity);
+                    
+                    const frequency = 0.015 - (index * 0.002);
+                    const offset = waveOffset + (index * 0.5);
+                    
+                    // เพิ่มความสั่นสะเทือนแบบสุ่มเมื่อพูด
+                    const randomness = window.isSpeaking ? Math.sin(Date.now() * 0.01) * 0.3 : 0;
+                    
+                    // สร้างเส้นคลื่น
+                    for (let x = 0; x <= 1200; x += 10) {
+                        const baseWave = Math.sin(x * frequency + offset) * amplitude;
+                        const turbulence = window.isSpeaking ? Math.sin(x * 0.03 + offset * 2) * 15 * window.waveIntensity : 0;
+                        const y = 150 + baseWave + turbulence + (Math.random() * randomness * window.waveIntensity);
+                        points.push(`${x},${y}`);
+                    }
+                    
+                    // สร้าง path
+                    const pathData = `M 0,300 L ${points.map((p, i) => {
+                        if (i === 0) return `0,${p.split(',')[1]}`;
+                        return p;
+                    }).join(' L ')} L 1200,300 Z`;
+                    
+                    path.setAttribute('d', pathData);
+                });
+                
+                waveAnimationFrame = requestAnimationFrame(animateWaves);
+            }
+            
+            animateWaves();
+        }
+
+        // Create floating particles with dynamic behavior
+        function createParticles() {
+            const container = document.getElementById('particlesContainer');
+            for (let i = 0; i < 25; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 12 + 's';
+                particle.style.animationDuration = (10 + Math.random() * 4) + 's';
+                
+                const colors = ['#00d4ff', '#4dd0e1', '#667eea', '#80deea'];
+                particle.style.background = colors[Math.floor(Math.random() * colors.length)];
+                
+                container.appendChild(particle);
+            }
+            
+            // อัพเดตความเร็วของ particles เมื่อพูด
+            setInterval(() => {
+                const particles = document.querySelectorAll('.particle');
+                particles.forEach(particle => {
+                    if (window.isSpeaking) {
+                        particle.style.animationDuration = (6 + Math.random() * 2) + 's';
+                        particle.style.opacity = '0.7';
+                    } else {
+                        particle.style.animationDuration = (10 + Math.random() * 4) + 's';
+                        particle.style.opacity = '0.4';
+                    }
+                });
+            }, 100);
+        }
+
+        createWaterWave();
+        createParticles();
+    </script>
 </body>
 </html>
