@@ -20,6 +20,12 @@ $imagesItems = [
         'duration' => 16000
     ],
     [
+        'type' => 'video',
+        'src' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f602b97149_1768906795.mp4',
+        'poster' => 'https://www.trandar.com/perfume//public/ai_videos/video_696f602b97149_1768906795.mp4',
+        'duration' => 21000
+    ],
+    [
         'type' => 'image',
         'src' => 'public/product_images/696089dc2fa56_1767934428.jpg',
         'duration' => 5000
