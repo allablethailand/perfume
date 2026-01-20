@@ -35,7 +35,7 @@ if (session_status() == PHP_SESSION_NONE) {
             top: 90px;
             left: 20px;
             z-index: 1000;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
             color: white;
             border: none;
             width: 56px;
@@ -136,7 +136,7 @@ if (session_status() == PHP_SESSION_NONE) {
         .menu-action-btn {
             width: 100%;
             padding: 12px 16px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
             color: white;
             border: none;
             border-radius: 8px;
@@ -180,7 +180,7 @@ if (session_status() == PHP_SESSION_NONE) {
             bottom: 0;
             z-index: 1;
             overflow: hidden;
-            background: radial-gradient(ellipse at center, rgba(0, 212, 255, 0.05) 0%, rgba(10, 10, 30, 0) 70%);
+            background: radial-gradient(ellipse at center, rgb(0 0 0) 0%, rgb(0 0 0) 70%);
         }
 
         .wave-container {
@@ -204,10 +204,9 @@ if (session_status() == PHP_SESSION_NONE) {
 
         .wave-path {
             fill: none;
-            stroke: #00d4ff;
-            stroke-width: 2;
-            opacity: 0.4;
-            filter: blur(1px);
+            stroke-width: 3; /* เพิ่มความหนาของเส้นนิดหน่อย */
+            transition: stroke 0.5s ease; /* ให้สีเปลี่ยนนุ่มๆ */
+            filter: blur(2px); /* เพิ่ม Blur ให้ดูเหมือนแสงเรืองๆ (Neon Wave) */
         }
 
         .wave-path-1 {
@@ -391,7 +390,7 @@ if (session_status() == PHP_SESSION_NONE) {
             width: 44px;
             height: 44px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
             color: #fff;
             border: none;
             cursor: pointer;
@@ -613,46 +612,53 @@ if (session_status() == PHP_SESSION_NONE) {
         // Create water wave animation with dynamic intensity based on speaking
         let waveAnimationFrame;
         let waveOffset = 0;
-        
+
         function createWaterWave() {
             const paths = document.querySelectorAll('.wave-path');
             
             function animateWaves() {
-                // เพิ่มความเร็วเมื่อกำลังพูด
-                const speed = window.isSpeaking ? 0.04 : 0.02;
+                // 1. ความเร็วพื้นฐาน
+                const speed = window.isSpeaking ? 0.08 : 0.015; 
                 waveOffset += speed;
                 
-                // ค่อยๆ ปรับ intensity
+                // 2. ปรับ Intensity ของการสั่นสะเทือน
                 if (!window.waveIntensity) window.waveIntensity = 0;
                 if (window.isSpeaking) {
-                    window.waveIntensity = Math.min(window.waveIntensity + 0.05, 1);
+                    window.waveIntensity = Math.min(window.waveIntensity + 0.1, 1);
                 } else {
-                    window.waveIntensity = Math.max(window.waveIntensity - 0.02, 0);
+                    window.waveIntensity = Math.max(window.waveIntensity - 0.05, 0);
                 }
                 
                 paths.forEach((path, index) => {
                     const points = [];
+                    const baseAmplitude = 10 + (index * 5); 
                     
-                    // ขยายความสูงของคลื่นเมื่อพูด
-                    const baseAmplitude = 30 + (index * 10);
-                    const speakingBoost = window.isSpeaking ? 40 + Math.random() * 30 : 0;
-                    const amplitude = baseAmplitude + (speakingBoost * window.waveIntensity);
+                    // เพิ่ม 'ความปั่นป่วน' ของเสียง (Frequency Jitter)
+                    // ถ้ากำลังพูด จะมีการคูณค่า random เล็กๆ เข้าไปเพื่อให้เส้นหยักเหมือนคลื่นไฟฟ้า
+                    const noise = window.isSpeaking ? (Math.random() * 15 * window.waveIntensity) : 0;
+                    const amplitude = baseAmplitude + (50 * window.waveIntensity) + noise;
                     
-                    const frequency = 0.015 - (index * 0.002);
-                    const offset = waveOffset + (index * 0.5);
+                    const frequency = 0.006 + (index * 0.002);
+                    const offset = waveOffset * (1 + index * 0.3);
                     
-                    // เพิ่มความสั่นสะเทือนแบบสุ่มเมื่อพูด
-                    const randomness = window.isSpeaking ? Math.sin(Date.now() * 0.01) * 0.3 : 0;
-                    
-                    // สร้างเส้นคลื่น
-                    for (let x = 0; x <= 1200; x += 10) {
-                        const baseWave = Math.sin(x * frequency + offset) * amplitude;
-                        const turbulence = window.isSpeaking ? Math.sin(x * 0.03 + offset * 2) * 15 * window.waveIntensity : 0;
-                        const y = 150 + baseWave + turbulence + (Math.random() * randomness * window.waveIntensity);
+                    for (let x = 0; x <= 1200; x += 15) { // ลด step x เพื่อให้เส้นหยักละเอียดขึ้น
+                        // Main Sine
+                        let wave = Math.sin(x * frequency + offset);
+                        
+                        // Secondary "Noise" Wave: จะทำงานหนักขึ้นเมื่อ AI พูด
+                        if (window.isSpeaking) {
+                            // ใช้ Sine ความถี่สูงมาซ้อนเพื่อให้เกิดรอยหยัก (Harmonics)
+                            wave += Math.sin(x * 0.05 + offset * 2) * 0.2 * window.waveIntensity;
+                            wave += (Math.random() - 0.5) * 0.1 * window.waveIntensity; // เพิ่มความสั่นเล็กน้อย
+                        }
+                        
+                        // คำนวณค่า Y โดยให้จุดกึ่งกลางมีการสวิงแรงกว่าขอบ (Bell Curve Effect)
+                        const edgeSoftener = Math.sin((x / 1200) * Math.PI); // ขอบซ้ายขวาจะนิ่งกว่าตรงกลาง
+                        const y = 200 + (wave * amplitude * edgeSoftener);
+                        
                         points.push(`${x},${y}`);
                     }
                     
-                    // สร้าง path
                     const pathData = `M 0,300 L ${points.map((p, i) => {
                         if (i === 0) return `0,${p.split(',')[1]}`;
                         return p;
