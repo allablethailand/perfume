@@ -15,15 +15,15 @@ $imagesItems = [
     ],
     [
         'type' => 'video',
-        'src' => '//cdn.origami.life/uploads/purfume/04720.mp4',
-        'poster' => '//cdn.origami.life/uploads/purfume/04720.mp4',
-        'duration' => 16000
-    ],
-    [
-        'type' => 'video',
         'src' => '//cdn.origami.life/uploads/purfume/72001.mp4',
         'poster' => '//cdn.origami.life/uploads/purfume/72001.mp4',
         'duration' => 20000
+    ],
+       [
+        'type' => 'video',
+        'src' => '//cdn.origami.life/uploads/purfume/04720.mp4',
+        'poster' => '//cdn.origami.life/uploads/purfume/04720.mp4',
+        'duration' => 16000
     ],
     [
         'type' => 'image',
@@ -83,13 +83,6 @@ $hero_translations = [
         'cn' => '探索系列',
         'jp' => 'コレクションを探す',
         'kr' => '컬렉션 탐색'
-    ],
-    'unmute' => [
-        'th' => 'เปิดเสียง',
-        'en' => 'Unmute',
-        'cn' => '取消静音',
-        'jp' => 'ミュート解除',
-        'kr' => '음소거 해제'
     ],
     'unmute' => [
         'th' => 'เปิดเสียง',
@@ -198,10 +191,15 @@ function ht($key, $lang) {
         z-index: 10;
         opacity: 0;
         transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        /* ซ่อนให้แน่ใจว่ากดไม่ได้ */
+        pointer-events: none;
+        visibility: hidden;
     }
 
     .hero-content.show {
         opacity: 1;
+        pointer-events: auto;
+        visibility: visible;
     }
 
     .hero-subtitle {
@@ -212,6 +210,10 @@ function ht($key, $lang) {
         margin-bottom: 30px;
         opacity: 0;
         animation: fadeInUp 1s ease 0.5s forwards;
+    }
+
+    .hero-content.show .hero-subtitle {
+        opacity: 1;
     }
 
     .hero-title {
@@ -225,6 +227,10 @@ function ht($key, $lang) {
         animation: fadeInUp 1s ease 0.8s forwards;
     }
 
+    .hero-content.show .hero-title {
+        opacity: 1;
+    }
+
     .hero-description {
         font-size: 16px;
         font-weight: 300;
@@ -234,6 +240,10 @@ function ht($key, $lang) {
         line-height: 1.8;
         opacity: 0;
         animation: fadeInUp 1s ease 1.1s forwards;
+    }
+
+    .hero-content.show .hero-description {
+        opacity: 1;
     }
 
     .hero-cta {
@@ -249,6 +259,10 @@ function ht($key, $lang) {
         transition: all 0.4s ease;
         opacity: 0;
         animation: fadeInUp 1s ease 1.4s forwards;
+    }
+
+    .hero-content.show .hero-cta {
+        opacity: 1;
     }
 
     .hero-cta:hover {
@@ -313,12 +327,11 @@ function ht($key, $lang) {
         background: rgba(255, 255, 255, 0.4);
     }
 
-    /* Sound Control Button */
+    /* Sound Control Button - ย้ายไปล่างขวา */
     .sound-control {
         position: absolute;
-        top: 50%;
+        bottom: 60px;
         right: 40px;
-        transform: translateY(-50%);
         z-index: 15;
         background: rgba(255, 255, 255, 0.1);
         border: 1px solid rgba(255, 255, 255, 0.3);
@@ -338,7 +351,7 @@ function ht($key, $lang) {
     .sound-control:hover {
         background: rgba(255, 255, 255, 0.2);
         border-color: rgba(255, 255, 255, 0.5);
-        transform: translateY(-50%) scale(1.1);
+        transform: scale(1.1);
     }
 
     .sound-control svg {
@@ -368,6 +381,7 @@ function ht($key, $lang) {
             width: 35px;
         }
         .sound-control {
+            bottom: 40px;
             right: 20px;
             width: 45px;
             height: 45px;
@@ -402,7 +416,7 @@ function ht($key, $lang) {
                         muted 
                         loop 
                         playsinline
-                        preload="<?= ($index === 0) ? 'auto' : 'metadata' ?>"
+                        preload="<?= ($index === 0) ? 'auto' : 'none' ?>"
                         <?= isset($item['poster']) ? 'poster="' . $item['poster'] . '"' : '' ?>
                         <?= ($index === 0) ? 'autoplay' : '' ?>
                         disablePictureInPicture>
@@ -422,11 +436,9 @@ function ht($key, $lang) {
 
     <!-- Sound Control Button -->
     <button class="sound-control muted" id="soundToggle" title="<?= ht('unmute', $lang) ?>">
-        <!-- แสดงไอคอน Muted เมื่อปิดเสียง -->
         <svg class="sound-off" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
             <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
         </svg>
-        <!-- แสดงไอคอน Speaker เมื่อเปิดเสียง -->
         <svg class="sound-on" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" style="display:none;">
             <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
         </svg>
@@ -459,27 +471,30 @@ function ht($key, $lang) {
     const soundOnIcon = soundToggle.querySelector('.sound-on');
     const soundOffIcon = soundToggle.querySelector('.sound-off');
 
+    // Touch/Swipe Support
+    let touchStartX = 0;
+    let touchEndX = 0;
+    const minSwipeDistance = 50;
+
     // Toggle Sound
     soundToggle.addEventListener('click', function() {
         isMuted = !isMuted;
         
-        // อัพเดทเสียงสำหรับวิดีโอปัจจุบันเท่านั้น
         const currentVideo = slides[currentSlide].querySelector('.hero-video');
         if (currentVideo) {
             currentVideo.muted = isMuted;
         }
 
-        // อัพเดทไอคอน - สลับให้ถูกต้อง
         if (isMuted) {
             soundToggle.classList.add('muted');
             soundToggle.title = '<?= ht('unmute', $lang) ?>';
-            soundOffIcon.style.display = 'block'; // แสดงไอคอน muted
-            soundOnIcon.style.display = 'none';   // ซ่อนไอคอน speaker
+            soundOffIcon.style.display = 'block';
+            soundOnIcon.style.display = 'none';
         } else {
             soundToggle.classList.remove('muted');
             soundToggle.title = '<?= ht('mute', $lang) ?>';
-            soundOffIcon.style.display = 'none';  // ซ่อนไอคอน muted
-            soundOnIcon.style.display = 'block';  // แสดงไอคอน speaker
+            soundOffIcon.style.display = 'none';
+            soundOnIcon.style.display = 'block';
         }
     });
 
@@ -488,7 +503,6 @@ function ht($key, $lang) {
     function enableSoundOnInteraction() {
         if (!hasInteracted) {
             hasInteracted = true;
-            // พยายามเล่นเสียงหลังจากมี interaction
             const currentVideo = slides[currentSlide].querySelector('.hero-video');
             if (currentVideo && !isMuted) {
                 currentVideo.muted = false;
@@ -501,24 +515,37 @@ function ht($key, $lang) {
     document.addEventListener('touchstart', enableSoundOnInteraction, { once: true });
     document.addEventListener('keydown', enableSoundOnInteraction, { once: true });
 
+    // ปรับปรุงการโหลดวิดีโอให้เร็วขึ้น
     function preloadAndPrepareNext(index) {
         const nextIndex = (index + 1) % totalSlides;
-        const nextSlide = slides[nextIndex];
-        const video = nextSlide.querySelector('.hero-video');
-        const image = nextSlide.querySelector('.hero-image');
-
-        if (video && !loadedVideos.has(nextIndex)) {
-            video.preload = 'auto';
-            video.load();
+        const prevIndex = (index - 1 + totalSlides) % totalSlides;
+        
+        // โหลดวิดีโอถัดไปและก่อนหน้า
+        [nextIndex, prevIndex].forEach(idx => {
+            const slide = slides[idx];
+            const video = slide.querySelector('.hero-video');
             
-            video.addEventListener('loadeddata', () => {
-                loadedVideos.add(nextIndex);
-                video.currentTime = 0;
-            }, { once: true });
-        } else if (image && image.loading === 'lazy') {
-            const img = new Image();
-            img.src = image.src;
-        }
+            if (video && !loadedVideos.has(idx)) {
+                // ใช้ IntersectionObserver สำหรับ lazy loading ที่ดีขึ้น
+                video.preload = 'auto';
+                
+                // โหลดแบบ background
+                const loadPromise = new Promise((resolve) => {
+                    if (video.readyState >= 3) {
+                        loadedVideos.add(idx);
+                        resolve();
+                    } else {
+                        video.addEventListener('loadeddata', () => {
+                            loadedVideos.add(idx);
+                            video.currentTime = 0;
+                            resolve();
+                        }, { once: true });
+                        
+                        video.load();
+                    }
+                });
+            }
+        });
     }
 
     function resetProgress() {
@@ -539,7 +566,17 @@ function ht($key, $lang) {
     }
 
     function showSlide(index, immediate = false) {
-        if (isTransitioning) return;
+        // ถ้ากำลัง transition อยู่ ให้ queue ไว้แทนที่จะ ignore
+        if (isTransitioning && !immediate) {
+            // รอ transition เสร็จแล้วค่อยทำ
+            setTimeout(() => {
+                if (currentSlide !== index) {
+                    showSlide(index, false);
+                }
+            }, 300);
+            return;
+        }
+        
         isTransitioning = true;
 
         if (autoSlideInterval) {
@@ -548,6 +585,10 @@ function ht($key, $lang) {
         }
         
         const previousIndex = currentSlide;
+        
+        // อัพเดท currentSlide ทันที
+        currentSlide = index;
+        
         const currentSlideElement = slides[index];
         const previousSlideElement = slides[previousIndex];
         
@@ -563,15 +604,14 @@ function ht($key, $lang) {
         const duration = parseInt(currentSlideElement.dataset.duration);
         
         const video = currentSlideElement.querySelector('.hero-video');
-        const previousVideo = previousSlideElement.querySelector('.hero-video');
         
-        // **หยุดและปิดเสียงวิดีโอเก่าทั้งหมด**
+        // หยุดวิดีโอเก่าทั้งหมด
         slides.forEach((slide, i) => {
             if (i !== index) {
                 const oldVideo = slide.querySelector('.hero-video');
                 if (oldVideo) {
                     oldVideo.pause();
-                    oldVideo.muted = true; // บังคับ mute วิดีโอที่ไม่ได้เล่น
+                    oldVideo.muted = true;
                     oldVideo.currentTime = 0;
                 }
             }
@@ -579,12 +619,11 @@ function ht($key, $lang) {
         
         if (video) {
             video.currentTime = 0;
-            video.muted = isMuted; // ใช้สถานะ muted ปัจจุบัน
+            video.muted = isMuted;
             
             const playPromise = video.play();
             if (playPromise !== undefined) {
                 playPromise.then(() => {
-                    // ตรวจสอบอีกครั้งหลังจาก play สำเร็จ เพื่อให้แน่ใจว่าเสียงถูกต้อง
                     video.muted = isMuted;
                     performTransition();
                 }).catch(e => {
@@ -620,13 +659,17 @@ function ht($key, $lang) {
             
             preloadAndPrepareNext(index);
             
+            // Reset transition state เร็วขึ้น
+            setTimeout(() => {
+                isTransitioning = false;
+            }, 600); // ลดจาก 1200 เป็น 600ms
+            
             if (video) {
                 let videoEnded = false;
                 
                 video.onended = () => {
                     if (!isPaused && !videoEnded) {
                         videoEnded = true;
-                        isTransitioning = false;
                         nextSlide();
                     }
                 };
@@ -634,28 +677,89 @@ function ht($key, $lang) {
                 autoSlideInterval = setTimeout(() => {
                     if (!videoEnded && !isPaused) {
                         videoEnded = true;
-                        isTransitioning = false;
                         nextSlide();
                     }
                 }, duration + 300);
                 
             } else {
                 autoSlideInterval = setTimeout(() => {
-                    isTransitioning = false;
                     if (!isPaused) nextSlide();
                 }, duration);
             }
-            
-            setTimeout(() => {
-                isTransitioning = false;
-            }, 1200);
         }
     }
 
     function nextSlide() {
-        currentSlide = (currentSlide + 1) % totalSlides;
-        showSlide(currentSlide);
+        const targetSlide = (currentSlide + 1) % totalSlides;
+        showSlide(targetSlide);
     }
+
+    function prevSlide() {
+        const targetSlide = (currentSlide - 1 + totalSlides) % totalSlides;
+        showSlide(targetSlide);
+    }
+
+    // Click Navigation - คลิกขวาไปหน้า คลิกซ้ายถอยหลัง
+    const heroSlider = document.querySelector('.hero-slider');
+    let lastClickTime = 0;
+    const clickCooldown = 400; // milliseconds
+    
+    heroSlider.addEventListener('click', (e) => {
+        // ไม่ทำงานถ้าคลิกที่ปุ่มต่างๆ
+        if (e.target.closest('.sound-control') || 
+            e.target.closest('.hero-dot') || e.target.closest('.hero-cta')) {
+            return;
+        }
+
+        // Prevent rapid clicking
+        const now = Date.now();
+        if (now - lastClickTime < clickCooldown) {
+            return;
+        }
+        lastClickTime = now;
+
+        const clickX = e.clientX;
+        const windowWidth = window.innerWidth;
+        
+        if (clickX > windowWidth / 2) {
+            nextSlide();
+        } else {
+            prevSlide();
+        }
+    });
+
+    // Touch/Swipe Support
+    heroSlider.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    heroSlider.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, { passive: true });
+
+    function handleSwipe() {
+        const swipeDistance = touchStartX - touchEndX;
+        
+        if (Math.abs(swipeDistance) > minSwipeDistance) {
+            if (swipeDistance > 0) {
+                // Swipe left - ไปหน้าต่อไป
+                nextSlide();
+            } else {
+                // Swipe right - ถอยหลัง
+                prevSlide();
+            }
+        }
+    }
+
+    // Keyboard Navigation
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight') {
+            nextSlide();
+        } else if (e.key === 'ArrowLeft') {
+            prevSlide();
+        }
+    });
 
     const firstVideo = slides[0].querySelector('.hero-video');
     if (firstVideo) {
