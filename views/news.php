@@ -55,6 +55,25 @@ function tt($key, $lang) {
     global $translations;
     return $translations[$key][$lang] ?? $translations[$key]['en'];
 }
+
+$subject_col = ($lang === 'th') ? 'subject_news' : 'subject_news_' . $lang;
+
+$breaking_query = "
+    SELECT 
+        news_id,
+        {$subject_col} as subject
+    FROM dn_news
+    WHERE status = 0 AND del = 0
+    ORDER BY date_create DESC
+    LIMIT 5
+";
+$breaking_result = $conn->query($breaking_query);
+$breaking_news = [];
+if ($breaking_result && $breaking_result->num_rows > 0) {
+    while ($row = $breaking_result->fetch_assoc()) {
+        $breaking_news[] = $row;
+    }
+}
 ?>
 
 <!DOCTYPE html>
@@ -834,23 +853,48 @@ function tt($key, $lang) {
     </section>
 
     <!-- Breaking News Ticker -->
-    <section class="breaking-news">
-        <div class="breaking-container">
-            <div class="breaking-label">
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="10" cy="10" r="8" fill="#ff0000"/>
-                    <circle cx="10" cy="10" r="4" fill="#ffffff"/>
-                </svg>
-                <?php echo match($lang) {
-                    'en' => 'BREAKING',
-                    'cn' => '最新',
-                    'jp' => '速報',
-                    'kr' => '속보',
-                    default => 'ด่วน',
-                }; ?>
-            </div>
-            <div class="breaking-content">
-                <div class="breaking-track">
+<section class="breaking-news">
+    <div class="breaking-container">
+        <div class="breaking-label">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="10" cy="10" r="8" fill="#ff0000"/>
+                <circle cx="10" cy="10" r="4" fill="#ffffff"/>
+            </svg>
+            <?php echo match($lang) {
+                'en' => 'BREAKING',
+                'cn' => '最新',
+                'jp' => '速報',
+                'kr' => '속보',
+                default => 'ด่วน',
+            }; ?>
+        </div>
+        <div class="breaking-content">
+            <div class="breaking-track">
+                <?php if (!empty($breaking_news)): ?>
+                    <?php foreach ($breaking_news as $news): ?>
+                        <?php 
+                        $news_id_encoded = urlencode(base64_encode($news['news_id']));
+                        $news_link = "?news_detail&id=" . $news_id_encoded . "&lang=" . $lang;
+                        ?>
+                        <a href="<?= htmlspecialchars($news_link) ?>" style="text-decoration: none; color: inherit;">
+                            <span><?= htmlspecialchars($news['subject']) ?></span>
+                        </a>
+                        <span class="breaking-divider">•</span>
+                    <?php endforeach; ?>
+                    
+                    <!-- Duplicate for seamless loop -->
+                    <?php foreach ($breaking_news as $news): ?>
+                        <?php 
+                        $news_id_encoded = urlencode(base64_encode($news['news_id']));
+                        $news_link = "?news_detail&id=" . $news_id_encoded . "&lang=" . $lang;
+                        ?>
+                        <a href="<?= htmlspecialchars($news_link) ?>" style="text-decoration: none; color: inherit;">
+                            <span><?= htmlspecialchars($news['subject']) ?></span>
+                        </a>
+                        <span class="breaking-divider">•</span>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <!-- Fallback ถ้าไม่มีข่าว -->
                     <span><?php echo match($lang) {
                         'en' => 'New AI Companion Collection launches this Friday',
                         'cn' => '新 AI 伴侣系列本周五上市',
@@ -867,17 +911,103 @@ function tt($key, $lang) {
                         default => 'ลิมิเต็ด อิดิชั่น: เพียง 500 ขวดทั่วโลก',
                     }; ?></span>
                     <span class="breaking-divider">•</span>
-                    <span><?php echo match($lang) {
-                        'en' => 'New AI Companion Collection launches this Friday',
-                        'cn' => '新 AI 伴侣系列本周五上市',
-                        'jp' => '今週金曜日に新しいAIコンパニオンコレクション発売',
-                        'kr' => '이번 금요일 새로운 AI 컴패니언 컬렉션 출시',
-                        default => 'คอลเลคชั่น AI Companion ใหม่เปิดตัววันศุกร์นี้',
-                    }; ?></span>
-                </div>
+                <?php endif; ?>
             </div>
         </div>
-    </section>
+    </div>
+</section>
+
+<style>
+/* Breaking News Ticker - Enhanced for clickable links */
+.breaking-news {
+    background: #fff;
+    border-top: 1px solid #e5e5e5;
+    border-bottom: 1px solid #e5e5e5;
+    padding: 20px 0;
+    overflow: hidden;
+}
+
+.breaking-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 30px;
+}
+
+.breaking-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 1px;
+    color: #ff0000;
+    white-space: nowrap;
+    padding-left: 40px;
+}
+
+.breaking-content {
+    flex: 1;
+    overflow: hidden;
+}
+
+.breaking-track {
+    display: flex;
+    gap: 40px;
+    animation: scroll 30s linear infinite;
+    white-space: nowrap;
+    align-items: center;
+}
+
+.breaking-track a {
+    transition: color 0.3s ease;
+}
+
+.breaking-track a:hover span {
+    color: #ffa719;
+}
+
+.breaking-track span {
+    font-size: 15px;
+    color: #1a1a1a;
+    transition: color 0.3s ease;
+}
+
+.breaking-divider {
+    color: #ffa719 !important;
+    font-weight: 700;
+}
+
+@keyframes scroll {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(-50%);
+    }
+}
+
+/* Pause on hover */
+.breaking-content:hover .breaking-track {
+    animation-play-state: paused;
+}
+
+@media (max-width: 768px) {
+    .breaking-label {
+        padding-left: 20px;
+        font-size: 12px;
+    }
+    
+    .breaking-track {
+        gap: 30px;
+    }
+    
+    .breaking-track span {
+        font-size: 14px;
+    }
+}
+</style>
 
     <!-- Main Content -->
     <div class="content-sticky">
