@@ -815,70 +815,6 @@ $languages = [
         background-color: rgba(255, 255, 255, 0.66);
     }
 
-    /* แสดง Mobile Language Section ใน dropdown */
-    .mobile-language-section {
-        display: block;
-        padding: 15px 30px;
-        border-top: 1px solid rgba(255, 255, 255, 0.2);
-        background: rgba(0, 0, 0, 0.3);
-    }
-
-    .mobile-language-title {
-        font-size: 11px;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: rgba(255, 255, 255, 0.6);
-        margin-bottom: 12px;
-        font-weight: 500;
-    }
-
-    .mobile-language-options {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
-    }
-
-    .mobile-lang-option {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 6px;
-        padding: 12px 8px;
-        text-decoration: none;
-        color: rgba(255, 255, 255, 0.8);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 8px;
-        transition: all 0.3s ease;
-        background: rgba(255, 255, 255, 0.05);
-    }
-
-    .mobile-lang-option:hover {
-        background: rgba(255, 255, 255, 0.1);
-        border-color: rgba(255, 255, 255, 0.4);
-        transform: translateY(-2px);
-    }
-
-    .mobile-lang-option.active {
-        background: rgba(255, 255, 255, 0.2);
-        border-color: rgba(255, 255, 255, 0.6);
-        color: #ffffff;
-    }
-
-    .mobile-lang-flag {
-        width: 24px;
-        height: 18px;
-        object-fit: cover;
-        border-radius: 2px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-    }
-
-    .mobile-lang-name {
-        font-size: 10px;
-        letter-spacing: 0.05em;
-        text-align: center;
-        font-weight: 400;
-    }
-
     /* Logo stays centered */
     .logo {
         position: absolute;
@@ -888,7 +824,7 @@ $languages = [
 
     /* Adjust actions */
     .header-actions {
-        gap: 15px;
+        gap: 8px;
     }
 
     .language-name {
@@ -931,27 +867,73 @@ $languages = [
 }
 
 @media (max-width: 600px) {
-    /* ซ่อนปุ่มเปลี่ยนภาษา */
+    /* ซ่อนปุ่มเปลี่ยนภาษา desktop */
     .language-switcher {
         display: none !important;
     }
 
+    /* แสดง Mobile Language Section ใน dropdown */
+    .mobile-language-section {
+        display: block !important;
+        padding: 15px 30px;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(0, 0, 0, 0.3);
+    }
+
+    .mobile-language-title {
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.6);
+        margin-bottom: 12px;
+        font-weight: 500;
+    }
+
     .mobile-language-options {
+        display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 8px;
     }
 
     .mobile-lang-option {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
         padding: 10px 6px;
+        text-decoration: none;
+        color: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .mobile-lang-option:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.4);
+        transform: translateY(-2px);
+    }
+
+    .mobile-lang-option.active {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.6);
+        color: #ffffff;
     }
 
     .mobile-lang-flag {
         width: 22px;
         height: 16px;
+        object-fit: cover;
+        border-radius: 2px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
     .mobile-lang-name {
         font-size: 9px;
+        letter-spacing: 0.05em;
+        text-align: center;
+        font-weight: 400;
     }
 }
 
