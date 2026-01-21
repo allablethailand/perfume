@@ -3,27 +3,27 @@
 $imagesItems = [
     [
         'type' => 'video',
-        'src' => '//cdn.origami.life/uploads/purfume/72003.mp4',
-        'poster' => '//cdn.origami.life/uploads/purfume/72003.mp4',
+        'src' => 'https://cdn.origami.life/uploads/purfume/72003.mp4',
+        'poster' => 'https://cdn.origami.life/uploads/purfume/72003.mp4',
         'duration' => 17000
     ],
     [
         'type' => 'video',
-        'src' => '//cdn.origami.life/uploads/purfume/72002.mp4',
-        'poster' => '//cdn.origami.life/uploads/purfume/72002.mp4',
+        'src' => 'https://cdn.origami.life/uploads/purfume/72002.mp4',
+        'poster' => 'https://cdn.origami.life/uploads/purfume/72002.mp4',
         'duration' => 23000
     ],
     [
         'type' => 'video',
-        'src' => '//cdn.origami.life/uploads/purfume/72001.mp4',
-        'poster' => '//cdn.origami.life/uploads/purfume/72001.mp4',
-        'duration' => 20000
-    ],
-       [
-        'type' => 'video',
-        'src' => '//cdn.origami.life/uploads/purfume/04720.mp4',
-        'poster' => '//cdn.origami.life/uploads/purfume/04720.mp4',
+        'src' => 'https://cdn.origami.life/uploads/purfume/04720.mp4',
+        'poster' => 'https://cdn.origami.life/uploads/purfume/04720.mp4',
         'duration' => 16000
+    ],
+    [
+        'type' => 'video',
+        'src' => 'https://cdn.origami.life/uploads/purfume/72001.mp4',
+        'poster' => 'https://cdn.origami.life/uploads/purfume/72001.mp4',
+        'duration' => 20000
     ],
     [
         'type' => 'image',
@@ -36,6 +36,8 @@ $imagesItems = [
         'duration' => 5000
     ],
 ];
+
+
 
 // Preload first video poster for LCP optimization
 if (!empty($imagesItems) && $imagesItems[0]['type'] === 'video' && isset($imagesItems[0]['poster'])) {
@@ -419,7 +421,11 @@ function ht($key, $lang) {
                         preload="<?= ($index === 0) ? 'auto' : 'none' ?>"
                         <?= isset($item['poster']) ? 'poster="' . $item['poster'] . '"' : '' ?>
                         <?= ($index === 0) ? 'autoplay' : '' ?>
-                        disablePictureInPicture>
+                        disablePictureInPicture
+                        webkit-playsinline
+                        x5-playsinline
+                        x5-video-player-type="h5"
+                        x5-video-player-fullscreen="true">
                         <source src="<?= $item['src'] ?>" type="video/mp4">
                     </video>
                 <?php endif; ?>
@@ -465,6 +471,11 @@ function ht($key, $lang) {
     let loadedVideos = new Set();
     let isTransitioning = false;
     let isMuted = true;
+    
+    // ตรวจสอบความเร็วเน็ตและ mobile
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const isSlowNetwork = connection && (connection.effectiveType === 'slow-2g' || connection.effectiveType === '2g' || connection.saveData);
 
     // Sound Control Elements
     const soundToggle = document.getElementById('soundToggle');
@@ -515,32 +526,45 @@ function ht($key, $lang) {
     document.addEventListener('touchstart', enableSoundOnInteraction, { once: true });
     document.addEventListener('keydown', enableSoundOnInteraction, { once: true });
 
-    // ปรับปรุงการโหลดวิดีโอให้เร็วขึ้น
+    // ปรับปรุงการโหลดวิดีโอให้เร็วขึ้น - โหลดหลายวิดีโอพร้อมกันบนมือถือ
     function preloadAndPrepareNext(index) {
         const nextIndex = (index + 1) % totalSlides;
         const prevIndex = (index - 1 + totalSlides) % totalSlides;
         
-        // โหลดวิดีโอถัดไปและก่อนหน้า
-        [nextIndex, prevIndex].forEach(idx => {
+        // บนมือถือและเน็ตเร็ว - โหลด 2-3 วิดีโอล่วงหน้า
+        const indicesToLoad = isMobile && !isSlowNetwork 
+            ? [nextIndex, prevIndex, (nextIndex + 1) % totalSlides]
+            : [nextIndex, prevIndex];
+        
+        indicesToLoad.forEach(idx => {
             const slide = slides[idx];
             const video = slide.querySelector('.hero-video');
             
             if (video && !loadedVideos.has(idx)) {
-                // ใช้ IntersectionObserver สำหรับ lazy loading ที่ดีขึ้น
                 video.preload = 'auto';
                 
-                // โหลดแบบ background
+                // ตั้งเวลา timeout ถ้าโหลดนานเกินไป (5 วินาที)
+                const loadTimeout = setTimeout(() => {
+                    if (!loadedVideos.has(idx)) {
+                        console.log(`Video ${idx} load timeout - marking as loaded anyway`);
+                        loadedVideos.add(idx);
+                    }
+                }, 5000);
+                
                 const loadPromise = new Promise((resolve) => {
                     if (video.readyState >= 3) {
+                        clearTimeout(loadTimeout);
                         loadedVideos.add(idx);
                         resolve();
                     } else {
-                        video.addEventListener('loadeddata', () => {
+                        video.addEventListener('canplaythrough', () => {
+                            clearTimeout(loadTimeout);
                             loadedVideos.add(idx);
                             video.currentTime = 0;
                             resolve();
                         }, { once: true });
                         
+                        // เริ่มโหลดทันที
                         video.load();
                     }
                 });
@@ -729,6 +753,9 @@ function ht($key, $lang) {
     });
 
     // Touch/Swipe Support
+    let lastSwipeTime = 0;
+    const swipeCooldown = 400;
+    
     heroSlider.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
     }, { passive: true });
@@ -739,9 +766,16 @@ function ht($key, $lang) {
     }, { passive: true });
 
     function handleSwipe() {
+        const now = Date.now();
+        if (now - lastSwipeTime < swipeCooldown) {
+            return;
+        }
+        
         const swipeDistance = touchStartX - touchEndX;
         
         if (Math.abs(swipeDistance) > minSwipeDistance) {
+            lastSwipeTime = now;
+            
             if (swipeDistance > 0) {
                 // Swipe left - ไปหน้าต่อไป
                 nextSlide();
@@ -753,32 +787,62 @@ function ht($key, $lang) {
     }
 
     // Keyboard Navigation
+    let lastKeyTime = 0;
+    const keyCooldown = 400;
+    
     document.addEventListener('keydown', (e) => {
+        const now = Date.now();
+        if (now - lastKeyTime < keyCooldown) {
+            return;
+        }
+        
         if (e.key === 'ArrowRight') {
+            lastKeyTime = now;
             nextSlide();
         } else if (e.key === 'ArrowLeft') {
+            lastKeyTime = now;
             prevSlide();
         }
     });
 
     const firstVideo = slides[0].querySelector('.hero-video');
+    
+    // โหลดวิดีโอแรก 2-3 อันทันทีเมื่อโหลดหน้า (aggressive preload)
+    if (!isSlowNetwork) {
+        setTimeout(() => {
+            [0, 1, 2].forEach(idx => {
+                if (idx < slides.length) {
+                    const video = slides[idx].querySelector('.hero-video');
+                    if (video && !loadedVideos.has(idx)) {
+                        video.preload = 'auto';
+                        video.load();
+                        
+                        video.addEventListener('canplaythrough', () => {
+                            loadedVideos.add(idx);
+                        }, { once: true });
+                    }
+                }
+            });
+        }, 100); // เริ่มโหลดหลังจาก DOM โหลดเสร็จ 100ms
+    }
+    
     if (firstVideo) {
         firstVideo.addEventListener('canplay', () => {
             showSlide(0, true);
         }, { once: true });
         
+        // ลด timeout ให้เร็วขึ้นเพื่อแสดงผลเร็วขึ้น
         setTimeout(() => {
             showSlide(0, true);
-        }, 1000);
+        }, 500); // ลดจาก 1000 เป็น 500ms
     } else {
         showSlide(0, true);
     }
 
     dots.forEach((dot, index) => {
         dot.addEventListener('click', () => {
-            if (!isTransitioning && currentSlide !== index) {
-                currentSlide = index;
-                showSlide(currentSlide);
+            if (currentSlide !== index) {
+                showSlide(index);
             }
         });
     });
