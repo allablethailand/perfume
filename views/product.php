@@ -5,6 +5,10 @@ global $conn;
 // ตรวจสอบภาษา
 $lang = isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'cn', 'jp', 'kr']) ? $_GET['lang'] : 'th';
 $name_col = "name_" . $lang;
+$desc_col = "description_" . $lang;
+
+// รับค่าการค้นหา
+$searchQuery = isset($_GET['s']) ? trim($_GET['s']) : '';
 ?>
 <!DOCTYPE html>
 <html lang="<?= $lang ?>">
@@ -30,6 +34,17 @@ $name_col = "name_" . $lang;
             color: #1a1a1a;
             text-transform: uppercase;
             letter-spacing: 2px;
+        }
+
+        .search-info {
+            margin-top: 15px;
+            color: #666;
+            font-size: 16px;
+        }
+
+        .search-term {
+            color: #000;
+            font-weight: 600;
         }
 
         .products-grid {
@@ -130,12 +145,54 @@ $name_col = "name_" . $lang;
 
     <main class="products-container">
         <header class="page-header">
-            <h1 class="page-title" data-translate="product">Our Collection</h1>
+            <h1 class="page-title" data-translate="product">
+                <?php 
+                echo match($lang) {
+                    'en' => 'Our Collection',
+                    'cn' => '我们的系列',
+                    'jp' => 'コレクション',
+                    'kr' => '컬렉션',
+                    default => 'คอลเลคชั่นของเรา',
+                };
+                ?>
+            </h1>
             <div style="width: 50px; height: 2px; background: #000; margin: 20px auto;"></div>
+            
+            <?php if ($searchQuery): ?>
+                <div class="search-info">
+                    <?php 
+                    echo match($lang) {
+                        'en' => 'Search results for',
+                        'cn' => '搜索结果',
+                        'jp' => '検索結果',
+                        'kr' => '검색 결과',
+                        default => 'ผลการค้นหาสำหรับ',
+                    };
+                    ?> "<span class="search-term"><?= htmlspecialchars($searchQuery) ?></span>"
+                </div>
+            <?php endif; ?>
         </header>
 
         <div class="products-grid">
             <?php
+            // สร้าง WHERE clause สำหรับการค้นหา
+            $search_where = '';
+            if ($searchQuery !== '') {
+                $searchTerm = $conn->real_escape_string($searchQuery);
+                $search_where = " AND (
+                    p.name_th LIKE '%{$searchTerm}%' OR
+                    p.name_en LIKE '%{$searchTerm}%' OR
+                    p.name_cn LIKE '%{$searchTerm}%' OR
+                    p.name_jp LIKE '%{$searchTerm}%' OR
+                    p.name_kr LIKE '%{$searchTerm}%' OR
+                    p.description_th LIKE '%{$searchTerm}%' OR
+                    p.description_en LIKE '%{$searchTerm}%' OR
+                    p.description_cn LIKE '%{$searchTerm}%' OR
+                    p.description_jp LIKE '%{$searchTerm}%' OR
+                    p.description_kr LIKE '%{$searchTerm}%'
+                )";
+            }
+            
             // ดึงสินค้าทั้งหมด - แสดงราคาที่ยังไม่รวม VAT
             $products_query = "
                 SELECT 
@@ -149,6 +206,7 @@ $name_col = "name_" . $lang;
                 WHERE p.status = 1 
                     AND p.del = 0 
                     AND p.stock_quantity > 0
+                    {$search_where}
                 ORDER BY p.created_at DESC
             ";
             
@@ -179,8 +237,53 @@ $name_col = "name_" . $lang;
             } else {
                 ?>
                 <div class="empty-state">
-                    <h3>ไม่พบสินค้า</h3>
-                    <p>ขณะนี้ยังไม่มีสินค้าที่พร้อมขาย</p>
+                    <?php if ($searchQuery): ?>
+                        <h3>
+                            <?php 
+                            echo match($lang) {
+                                'en' => 'No products found',
+                                'cn' => '未找到产品',
+                                'jp' => '製品が見つかりません',
+                                'kr' => '제품을 찾을 수 없습니다',
+                                default => 'ไม่พบสินค้า',
+                            };
+                            ?>
+                        </h3>
+                        <p>
+                            <?php 
+                            echo match($lang) {
+                                'en' => 'Try searching with different keywords',
+                                'cn' => '尝试使用不同的关键词搜索',
+                                'jp' => '別のキーワードで検索してみてください',
+                                'kr' => '다른 키워드로 검색해 보세요',
+                                default => 'ลองค้นหาด้วยคำค้นอื่น',
+                            };
+                            ?>
+                        </p>
+                    <?php else: ?>
+                        <h3>
+                            <?php 
+                            echo match($lang) {
+                                'en' => 'No products available',
+                                'cn' => '暂无产品',
+                                'jp' => '製品がありません',
+                                'kr' => '제품이 없습니다',
+                                default => 'ไม่พบสินค้า',
+                            };
+                            ?>
+                        </h3>
+                        <p>
+                            <?php 
+                            echo match($lang) {
+                                'en' => 'No products are currently available for sale',
+                                'cn' => '目前没有可供销售的产品',
+                                'jp' => '現在販売可能な製品はありません',
+                                'kr' => '현재 판매 가능한 제품이 없습니다',
+                                default => 'ขณะนี้ยังไม่มีสินค้าที่พร้อมขาย',
+                            };
+                            ?>
+                        </p>
+                    <?php endif; ?>
                 </div>
                 <?php
             }
