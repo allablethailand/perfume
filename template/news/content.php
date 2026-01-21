@@ -17,18 +17,39 @@ if (isset($_GET['lang']) && in_array($_GET['lang'], $supportedLangs)) {
 
 $lang = isset($_SESSION['lang']) ? $_SESSION['lang'] : 'th';
 
-$searchQuery = isset($_GET['search']) ? $_GET['search'] : '';
+// รับค่าการค้นหาจาก parameter 's' แทน 'search'
+$searchQuery = isset($_GET['s']) ? trim($_GET['s']) : '';
 
 $subjectCol = 'subject_news' . ($lang !== 'th' ? '_' . $lang : '');
 $descriptionCol = 'description_news' . ($lang !== 'th' ? '_' . $lang : '');
 $contentCol = 'content_news' . ($lang !== 'th' ? '_' . $lang : '');
 
+// สร้าง WHERE clause สำหรับการค้นหา
+$searchWhere = '';
+if ($searchQuery !== '') {
+    $searchTerm = $conn->real_escape_string($searchQuery);
+    $searchWhere = " AND (
+        dn.subject_news LIKE '%{$searchTerm}%' OR 
+        dn.subject_news_en LIKE '%{$searchTerm}%' OR 
+        dn.subject_news_cn LIKE '%{$searchTerm}%' OR 
+        dn.subject_news_jp LIKE '%{$searchTerm}%' OR 
+        dn.subject_news_kr LIKE '%{$searchTerm}%' OR
+        dn.description_news LIKE '%{$searchTerm}%' OR 
+        dn.description_news_en LIKE '%{$searchTerm}%' OR 
+        dn.description_news_cn LIKE '%{$searchTerm}%' OR 
+        dn.description_news_jp LIKE '%{$searchTerm}%' OR 
+        dn.description_news_kr LIKE '%{$searchTerm}%' OR
+        dn.content_news LIKE '%{$searchTerm}%' OR 
+        dn.content_news_en LIKE '%{$searchTerm}%' OR 
+        dn.content_news_cn LIKE '%{$searchTerm}%' OR 
+        dn.content_news_jp LIKE '%{$searchTerm}%' OR 
+        dn.content_news_kr LIKE '%{$searchTerm}%'
+    )";
+}
+
 $totalQuery = "SELECT COUNT(DISTINCT dn.news_id) as total
                 FROM dn_news dn
-                WHERE dn.del = '0'";
-if ($searchQuery) {
-    $totalQuery .= " AND (dn.subject_news LIKE '%" . $conn->real_escape_string($searchQuery) . "%' OR dn.subject_news_en LIKE '%" . $conn->real_escape_string($searchQuery) . "%' OR dn.subject_news_cn LIKE '%" . $conn->real_escape_string($searchQuery) . "%' OR dn.subject_news_jp LIKE '%" . $conn->real_escape_string($searchQuery) . "%' OR dn.subject_news_kr LIKE '%" . $conn->real_escape_string($searchQuery) . "%')";
-}
+                WHERE dn.del = '0'{$searchWhere}";
 
 $totalResult = $conn->query($totalQuery);
 $totalRow = $totalResult->fetch_assoc();
@@ -61,16 +82,10 @@ $sql = "SELECT
                              AND dnc.del = '0'
                              AND dnc.status = '1'
         WHERE
-            dn.del = '0'";
-
-if ($searchQuery) {
-    $sql .= " AND (dn.subject_news LIKE '%" . $conn->real_escape_string($searchQuery) . "%' OR dn.subject_news_en LIKE '%" . $conn->real_escape_string($searchQuery) . "%' OR dn.subject_news_cn LIKE '%" . $conn->real_escape_string($searchQuery) . "%' OR dn.subject_news_jp LIKE '%" . $conn->real_escape_string($searchQuery) . "%' OR dn.subject_news_kr LIKE '%" . $conn->real_escape_string($searchQuery) . "%')";
-}
-
-$sql .= "
-GROUP BY dn.news_id
-ORDER BY dn.date_create DESC
-LIMIT $perPage OFFSET $offset";
+            dn.del = '0'{$searchWhere}
+        GROUP BY dn.news_id
+        ORDER BY dn.date_create DESC
+        LIMIT $perPage OFFSET $offset";
 
 $result = $conn->query($sql);
 
@@ -102,16 +117,29 @@ if ($result->num_rows > 0) {
         ];
     }
 } else {
-    echo match ($lang) {
-        'en' => 'No news found.',
-        'cn' => '无新闻内容。',
-        'jp' => 'ニュースが見つかりません。',
-        'kr' => '뉴스를 찾을 수 없습니다.',
-        default => 'ไม่พบข่าว',
-    };
+    echo '<div style="text-align: center; padding: 60px 20px; color: #666;">';
+    if ($searchQuery !== '') {
+        echo match ($lang) {
+            'en' => 'No news found for "' . htmlspecialchars($searchQuery) . '"',
+            'cn' => '未找到 "' . htmlspecialchars($searchQuery) . '" 的新闻',
+            'jp' => '"' . htmlspecialchars($searchQuery) . '" のニュースが見つかりません',
+            'kr' => '"' . htmlspecialchars($searchQuery) . '"에 대한 뉴스를 찾을 수 없습니다',
+            default => 'ไม่พบข่าวสำหรับ "' . htmlspecialchars($searchQuery) . '"',
+        };
+    } else {
+        echo match ($lang) {
+            'en' => 'No news found.',
+            'cn' => '无新闻内容。',
+            'jp' => 'ニュースが見つかりません。',
+            'kr' => '뉴스를 찾을 수 없습니다.',
+            default => 'ไม่พบข่าว',
+        };
+    }
+    echo '</div>';
 }
 ?>
 
+<?php if (!empty($boxesNews)): ?>
 <div class="content-news">
     <?php foreach ($boxesNews as $index => $box): ?>
         <div class="box-news">
@@ -137,9 +165,10 @@ if ($result->num_rows > 0) {
     <?php endforeach; ?>
 </div>
 
+<?php if ($totalPages > 1): ?>
 <div class="pagination">
     <?php if ($page > 1): ?>
-        <a href="?news&page=<?php echo $page - 1; ?>&search=<?php echo urlencode($searchQuery); ?>&lang=<?php echo $lang; ?>">
+        <a href="?news&page=<?php echo $page - 1; ?><?php echo $searchQuery ? '&s=' . urlencode($searchQuery) : ''; ?>&lang=<?php echo $lang; ?>">
             <?php echo match ($lang) {
                 'en' => 'Previous',
                 'cn' => '上一页',
@@ -150,14 +179,32 @@ if ($result->num_rows > 0) {
         </a>
     <?php endif; ?>
 
-    <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-        <a href="?news&page=<?php echo $i; ?>&search=<?php echo urlencode($searchQuery); ?>&lang=<?php echo $lang; ?>" <?php echo $i == $page ? 'class="active"' : ''; ?>>
+    <?php 
+    $startPage = max(1, $page - 2);
+    $endPage = min($totalPages, $page + 2);
+    
+    if ($startPage > 1): ?>
+        <a href="?news&page=1<?php echo $searchQuery ? '&s=' . urlencode($searchQuery) : ''; ?>&lang=<?php echo $lang; ?>">1</a>
+        <?php if ($startPage > 2): ?>
+            <span style="padding: 0 10px; color: #999;">...</span>
+        <?php endif; ?>
+    <?php endif; ?>
+
+    <?php for ($i = $startPage; $i <= $endPage; $i++): ?>
+        <a href="?news&page=<?php echo $i; ?><?php echo $searchQuery ? '&s=' . urlencode($searchQuery) : ''; ?>&lang=<?php echo $lang; ?>" <?php echo $i == $page ? 'class="active"' : ''; ?>>
             <?php echo $i; ?>
         </a>
     <?php endfor; ?>
 
+    <?php if ($endPage < $totalPages): ?>
+        <?php if ($endPage < $totalPages - 1): ?>
+            <span style="padding: 0 10px; color: #999;">...</span>
+        <?php endif; ?>
+        <a href="?news&page=<?php echo $totalPages; ?><?php echo $searchQuery ? '&s=' . urlencode($searchQuery) : ''; ?>&lang=<?php echo $lang; ?>"><?php echo $totalPages; ?></a>
+    <?php endif; ?>
+
     <?php if ($page < $totalPages): ?>
-        <a href="?news&page=<?php echo $page + 1; ?>&search=<?php echo urlencode($searchQuery); ?>&lang=<?php echo $lang; ?>">
+        <a href="?news&page=<?php echo $page + 1; ?><?php echo $searchQuery ? '&s=' . urlencode($searchQuery) : ''; ?>&lang=<?php echo $lang; ?>">
             <?php echo match ($lang) {
                 'en' => 'Next',
                 'cn' => '下一页',
@@ -168,3 +215,5 @@ if ($result->num_rows > 0) {
         </a>
     <?php endif; ?>
 </div>
+<?php endif; ?>
+<?php endif; ?>
