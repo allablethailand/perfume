@@ -23,8 +23,8 @@ if (session_status() == PHP_SESSION_NONE) {
         
         .chat-container-3d {
             display: flex;
-            height: calc(100vh - 70px);
-            margin-top: 70px;
+            height: 100vh;
+            /* margin-top: 70px; */
             overflow: hidden;
             position: relative;
         }
@@ -511,7 +511,7 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         }
     </style>
-    <?php include 'template/header.php' ?>
+
 </head>
 <body>
     <!-- Floating Menu Button -->
