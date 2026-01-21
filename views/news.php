@@ -755,13 +755,15 @@ if ($breaking_result && $breaking_result->num_rows > 0) {
     <!-- Search & Filter Bar -->
     <div class="search-filter-bar">
         <form method="GET" action="" class="search-wrapper">
+            <input type="hidden" name="news" value="">
+            <input type="hidden" name="lang" value="<?= $lang ?>">
             <div class="search-input-group">
                 <input 
                     type="text" 
-                    name="search" 
+                    name="s" 
                     class="search-input" 
                     placeholder="<?= tt('search_placeholder', $lang) ?>"
-                    value="<?= htmlspecialchars($_GET['search'] ?? '') ?>"
+                    value="<?= htmlspecialchars($_GET['s'] ?? '') ?>"
                 >
                 <button type="submit" class="search-btn">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -770,8 +772,6 @@ if ($breaking_result && $breaking_result->num_rows > 0) {
                     </svg>
                 </button>
             </div>
-            <input type="hidden" name="news" value="">
-            <input type="hidden" name="lang" value="<?= $lang ?>">
         </form>
     </div>
 
@@ -781,70 +781,70 @@ if ($breaking_result && $breaking_result->num_rows > 0) {
             <div class="newsletter-content">
                 <div class="newsletter-icon">
                     <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M10 15L30 30L50 15" stroke="#ffa719" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <rect x="5" y="10" width="50" height="35" rx="3" stroke="#ffa719" stroke-width="2"/>
-                        <path d="M5 15L30 32L55 15" stroke="#ffa719" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        <rect x="10" y="15" width="40" height="30" rx="2" stroke="#ffa719" stroke-width="2"/>
+                        <path d="M10 20H50M10 30H35M10 40H45" stroke="#ffa719" stroke-width="2" stroke-linecap="round"/>
+                        <circle cx="43" cy="35" r="3" fill="#ffa719"/>
                     </svg>
                 </div>
                 <h2 class="newsletter-title">
                     <?php 
                     echo match($lang) {
-                        'en' => 'Be the First to Know',
-                        'cn' => '率先了解最新动态',
-                        'jp' => '最新情報をいち早くキャッチ',
-                        'kr' => '가장 먼저 소식 받기',
-                        default => 'รับข่าวสารก่อนใคร',
+                        'en' => 'News Archive',
+                        'cn' => '新闻档案',
+                        'jp' => 'ニュースアーカイブ',
+                        'kr' => '뉴스 아카이브',
+                        default => 'คลังข่าวสาร',
                     };
                     ?>
                 </h2>
                 <p class="newsletter-description">
                     <?php 
                     echo match($lang) {
-                        'en' => 'Exclusive news, limited editions, and special events delivered to you first',
-                        'cn' => '独家新闻、限量版和特别活动第一时间送达',
-                        'jp' => '限定ニュース、限定版、特別イベントを最速でお届け',
-                        'kr' => '독점 뉴스, 한정판 및 특별 이벤트를 가장 먼저 받아보세요',
-                        default => 'ข่าวสารพิเศษ คอลเลคชั่นลิมิเต็ด และอีเว้นท์สุดพิเศษส่งถึงคุณก่อนใคร',
+                        'en' => 'Comprehensive coverage of AI-powered fragrance innovations and industry insights',
+                        'cn' => '全面报道 AI 驱动的香水创新和行业见解',
+                        'jp' => 'AI を活用した香水のイノベーションと業界のインサイトを包括的にカバー',
+                        'kr' => 'AI 기반 향수 혁신 및 업계 통찰력에 대한 종합 보도',
+                        default => 'รายงานครอบคลุมนวัตกรรมน้ำหอม AI และข้อมูลเชิงลึกในอุตสาหกรรม',
                     };
                     ?>
                 </p>
             </div>
             <div class="newsletter-stats">
                 <div class="stat-item">
-                    <div class="stat-number">10K+</div>
+                    <div class="stat-number">500+</div>
                     <div class="stat-label">
                         <?php echo match($lang) {
-                            'en' => 'Subscribers',
-                            'cn' => '订阅者',
-                            'jp' => '購読者',
-                            'kr' => '구독자',
-                            default => 'ผู้ติดตาม',
+                            'en' => 'Articles',
+                            'cn' => '篇文章',
+                            'jp' => '記事',
+                            'kr' => '개 기사',
+                            default => 'บทความ',
                         }; ?>
                     </div>
                 </div>
                 <div class="stat-divider"></div>
                 <div class="stat-item">
-                    <div class="stat-number">24h</div>
+                    <div class="stat-number">Daily</div>
                     <div class="stat-label">
                         <?php echo match($lang) {
-                            'en' => 'Early Access',
-                            'cn' => '提前访问',
-                            'jp' => '先行アクセス',
-                            'kr' => '조기 액세스',
-                            default => 'เข้าถึงก่อน',
+                            'en' => 'Updates',
+                            'cn' => '每日更新',
+                            'jp' => '毎日更新',
+                            'kr' => '매일 업데이트',
+                            default => 'อัพเดททุกวัน',
                         }; ?>
                     </div>
                 </div>
                 <div class="stat-divider"></div>
                 <div class="stat-item">
-                    <div class="stat-number">100%</div>
+                    <div class="stat-number">5+</div>
                     <div class="stat-label">
                         <?php echo match($lang) {
-                            'en' => 'Exclusive',
-                            'cn' => '独家',
-                            'jp' => '限定',
-                            'kr' => '독점',
-                            default => 'พิเศษเฉพาะ',
+                            'en' => 'Languages',
+                            'cn' => '种语言',
+                            'jp' => '言語',
+                            'kr' => '개 언어',
+                            default => 'ภาษา',
                         }; ?>
                     </div>
                 </div>
@@ -956,7 +956,7 @@ if ($breaking_result && $breaking_result->num_rows > 0) {
     display: flex;
     gap: 40px;
     animation: scroll 30s linear infinite;
-    white-space: nowrap;
+    whitespace: nowrap;
     align-items: center;
 }
 
@@ -1031,20 +1031,20 @@ if ($breaking_result && $breaking_result->num_rows > 0) {
                 </div>
                 <h3 class="feature-title">
                     <?php echo match($lang) {
-                        'en' => 'Exclusive Access',
-                        'cn' => '独家访问',
-                        'jp' => '限定アクセス',
-                        'kr' => '독점 액세스',
-                        default => 'สิทธิพิเศษเฉพาะคุณ',
+                        'en' => 'Industry Insights',
+                        'cn' => '行业洞察',
+                        'jp' => '業界インサイト',
+                        'kr' => '업계 통찰력',
+                        default => 'ข้อมูลเชิงลึกในอุตสาหกรรม',
                     }; ?>
                 </h3>
                 <p class="feature-description">
                     <?php echo match($lang) {
-                        'en' => 'First to see new collections and limited editions',
-                        'cn' => '率先查看新系列和限量版',
-                        'jp' => '新コレクションと限定版を最初に見る',
-                        'kr' => '새로운 컬렉션과 한정판을 가장 먼저 보기',
-                        default => 'ดูคอลเลคชั่นใหม่และลิมิเต็ดอิดิชั่นก่อนใคร',
+                        'en' => 'Expert analysis and trends in AI fragrance technology',
+                        'cn' => 'AI 香水技术的专家分析和趋势',
+                        'jp' => 'AI フレグランス技術の専門家による分析とトレンド',
+                        'kr' => 'AI 향수 기술의 전문가 분석 및 트렌드',
+                        default => 'การวิเคราะห์จากผู้เชี่ยวชาญและเทรนด์เทคโนโลยี AI น้ำหอม',
                     }; ?>
                 </p>
             </div>
@@ -1067,11 +1067,11 @@ if ($breaking_result && $breaking_result->num_rows > 0) {
                 </h3>
                 <p class="feature-description">
                     <?php echo match($lang) {
-                        'en' => 'Never miss important announcements',
-                        'cn' => '永不错过重要公告',
-                        'jp' => '重要なお知らせを見逃さない',
-                        'kr' => '중요한 발표를 놓치지 마세요',
-                        default => 'ไม่พลาดทุกข่าวสำคัญ',
+                        'en' => 'Never miss important announcements and launches',
+                        'cn' => '永不错过重要公告和发布',
+                        'jp' => '重要なお知らせと発売情報を見逃さない',
+                        'kr' => '중요한 발표 및 출시를 놓치지 마세요',
+                        default => 'ไม่พลาดทุกข่าวสำคัญและการเปิดตัว',
                     }; ?>
                 </p>
             </div>
@@ -1096,11 +1096,11 @@ if ($breaking_result && $breaking_result->num_rows > 0) {
                 </h3>
                 <p class="feature-description">
                     <?php echo match($lang) {
-                        'en' => 'Inside look at our creative process',
-                        'cn' => '深入了解我们的创作过程',
-                        'jp' => '創作プロセスの内部',
-                        'kr' => '창작 과정의 내부',
-                        default => 'ส่องกระบวนการสร้างสรรค์',
+                        'en' => 'Inside look at our innovation and creative process',
+                        'cn' => '深入了解我们的创新和创作过程',
+                        'jp' => 'イノベーションと創作プロセスの内部',
+                        'kr' => '혁신 및 창작 과정의 내부',
+                        default => 'ส่องกระบวนการนวัตกรรมและสร้างสรรค์',
                     }; ?>
                 </p>
             </div>
@@ -1113,57 +1113,57 @@ if ($breaking_result && $breaking_result->num_rows > 0) {
             <div class="social-content">
                 <h2 class="social-title">
                     <?php echo match($lang) {
-                        'en' => 'Join Our Community',
-                        'cn' => '加入我们的社区',
-                        'jp' => 'コミュニティに参加',
-                        'kr' => '커뮤니티 가입',
-                        default => 'เข้าร่วมชุมชนของเรา',
+                        'en' => 'Global Coverage',
+                        'cn' => '全球报道',
+                        'jp' => 'グローバルカバレッジ',
+                        'kr' => '글로벌 보도',
+                        default => 'ความครอบคลุมทั่วโลก',
                     }; ?>
                 </h2>
                 <p class="social-description">
                     <?php echo match($lang) {
-                        'en' => 'Connect with fragrance enthusiasts worldwide',
-                        'cn' => '与全球香水爱好者联系',
-                        'jp' => '世界中の香水愛好家とつながる',
-                        'kr' => '전 세계 향수 애호가들과 연결',
-                        default => 'เชื่อมต่อกับคนรักน้ำหอมทั่วโลก',
+                        'en' => 'News and updates available in multiple languages worldwide',
+                        'cn' => '全球多种语言的新闻和更新',
+                        'jp' => '世界中の複数言語でニュースとアップデートを提供',
+                        'kr' => '전 세계 여러 언어로 제공되는 뉴스 및 업데이트',
+                        default => 'ข่าวสารและอัพเดทในหลายภาษาทั่วโลก',
                     }; ?>
                 </p>
             </div>
             <div class="social-stats-grid">
                 <div class="social-stat">
-                    <div class="social-number">50K+</div>
+                    <div class="social-number">1000+</div>
                     <div class="social-label">
                         <?php echo match($lang) {
-                            'en' => 'Community Members',
-                            'cn' => '社区成员',
-                            'jp' => 'コミュニティメンバー',
-                            'kr' => '커뮤니티 회원',
-                            default => 'สมาชิกชุมชน',
+                            'en' => 'News Stories',
+                            'cn' => '篇新闻报道',
+                            'jp' => 'ニュース記事',
+                            'kr' => '개 뉴스 기사',
+                            default => 'ข่าวสาร',
                         }; ?>
                     </div>
                 </div>
                 <div class="social-stat">
-                    <div class="social-number">120+</div>
+                    <div class="social-number">5</div>
                     <div class="social-label">
                         <?php echo match($lang) {
-                            'en' => 'Countries',
-                            'cn' => '个国家',
-                            'jp' => 'カ国',
-                            'kr' => '개 국가',
-                            default => 'ประเทศ',
+                            'en' => 'Languages',
+                            'cn' => '种语言',
+                            'jp' => '言語',
+                            'kr' => '개 언어',
+                            default => 'ภาษา',
                         }; ?>
                     </div>
                 </div>
                 <div class="social-stat">
-                    <div class="social-number">4.9★</div>
+                    <div class="social-number">24/7</div>
                     <div class="social-label">
                         <?php echo match($lang) {
-                            'en' => 'Average Rating',
-                            'cn' => '平均评分',
-                            'jp' => '平均評価',
-                            'kr' => '평균 평점',
-                            default => 'คะแนนเฉลี่ย',
+                            'en' => 'Coverage',
+                            'cn' => '全天候报道',
+                            'jp' => 'カバレッジ',
+                            'kr' => '보도',
+                            default => 'ความครอบคลุม',
                         }; ?>
                     </div>
                 </div>
