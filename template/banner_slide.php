@@ -17,13 +17,13 @@ $imagesItems = [
         'type' => 'video',
         'src' => 'https://cdn.origami.life/uploads/purfume/72001.mp4',
         'poster' => 'https://cdn.origami.life/uploads/purfume/72001.mp4',
-        'duration' => 20000
+        'duration' => 19000
     ],
     [
         'type' => 'video',
         'src' => 'https://cdn.origami.life/uploads/purfume/04720.mp4',
         'poster' => 'https://cdn.origami.life/uploads/purfume/04720.mp4',
-        'duration' => 16000
+        'duration' => 20000
     ],
     [
         'type' => 'image',
