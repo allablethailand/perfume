@@ -1323,7 +1323,7 @@ $languages = [
                         <a href="<?= $langUrl ?>"
                            class="mobile-lang-option <?= $code === $lang ? 'active' : '' ?>">
                             <img src="<?= $info['flag'] ?>" 
-                                 alt="<?= $info['name'] ?>" 
+                                 alt="" 
                                  class="mobile-lang-flag">
                             <span class="mobile-lang-name"><?= $info['name'] ?></span>
                         </a>
