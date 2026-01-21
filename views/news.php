@@ -775,82 +775,68 @@ if ($breaking_result && $breaking_result->num_rows > 0) {
         </form>
     </div>
 
-    <!-- Newsletter Subscription Section -->
-    <section class="newsletter-section">
-        <div class="newsletter-container">
-            <div class="newsletter-content">
-                <div class="newsletter-icon">
-                    <svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect x="10" y="15" width="40" height="30" rx="2" stroke="#ffa719" stroke-width="2"/>
-                        <path d="M10 20H50M10 30H35M10 40H45" stroke="#ffa719" stroke-width="2" stroke-linecap="round"/>
-                        <circle cx="43" cy="35" r="3" fill="#ffa719"/>
-                    </svg>
+      <section class="social-proof">
+    <div class="social-container">
+        <div class="social-content">
+            <h2 class="social-title">
+                <?php echo match($lang) {
+                    'en' => 'Limited Premium Access',
+                    'cn' => '限量高级访问权限',
+                    'jp' => '限定プレミアムアクセス',
+                    'kr' => '한정 프리미엄 액세스',
+                    default => 'สิทธิพิเศษระดับพรีเมียม (จำนวนจำกัด)',
+                }; ?>
+            </h2>
+            <p class="social-description">
+                <?php echo match($lang) {
+                    'en' => 'Join our exclusive circle and get access to insights before anyone else.',
+                    'cn' => '加入我们的专属圈子，比其他人先一步获得见解。',
+                    'jp' => '限定コミュニティに参加して、誰よりも早く情報を手に入れましょう。',
+                    'kr' => '독점 서클에 가입하여 누구보다 먼저 인사이트를 얻으세요.',
+                    default => 'ร่วมเป็นส่วนหนึ่งของกลุ่มพิเศษ เพื่อรับข้อมูลวงในและสิทธิประโยชน์ก่อนใคร',
+                }; ?>
+            </p>
+        </div>
+        <div class="social-stats-grid">
+            <div class="social-stat">
+                <div class="stat-number">TOP 1%</div>
+                <div class="stat-label">
+                    <?php echo match($lang) {
+                        'en' => 'Privilege Club',
+                        'cn' => '特权俱乐部',
+                        'jp' => '特権クラブ',
+                        'kr' => '프리미엄 클럽',
+                        default => 'คลับสิทธิพิเศษ',
+                    }; ?>
                 </div>
-                <h2 class="newsletter-title">
-                    <?php 
-                    echo match($lang) {
-                        'en' => 'News Archive',
-                        'cn' => '新闻档案',
-                        'jp' => 'ニュースアーカイブ',
-                        'kr' => '뉴스 아카이브',
-                        default => 'คลังข่าวสาร',
-                    };
-                    ?>
-                </h2>
-                <p class="newsletter-description">
-                    <?php 
-                    echo match($lang) {
-                        'en' => 'Comprehensive coverage of AI-powered fragrance innovations and industry insights',
-                        'cn' => '全面报道 AI 驱动的香水创新和行业见解',
-                        'jp' => 'AI を活用した香水のイノベーションと業界のインサイトを包括的にカバー',
-                        'kr' => 'AI 기반 향수 혁신 및 업계 통찰력에 대한 종합 보도',
-                        default => 'รายงานครอบคลุมนวัตกรรมน้ำหอม AI และข้อมูลเชิงลึกในอุตสาหกรรม',
-                    };
-                    ?>
-                </p>
             </div>
-            <div class="newsletter-stats">
-                <div class="stat-item">
-                    <div class="stat-number">500+</div>
-                    <div class="stat-label">
-                        <?php echo match($lang) {
-                            'en' => 'Articles',
-                            'cn' => '篇文章',
-                            'jp' => '記事',
-                            'kr' => '개 기사',
-                            default => 'บทความ',
-                        }; ?>
-                    </div>
+            <div class="social-stat">
+                <div class="social-number">500</div>
+                <div class="social-label">
+                    <?php echo match($lang) {
+                        'en' => 'Slots Only',
+                        'cn' => '名额有限',
+                        'jp' => '限定枠',
+                        'kr' => '한정 구좌',
+                        default => 'สิทธิ์ต่อเดือน',
+                    }; ?>
                 </div>
-                <div class="stat-divider"></div>
-                <div class="stat-item">
-                    <div class="stat-number">Daily</div>
-                    <div class="stat-label">
-                        <?php echo match($lang) {
-                            'en' => 'Updates',
-                            'cn' => '每日更新',
-                            'jp' => '毎日更新',
-                            'kr' => '매일 업데이트',
-                            default => 'อัพเดททุกวัน',
-                        }; ?>
-                    </div>
-                </div>
-                <div class="stat-divider"></div>
-                <div class="stat-item">
-                    <div class="stat-number">5+</div>
-                    <div class="stat-label">
-                        <?php echo match($lang) {
-                            'en' => 'Languages',
-                            'cn' => '种语言',
-                            'jp' => '言語',
-                            'kr' => '개 언어',
-                            default => 'ภาษา',
-                        }; ?>
-                    </div>
+            </div>
+            <div class="social-stat">
+                <div class="social-number">VVIP</div>
+                <div class="social-label">
+                    <?php echo match($lang) {
+                        'en' => 'Early Access',
+                        'cn' => '抢先体验',
+                        'jp' => '先行アクセス',
+                        'kr' => '얼리 액세스',
+                        default => 'รับข่าวสารก่อนใคร',
+                    }; ?>
                 </div>
             </div>
         </div>
-    </section>
+    </div>
+</section>
 
     <!-- Breaking News Ticker -->
 <section class="breaking-news">
@@ -1107,69 +1093,7 @@ if ($breaking_result && $breaking_result->num_rows > 0) {
         </div>
     </section>
 
-    <!-- Social Proof Section -->
-    <section class="social-proof">
-        <div class="social-container">
-            <div class="social-content">
-                <h2 class="social-title">
-                    <?php echo match($lang) {
-                        'en' => 'Global Coverage',
-                        'cn' => '全球报道',
-                        'jp' => 'グローバルカバレッジ',
-                        'kr' => '글로벌 보도',
-                        default => 'ความครอบคลุมทั่วโลก',
-                    }; ?>
-                </h2>
-                <p class="social-description">
-                    <?php echo match($lang) {
-                        'en' => 'News and updates available in multiple languages worldwide',
-                        'cn' => '全球多种语言的新闻和更新',
-                        'jp' => '世界中の複数言語でニュースとアップデートを提供',
-                        'kr' => '전 세계 여러 언어로 제공되는 뉴스 및 업데이트',
-                        default => 'ข่าวสารและอัพเดทในหลายภาษาทั่วโลก',
-                    }; ?>
-                </p>
-            </div>
-            <div class="social-stats-grid">
-                <div class="social-stat">
-                    <div class="social-number">1000+</div>
-                    <div class="social-label">
-                        <?php echo match($lang) {
-                            'en' => 'News Stories',
-                            'cn' => '篇新闻报道',
-                            'jp' => 'ニュース記事',
-                            'kr' => '개 뉴스 기사',
-                            default => 'ข่าวสาร',
-                        }; ?>
-                    </div>
-                </div>
-                <div class="social-stat">
-                    <div class="social-number">5</div>
-                    <div class="social-label">
-                        <?php echo match($lang) {
-                            'en' => 'Languages',
-                            'cn' => '种语言',
-                            'jp' => '言語',
-                            'kr' => '개 언어',
-                            default => 'ภาษา',
-                        }; ?>
-                    </div>
-                </div>
-                <div class="social-stat">
-                    <div class="social-number">24/7</div>
-                    <div class="social-label">
-                        <?php echo match($lang) {
-                            'en' => 'Coverage',
-                            'cn' => '全天候报道',
-                            'jp' => 'カバレッジ',
-                            'kr' => '보도',
-                            default => 'ความครอบคลุม',
-                        }; ?>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+
 
     <?php include 'template/footer.php' ?>
 
