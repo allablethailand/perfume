@@ -120,17 +120,46 @@ include '../template/header.php';
                                     <input type="file" id="aiAvatar" name="ai_avatar" accept="image/*" style="display: none;">
                                 </div>
 
-                                <!-- AI Video (Optional) -->
+                                <!-- AI Video (วิดีโอเปิดตัว) -->
                                 <div class="form-group mb-4">
-                                    <label><i class="fas fa-video"></i> AI Video/Animation (Optional)</label>
+                                    <label><i class="fas fa-video"></i> AI Intro Video (วิดีโอเปิดตัว)</label>
                                     <div class="ai-video-upload" onclick="document.getElementById('aiVideo').click()">
                                         <div id="videoPreview" class="video-preview">
                                             <i class="fas fa-film"></i>
-                                            <p>Click to upload video</p>
+                                            <p>Click to upload intro video</p>
                                             <small>MP4, WebM (Max 50MB)</small>
                                         </div>
                                     </div>
                                     <input type="file" id="aiVideo" name="ai_video" accept="video/*" style="display: none;">
+                                    <small class="text-muted">วิดีโอแนะนำตัวเมื่อเริ่มต้นใช้งาน AI</small>
+                                </div>
+
+                                <!-- Idle Video (วิดีโอก่อนพูด/ไม่พูด) -->
+                                <div class="form-group mb-4">
+                                    <label><i class="fas fa-video"></i> Idle Video (วิดีโอก่อนพูด/ไม่พูด) *</label>
+                                    <div class="ai-video-upload" onclick="document.getElementById('idleVideo').click()">
+                                        <div id="idleVideoPreview" class="video-preview">
+                                            <i class="fas fa-pause-circle"></i>
+                                            <p>Click to upload idle video</p>
+                                            <small>MP4, WebM (Max 50MB)</small>
+                                        </div>
+                                    </div>
+                                    <input type="file" id="idleVideo" name="idle_video" accept="video/*" style="display: none;">
+                                    <small class="text-muted">วิดีโอที่แสดงเมื่อ AI ไม่ได้พูด (Loop)</small>
+                                </div>
+
+                                <!-- Talking Video (วิดีโอกำลังพูด) -->
+                                <div class="form-group mb-4">
+                                    <label><i class="fas fa-video"></i> Talking Video (วิดีโอกำลังพูด) *</label>
+                                    <div class="ai-video-upload" onclick="document.getElementById('talkingVideo').click()">
+                                        <div id="talkingVideoPreview" class="video-preview">
+                                            <i class="fas fa-play-circle"></i>
+                                            <p>Click to upload talking video</p>
+                                            <small>MP4, WebM (Max 50MB)</small>
+                                        </div>
+                                    </div>
+                                    <input type="file" id="talkingVideo" name="talking_video" accept="video/*" style="display: none;">
+                                    <small class="text-muted">วิดีโอที่แสดงเมื่อ AI กำลังพูด (Loop)</small>
                                 </div>
 
                                 <!-- Status -->

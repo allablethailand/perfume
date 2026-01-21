@@ -91,7 +91,7 @@ include '../template/header.php';
                             </div>
                             <div class="card-body">
                                 
-                                <!-- HTML Form for Edit -->
+                                <!-- Product Selection -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-box"></i> Select Product (Perfume) *</label>
                                     <select class="form-control" id="product_id" name="product_id" required>
@@ -139,9 +139,9 @@ include '../template/header.php';
                                     <input type="hidden" id="deleteAvatarFlag" name="delete_avatar" value="0">
                                 </div>
 
-                                <!-- AI Video (Optional) -->
+                                <!-- AI Video (วิดีโอเปิดตัว) -->
                                 <div class="form-group mb-4">
-                                    <label><i class="fas fa-video"></i> AI Video/Animation (Optional)</label>
+                                    <label><i class="fas fa-video"></i> AI Intro Video (วิดีโอเปิดตัว)</label>
                                     <div class="ai-video-upload" onclick="document.getElementById('aiVideo').click()">
                                         <div id="videoPreview" class="video-preview">
                                             <?php if ($ai['ai_video_url']): ?>
@@ -155,13 +155,66 @@ include '../template/header.php';
                                                 </div>
                                             <?php else: ?>
                                                 <i class="fas fa-film"></i>
-                                                <p>Click to upload video</p>
+                                                <p>Click to upload intro video</p>
                                                 <small>MP4, WebM (Max 50MB)</small>
                                             <?php endif; ?>
                                         </div>
                                     </div>
                                     <input type="file" id="aiVideo" name="ai_video" accept="video/*" style="display: none;">
                                     <input type="hidden" id="deleteVideoFlag" name="delete_video" value="0">
+                                    <small class="text-muted">วิดีโอแนะนำตัวเมื่อเริ่มต้นใช้งาน AI</small>
+                                </div>
+
+                                <!-- Idle Video (วิดีโอก่อนพูด/ไม่พูด) -->
+                                <div class="form-group mb-4">
+                                    <label><i class="fas fa-video"></i> Idle Video (วิดีโอก่อนพูด/ไม่พูด) *</label>
+                                    <div class="ai-video-upload" onclick="document.getElementById('idleVideo').click()">
+                                        <div id="idleVideoPreview" class="video-preview">
+                                            <?php if ($ai['idle_video_url']): ?>
+                                                <div style="position: relative;">
+                                                    <video controls style="width: 100%; height: 250px; border-radius: 8px;">
+                                                        <source src="<?= htmlspecialchars($ai['idle_video_url']) ?>">
+                                                    </video>
+                                                    <button type="button" class="btn btn-danger btn-sm" id="deleteIdleVideo" style="position: absolute; top: 10px; right: 10px;">
+                                                        <i class="fas fa-trash"></i> Delete
+                                                    </button>
+                                                </div>
+                                            <?php else: ?>
+                                                <i class="fas fa-pause-circle"></i>
+                                                <p>Click to upload idle video</p>
+                                                <small>MP4, WebM (Max 50MB)</small>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <input type="file" id="idleVideo" name="idle_video" accept="video/*" style="display: none;">
+                                    <input type="hidden" id="deleteIdleVideoFlag" name="delete_idle_video" value="0">
+                                    <small class="text-muted">วิดีโอที่แสดงเมื่อ AI ไม่ได้พูด (Loop)</small>
+                                </div>
+
+                                <!-- Talking Video (วิดีโอกำลังพูด) -->
+                                <div class="form-group mb-4">
+                                    <label><i class="fas fa-video"></i> Talking Video (วิดีโอกำลังพูด) *</label>
+                                    <div class="ai-video-upload" onclick="document.getElementById('talkingVideo').click()">
+                                        <div id="talkingVideoPreview" class="video-preview">
+                                            <?php if ($ai['talking_video_url']): ?>
+                                                <div style="position: relative;">
+                                                    <video controls style="width: 100%; height: 250px; border-radius: 8px;">
+                                                        <source src="<?= htmlspecialchars($ai['talking_video_url']) ?>">
+                                                    </video>
+                                                    <button type="button" class="btn btn-danger btn-sm" id="deleteTalkingVideo" style="position: absolute; top: 10px; right: 10px;">
+                                                        <i class="fas fa-trash"></i> Delete
+                                                    </button>
+                                                </div>
+                                            <?php else: ?>
+                                                <i class="fas fa-play-circle"></i>
+                                                <p>Click to upload talking video</p>
+                                                <small>MP4, WebM (Max 50MB)</small>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <input type="file" id="talkingVideo" name="talking_video" accept="video/*" style="display: none;">
+                                    <input type="hidden" id="deleteTalkingVideoFlag" name="delete_talking_video" value="0">
+                                    <small class="text-muted">วิดีโอที่แสดงเมื่อ AI กำลังพูด (Loop)</small>
                                 </div>
                                 
                                 <!-- Status -->
@@ -337,72 +390,5 @@ include '../template/header.php';
 
     <script src='../js/index_.js?v=<?php echo time(); ?>'></script>
     <script src='js/ai-companion.js?v=<?php echo time(); ?>'></script>
-    <script>
-    // Edit-specific JavaScript
-    $(document).ready(function() {
-        // Submit Edit AI Companion
-        $('#submitEditAI').on('click', function(e) {
-            e.preventDefault();
-            
-            if (!$('#product_id').val()) {
-                alertError('Please select a product');
-                return;
-            }
-            
-            if (!$('#ai_code').val()) {
-                alertError('Please enter AI Code');
-                return;
-            }
-            
-            if (!$('#ai_name_th').val()) {
-                alertError('Please enter AI Name (Thai)');
-                return;
-            }
-            
-            let formData = new FormData($('#formAICompanionEdit')[0]);
-            formData.append('action', 'editAICompanion');
-            
-            $('#loading-overlay').fadeIn();
-            
-            $.ajax({
-                url: 'actions/process_ai_companions.php',
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                dataType: 'json',
-                success: function(response) {
-                    if (response.status === 'success') {
-                        Swal.fire('Success!', response.message, 'success').then(() => {
-                            window.location.reload();
-                        });
-                    } else {
-                        alertError(response.message);
-                    }
-                },
-                error: function(xhr, status, error) {
-                    alertError('Failed to update AI Companion: ' + error);
-                },
-                complete: function() {
-                    $('#loading-overlay').fadeOut();
-                }
-            });
-        });
-        
-        function alertError(message) {
-            const Toast = Swal.mixin({
-                toast: true,
-                position: "top-end",
-                showConfirmButton: false,
-                timer: 3000,
-                timerProgressBar: true
-            });
-            Toast.fire({
-                icon: "error",
-                title: message
-            });
-        }
-    });
-    </script>
 </body>
 </html>

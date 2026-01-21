@@ -242,6 +242,10 @@ try {
             $ai_avatar_url = null;
             $ai_video_path = null;
             $ai_video_url = null;
+            $idle_video_path = null;
+            $idle_video_url = null;
+            $talking_video_path = null;
+            $talking_video_url = null;
             
             // Handle Avatar Upload
             if (isset($_FILES['ai_avatar']) && $_FILES['ai_avatar']['error'] === UPLOAD_ERR_OK) {
@@ -257,17 +261,45 @@ try {
                 }
             }
             
-            // Handle Video Upload
+            // Handle Video Upload (วิดีโอเปิดตัว)
             if (isset($_FILES['ai_video']) && $_FILES['ai_video']['error'] === UPLOAD_ERR_OK) {
-                logDebug("Processing video upload");
+                logDebug("Processing intro video upload");
                 $upload_result = handleFileUpload('ai_video', 'video');
                 
                 if ($upload_result['success']) {
                     $ai_video_path = $upload_result['file_path'];
                     $ai_video_url = $upload_result['api_path'];
-                    logDebug("Video uploaded successfully", $upload_result);
+                    logDebug("Intro video uploaded successfully", $upload_result);
                 } else {
-                    throw new Exception("Video upload failed: " . $upload_result['error']);
+                    throw new Exception("Intro video upload failed: " . $upload_result['error']);
+                }
+            }
+            
+            // Handle Idle Video Upload (วิดีโอก่อนพูด/ไม่พูด)
+            if (isset($_FILES['idle_video']) && $_FILES['idle_video']['error'] === UPLOAD_ERR_OK) {
+                logDebug("Processing idle video upload");
+                $upload_result = handleFileUpload('idle_video', 'video');
+                
+                if ($upload_result['success']) {
+                    $idle_video_path = $upload_result['file_path'];
+                    $idle_video_url = $upload_result['api_path'];
+                    logDebug("Idle video uploaded successfully", $upload_result);
+                } else {
+                    throw new Exception("Idle video upload failed: " . $upload_result['error']);
+                }
+            }
+            
+            // Handle Talking Video Upload (วิดีโอหลังพูด/กำลังพูด)
+            if (isset($_FILES['talking_video']) && $_FILES['talking_video']['error'] === UPLOAD_ERR_OK) {
+                logDebug("Processing talking video upload");
+                $upload_result = handleFileUpload('talking_video', 'video');
+                
+                if ($upload_result['success']) {
+                    $talking_video_path = $upload_result['file_path'];
+                    $talking_video_url = $upload_result['api_path'];
+                    logDebug("Talking video uploaded successfully", $upload_result);
+                } else {
+                    throw new Exception("Talking video upload failed: " . $upload_result['error']);
                 }
             }
             
@@ -277,27 +309,38 @@ try {
                 'ai_avatar_path' => $ai_avatar_path,
                 'ai_avatar_url' => $ai_avatar_url,
                 'ai_video_path' => $ai_video_path,
-                'ai_video_url' => $ai_video_url
+                'ai_video_url' => $ai_video_url,
+                'idle_video_path' => $idle_video_path,
+                'idle_video_url' => $idle_video_url,
+                'talking_video_path' => $talking_video_path,
+                'talking_video_url' => $talking_video_url
             ]);
             
             $stmt = $conn->prepare("INSERT INTO ai_companions 
                 (product_id, ai_code, 
                  ai_name_th, ai_name_en, ai_name_cn, ai_name_jp, ai_name_kr,
-                 ai_avatar_path, ai_avatar_url, ai_video_path, ai_video_url,
+                 ai_avatar_path, ai_avatar_url, 
+                 ai_video_path, ai_video_url,
+                 idle_video_path, idle_video_url,
+                 talking_video_path, talking_video_url,
                  system_prompt_th, system_prompt_en, system_prompt_cn, system_prompt_jp, system_prompt_kr,
                  perfume_knowledge_th, perfume_knowledge_en, perfume_knowledge_cn, perfume_knowledge_jp, perfume_knowledge_kr,
                  style_suggestions_th, style_suggestions_en, style_suggestions_cn, style_suggestions_jp, style_suggestions_kr,
                  status, del) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)");
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)");
             
             if (!$stmt) {
                 throw new Exception("Prepare statement failed: " . $conn->error);
             }
             
-            $stmt->bind_param("isssssssssssssssssssssssssi", 
-                $product_id, $ai_code,
+            $stmt->bind_param("isssssssssssssssssssssssssssssi", 
+                $product_id, 
+                $ai_code,
                 $ai_name_th, $ai_name_en, $ai_name_cn, $ai_name_jp, $ai_name_kr,
-                $ai_avatar_path, $ai_avatar_url, $ai_video_path, $ai_video_url,
+                $ai_avatar_path, $ai_avatar_url, 
+                $ai_video_path, $ai_video_url,
+                $idle_video_path, $idle_video_url,
+                $talking_video_path, $talking_video_url,
                 $system_prompt_th, $system_prompt_en, $system_prompt_cn, $system_prompt_jp, $system_prompt_kr,
                 $perfume_knowledge_th, $perfume_knowledge_en, $perfume_knowledge_cn, $perfume_knowledge_jp, $perfume_knowledge_kr,
                 $style_suggestions_th, $style_suggestions_en, $style_suggestions_cn, $style_suggestions_jp, $style_suggestions_kr,
@@ -322,7 +365,11 @@ try {
                     'avatar_path' => $ai_avatar_path,
                     'avatar_url' => $ai_avatar_url,
                     'video_path' => $ai_video_path,
-                    'video_url' => $ai_video_url
+                    'video_url' => $ai_video_url,
+                    'idle_video_path' => $idle_video_path,
+                    'idle_video_url' => $idle_video_url,
+                    'talking_video_path' => $talking_video_path,
+                    'talking_video_url' => $talking_video_url
                 ]
             ];
             
@@ -378,13 +425,19 @@ try {
         
         $delete_avatar = $_POST['delete_avatar'] ?? '0';
         $delete_video = $_POST['delete_video'] ?? '0';
+        $delete_idle_video = $_POST['delete_idle_video'] ?? '0';
+        $delete_talking_video = $_POST['delete_talking_video'] ?? '0';
         
         logDebug("Edit parameters", [
             'ai_id' => $ai_id,
             'delete_avatar' => $delete_avatar,
             'delete_video' => $delete_video,
+            'delete_idle_video' => $delete_idle_video,
+            'delete_talking_video' => $delete_talking_video,
             'has_avatar_file' => isset($_FILES['ai_avatar']),
-            'has_video_file' => isset($_FILES['ai_video'])
+            'has_video_file' => isset($_FILES['ai_video']),
+            'has_idle_video_file' => isset($_FILES['idle_video']),
+            'has_talking_video_file' => isset($_FILES['talking_video'])
         ]);
         
         // Check if AI code is being changed and if it already exists
@@ -402,7 +455,9 @@ try {
         
         try {
             // Get current file paths
-            $current_query = "SELECT ai_avatar_path, ai_avatar_url, ai_video_path, ai_video_url FROM ai_companions WHERE ai_id = $ai_id";
+            $current_query = "SELECT ai_avatar_path, ai_avatar_url, ai_video_path, ai_video_url, 
+                                     idle_video_path, idle_video_url, talking_video_path, talking_video_url 
+                              FROM ai_companions WHERE ai_id = $ai_id";
             $current_result = $conn->query($current_query);
             $current = $current_result->fetch_assoc();
             
@@ -412,6 +467,10 @@ try {
             $ai_avatar_url = $current['ai_avatar_url'];
             $ai_video_path = $current['ai_video_path'];
             $ai_video_url = $current['ai_video_url'];
+            $idle_video_path = $current['idle_video_path'];
+            $idle_video_url = $current['idle_video_url'];
+            $talking_video_path = $current['talking_video_path'];
+            $talking_video_url = $current['talking_video_url'];
             
             // ========================================
             // จัดการ Avatar
@@ -444,32 +503,92 @@ try {
             }
             
             // ========================================
-            // จัดการ Video
+            // จัดการ Video (วิดีโอเปิดตัว)
             // ========================================
             if ($delete_video === '1') {
-                logDebug("Deleting video");
+                logDebug("Deleting intro video");
                 if ($ai_video_path && file_exists($ai_video_path)) {
                     unlink($ai_video_path);
-                    logDebug("Video file deleted: $ai_video_path");
+                    logDebug("Intro video file deleted: $ai_video_path");
                 }
                 $ai_video_path = null;
                 $ai_video_url = null;
             } elseif (isset($_FILES['ai_video']) && $_FILES['ai_video']['error'] === UPLOAD_ERR_OK) {
-                logDebug("Processing new video upload");
+                logDebug("Processing new intro video upload");
                 $upload_result = handleFileUpload('ai_video', 'video');
                 
                 if ($upload_result['success']) {
                     // ลบไฟล์เก่า
                     if ($ai_video_path && file_exists($ai_video_path)) {
                         unlink($ai_video_path);
-                        logDebug("Old video file deleted: $ai_video_path");
+                        logDebug("Old intro video file deleted: $ai_video_path");
                     }
                     
                     $ai_video_path = $upload_result['file_path'];
                     $ai_video_url = $upload_result['api_path'];
-                    logDebug("New video uploaded successfully", $upload_result);
+                    logDebug("New intro video uploaded successfully", $upload_result);
                 } else {
-                    throw new Exception("Video upload failed: " . $upload_result['error']);
+                    throw new Exception("Intro video upload failed: " . $upload_result['error']);
+                }
+            }
+            
+            // ========================================
+            // จัดการ Idle Video (วิดีโอก่อนพูด/ไม่พูด)
+            // ========================================
+            if ($delete_idle_video === '1') {
+                logDebug("Deleting idle video");
+                if ($idle_video_path && file_exists($idle_video_path)) {
+                    unlink($idle_video_path);
+                    logDebug("Idle video file deleted: $idle_video_path");
+                }
+                $idle_video_path = null;
+                $idle_video_url = null;
+            } elseif (isset($_FILES['idle_video']) && $_FILES['idle_video']['error'] === UPLOAD_ERR_OK) {
+                logDebug("Processing new idle video upload");
+                $upload_result = handleFileUpload('idle_video', 'video');
+                
+                if ($upload_result['success']) {
+                    // ลบไฟล์เก่า
+                    if ($idle_video_path && file_exists($idle_video_path)) {
+                        unlink($idle_video_path);
+                        logDebug("Old idle video file deleted: $idle_video_path");
+                    }
+                    
+                    $idle_video_path = $upload_result['file_path'];
+                    $idle_video_url = $upload_result['api_path'];
+                    logDebug("New idle video uploaded successfully", $upload_result);
+                } else {
+                    throw new Exception("Idle video upload failed: " . $upload_result['error']);
+                }
+            }
+            
+            // ========================================
+            // จัดการ Talking Video (วิดีโอหลังพูด/กำลังพูด)
+            // ========================================
+            if ($delete_talking_video === '1') {
+                logDebug("Deleting talking video");
+                if ($talking_video_path && file_exists($talking_video_path)) {
+                    unlink($talking_video_path);
+                    logDebug("Talking video file deleted: $talking_video_path");
+                }
+                $talking_video_path = null;
+                $talking_video_url = null;
+            } elseif (isset($_FILES['talking_video']) && $_FILES['talking_video']['error'] === UPLOAD_ERR_OK) {
+                logDebug("Processing new talking video upload");
+                $upload_result = handleFileUpload('talking_video', 'video');
+                
+                if ($upload_result['success']) {
+                    // ลบไฟล์เก่า
+                    if ($talking_video_path && file_exists($talking_video_path)) {
+                        unlink($talking_video_path);
+                        logDebug("Old talking video file deleted: $talking_video_path");
+                    }
+                    
+                    $talking_video_path = $upload_result['file_path'];
+                    $talking_video_url = $upload_result['api_path'];
+                    logDebug("New talking video uploaded successfully", $upload_result);
+                } else {
+                    throw new Exception("Talking video upload failed: " . $upload_result['error']);
                 }
             }
             
@@ -478,7 +597,11 @@ try {
                 'ai_avatar_path' => $ai_avatar_path,
                 'ai_avatar_url' => $ai_avatar_url,
                 'ai_video_path' => $ai_video_path,
-                'ai_video_url' => $ai_video_url
+                'ai_video_url' => $ai_video_url,
+                'idle_video_path' => $idle_video_path,
+                'idle_video_url' => $idle_video_url,
+                'talking_video_path' => $talking_video_path,
+                'talking_video_url' => $talking_video_url
             ]);
             
             $update_query = "UPDATE ai_companions SET 
@@ -493,6 +616,10 @@ try {
                 ai_avatar_url = ?,
                 ai_video_path = ?, 
                 ai_video_url = ?,
+                idle_video_path = ?,
+                idle_video_url = ?,
+                talking_video_path = ?,
+                talking_video_url = ?,
                 system_prompt_th = ?, 
                 system_prompt_en = ?, 
                 system_prompt_cn = ?, 
@@ -517,7 +644,7 @@ try {
                 throw new Exception("Prepare statement failed: " . $conn->error);
             }
             
-            $stmt->bind_param("isssssssssssssssssssssssssii",
+            $stmt->bind_param("isssssssssssssssssssssssssssssii",
                 $product_id, 
                 $ai_code,
                 $ai_name_th, 
@@ -529,6 +656,10 @@ try {
                 $ai_avatar_url,
                 $ai_video_path, 
                 $ai_video_url,
+                $idle_video_path,
+                $idle_video_url,
+                $talking_video_path,
+                $talking_video_url,
                 $system_prompt_th, 
                 $system_prompt_en, 
                 $system_prompt_cn, 
@@ -565,7 +696,11 @@ try {
                     'avatar_path' => $ai_avatar_path,
                     'avatar_url' => $ai_avatar_url,
                     'video_path' => $ai_video_path,
-                    'video_url' => $ai_video_url
+                    'video_url' => $ai_video_url,
+                    'idle_video_path' => $idle_video_path,
+                    'idle_video_url' => $idle_video_url,
+                    'talking_video_path' => $talking_video_path,
+                    'talking_video_url' => $talking_video_url
                 ]
             ];
             
