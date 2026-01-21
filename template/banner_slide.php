@@ -37,7 +37,9 @@ $imagesItems = [
     ],
 ];
 
-
+// DNS Prefetch & Preconnect สำหรับ CDN - เชื่อมต่อ CDN เร็วขึ้น
+echo '<link rel="dns-prefetch" href="https://cdn.origami.life">';
+echo '<link rel="preconnect" href="https://cdn.origami.life" crossorigin>';
 
 // Preload first video poster for LCP optimization
 if (!empty($imagesItems) && $imagesItems[0]['type'] === 'video' && isset($imagesItems[0]['poster'])) {
@@ -487,6 +489,19 @@ function ht($key, $lang) {
     let touchEndX = 0;
     const minSwipeDistance = 50;
 
+    // Debounce function สำหรับป้องกันการกดรัวๆ
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
     // Toggle Sound
     soundToggle.addEventListener('click', function() {
         isMuted = !isMuted;
@@ -526,12 +541,55 @@ function ht($key, $lang) {
     document.addEventListener('touchstart', enableSoundOnInteraction, { once: true });
     document.addEventListener('keydown', enableSoundOnInteraction, { once: true });
 
-    // ปรับปรุงการโหลดวิดีโอให้เร็วขึ้น - โหลดหลายวิดีโอพร้อมกันบนมือถือ
+    // Priority Loading - โหลดรูปด้านล่างก่อน แล้วค่อยกลับมาโหลดวิดีโอ
+    let belowFoldLoaded = false;
+    
+    function loadBelowFoldContent() {
+        if (belowFoldLoaded) return;
+        belowFoldLoaded = true;
+        
+        setTimeout(() => {
+            // Trigger lazy loading สำหรับ images ด้านล่าง
+            const lazyImages = document.querySelectorAll('img[loading="lazy"]');
+            lazyImages.forEach(img => {
+                if (img.dataset.src) {
+                    img.src = img.dataset.src;
+                }
+            });
+            
+            // หลังจากโหลดรูปเสร็จ ค่อยกลับมาโหลดวิดีโอที่เหลือ
+            setTimeout(() => {
+                aggressivePreloadVideos();
+            }, 800);
+        }, 1000);
+    }
+
+    function aggressivePreloadVideos() {
+        if (isSlowNetwork) return;
+        
+        // โหลดวิดีโอทีละตัวตามลำดับ
+        [1, 2, 3].forEach((idx, i) => {
+            setTimeout(() => {
+                if (idx < slides.length) {
+                    const video = slides[idx].querySelector('.hero-video');
+                    if (video && !loadedVideos.has(idx)) {
+                        video.preload = 'auto';
+                        video.load();
+                        
+                        video.addEventListener('canplaythrough', () => {
+                            loadedVideos.add(idx);
+                        }, { once: true });
+                    }
+                }
+            }, i * 2000);
+        });
+    }
+
+    // ปรับปรุงการโหลดวิดีโอให้เร็วขึ้น
     function preloadAndPrepareNext(index) {
         const nextIndex = (index + 1) % totalSlides;
         const prevIndex = (index - 1 + totalSlides) % totalSlides;
         
-        // บนมือถือและเน็ตเร็ว - โหลด 2-3 วิดีโอล่วงหน้า
         const indicesToLoad = isMobile && !isSlowNetwork 
             ? [nextIndex, prevIndex, (nextIndex + 1) % totalSlides]
             : [nextIndex, prevIndex];
@@ -543,31 +601,24 @@ function ht($key, $lang) {
             if (video && !loadedVideos.has(idx)) {
                 video.preload = 'auto';
                 
-                // ตั้งเวลา timeout ถ้าโหลดนานเกินไป (5 วินาที)
                 const loadTimeout = setTimeout(() => {
                     if (!loadedVideos.has(idx)) {
-                        console.log(`Video ${idx} load timeout - marking as loaded anyway`);
                         loadedVideos.add(idx);
                     }
                 }, 5000);
                 
-                const loadPromise = new Promise((resolve) => {
-                    if (video.readyState >= 3) {
+                if (video.readyState >= 3) {
+                    clearTimeout(loadTimeout);
+                    loadedVideos.add(idx);
+                } else {
+                    video.addEventListener('canplaythrough', () => {
                         clearTimeout(loadTimeout);
                         loadedVideos.add(idx);
-                        resolve();
-                    } else {
-                        video.addEventListener('canplaythrough', () => {
-                            clearTimeout(loadTimeout);
-                            loadedVideos.add(idx);
-                            video.currentTime = 0;
-                            resolve();
-                        }, { once: true });
-                        
-                        // เริ่มโหลดทันที
-                        video.load();
-                    }
-                });
+                        video.currentTime = 0;
+                    }, { once: true });
+                    
+                    video.load();
+                }
             }
         });
     }
@@ -590,16 +641,7 @@ function ht($key, $lang) {
     }
 
     function showSlide(index, immediate = false) {
-        // ถ้ากำลัง transition อยู่ ให้ queue ไว้แทนที่จะ ignore
-        if (isTransitioning && !immediate) {
-            // รอ transition เสร็จแล้วค่อยทำ
-            setTimeout(() => {
-                if (currentSlide !== index) {
-                    showSlide(index, false);
-                }
-            }, 300);
-            return;
-        }
+        if (isTransitioning && !immediate) return;
         
         isTransitioning = true;
 
@@ -609,8 +651,6 @@ function ht($key, $lang) {
         }
         
         const previousIndex = currentSlide;
-        
-        // อัพเดท currentSlide ทันที
         currentSlide = index;
         
         const currentSlideElement = slides[index];
@@ -683,10 +723,9 @@ function ht($key, $lang) {
             
             preloadAndPrepareNext(index);
             
-            // Reset transition state เร็วขึ้น
             setTimeout(() => {
                 isTransitioning = false;
-            }, 600); // ลดจาก 1200 เป็น 600ms
+            }, 300);
             
             if (video) {
                 let videoEnded = false;
@@ -723,91 +762,74 @@ function ht($key, $lang) {
         showSlide(targetSlide);
     }
 
-    // Click Navigation - คลิกขวาไปหน้า คลิกซ้ายถอยหลัง
+    // Navigation with debounce
+    const debouncedNext = debounce(nextSlide, 250);
+    const debouncedPrev = debounce(prevSlide, 250);
+
+    // Click Navigation
     const heroSlider = document.querySelector('.hero-slider');
-    let lastClickTime = 0;
-    const clickCooldown = 400; // milliseconds
     
     heroSlider.addEventListener('click', (e) => {
-        // ไม่ทำงานถ้าคลิกที่ปุ่มต่างๆ
         if (e.target.closest('.sound-control') || 
             e.target.closest('.hero-dot') || e.target.closest('.hero-cta')) {
             return;
         }
 
-        // Prevent rapid clicking
-        const now = Date.now();
-        if (now - lastClickTime < clickCooldown) {
-            return;
-        }
-        lastClickTime = now;
+        if (isTransitioning) return;
 
         const clickX = e.clientX;
         const windowWidth = window.innerWidth;
         
         if (clickX > windowWidth / 2) {
-            nextSlide();
+            debouncedNext();
         } else {
-            prevSlide();
+            debouncedPrev();
         }
     });
 
     // Touch/Swipe Support
-    let lastSwipeTime = 0;
-    const swipeCooldown = 400;
-    
     heroSlider.addEventListener('touchstart', (e) => {
         touchStartX = e.changedTouches[0].screenX;
     }, { passive: true });
 
     heroSlider.addEventListener('touchend', (e) => {
+        if (isTransitioning) return;
         touchEndX = e.changedTouches[0].screenX;
         handleSwipe();
     }, { passive: true });
 
+    const debouncedSwipeNext = debounce(nextSlide, 250);
+    const debouncedSwipePrev = debounce(prevSlide, 250);
+
     function handleSwipe() {
-        const now = Date.now();
-        if (now - lastSwipeTime < swipeCooldown) {
-            return;
-        }
-        
         const swipeDistance = touchStartX - touchEndX;
         
         if (Math.abs(swipeDistance) > minSwipeDistance) {
-            lastSwipeTime = now;
-            
             if (swipeDistance > 0) {
-                // Swipe left - ไปหน้าต่อไป
-                nextSlide();
+                debouncedSwipeNext();
             } else {
-                // Swipe right - ถอยหลัง
-                prevSlide();
+                debouncedSwipePrev();
             }
         }
     }
 
     // Keyboard Navigation
-    let lastKeyTime = 0;
-    const keyCooldown = 400;
+    const debouncedKeyNext = debounce(nextSlide, 250);
+    const debouncedKeyPrev = debounce(prevSlide, 250);
     
     document.addEventListener('keydown', (e) => {
-        const now = Date.now();
-        if (now - lastKeyTime < keyCooldown) {
-            return;
-        }
+        if (isTransitioning) return;
         
         if (e.key === 'ArrowRight') {
-            lastKeyTime = now;
-            nextSlide();
+            debouncedKeyNext();
         } else if (e.key === 'ArrowLeft') {
-            lastKeyTime = now;
-            prevSlide();
+            debouncedKeyPrev();
         }
     });
 
+    // Initialization
     const firstVideo = slides[0].querySelector('.hero-video');
     
-    // โหลดวิดีโอแรก 2-3 อันทันทีเมื่อโหลดหน้า (aggressive preload)
     if (!isSlowNetwork) {
         setTimeout(() => {
             [0, 1, 2].forEach(idx => {
@@ -823,24 +845,27 @@ function ht($key, $lang) {
                     }
                 }
             });
-        }, 100); // เริ่มโหลดหลังจาก DOM โหลดเสร็จ 100ms
+        }, 100);
     }
     
     if (firstVideo) {
         firstVideo.addEventListener('canplay', () => {
             showSlide(0, true);
+            loadBelowFoldContent();
         }, { once: true });
         
-        // ลด timeout ให้เร็วขึ้นเพื่อแสดงผลเร็วขึ้น
         setTimeout(() => {
             showSlide(0, true);
-        }, 500); // ลดจาก 1000 เป็น 500ms
+            loadBelowFoldContent();
+        }, 500);
     } else {
         showSlide(0, true);
+        loadBelowFoldContent();
     }
 
     dots.forEach((dot, index) => {
         dot.addEventListener('click', () => {
+            if (isTransitioning) return;
             if (currentSlide !== index) {
                 showSlide(index);
             }
