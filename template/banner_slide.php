@@ -454,7 +454,9 @@ function ht($key, $lang) {
 
     <div class="hero-nav">
         <?php foreach ($imagesItems as $index => $item): ?>
-            <button class="hero-dot <?= ($index === 0) ? 'active' : '' ?>" data-index="<?= $index ?>">
+            <button class="hero-dot <?= ($index === 0) ? 'active' : '' ?>" 
+                    data-index="<?= $index ?>" 
+                    aria-label="Go to slide <?= $index + 1 ?>">
                 <div class="hero-dot-progress"></div>
             </button>
         <?php endforeach; ?>
