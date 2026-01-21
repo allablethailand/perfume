@@ -405,6 +405,162 @@ $languages = [
         font-weight: bold;
     }
 
+    /* ========================================
+       SEARCH DROPDOWN STYLES
+       ======================================== */
+    .search-container {
+        position: relative;
+    }
+
+    .search-dropdown {
+        position: absolute;
+        top: calc(100% + 15px);
+        right: 0;
+        background: white;
+        border: 1px solid rgba(0, 0, 0, 0.1);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+        min-width: 400px;
+        max-width: 500px;
+        border-radius: 12px;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(-10px);
+        transition: all 0.3s ease;
+        z-index: 1002;
+        max-height: 600px;
+        overflow-y: auto;
+    }
+
+    .search-container.active .search-dropdown {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+
+    .search-input-wrapper {
+        position: relative;
+        padding: 20px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .search-dropdown-input {
+        width: 100%;
+        padding: 12px 40px 12px 15px;
+        border: 2px solid #e5e5e5;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+    }
+
+    .search-dropdown-input:focus {
+        outline: none;
+        border-color: var(--luxury-black);
+    }
+
+    .search-icon {
+        position: absolute;
+        right: 35px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        pointer-events: none;
+    }
+
+    .search-results {
+        padding: 15px;
+    }
+
+    .search-loading,
+    .search-empty {
+        text-align: center;
+        padding: 30px 20px;
+        color: #999;
+        font-size: 14px;
+    }
+
+    .search-section-title {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: #999;
+        margin: 15px 0 10px 0;
+        padding-left: 5px;
+    }
+
+    .search-item {
+        display: flex;
+        gap: 12px;
+        padding: 10px;
+        border-radius: 8px;
+        text-decoration: none;
+        color: inherit;
+        transition: all 0.2s ease;
+        margin-bottom: 8px;
+    }
+
+    .search-item:hover {
+        background: #f8f8f8;
+        transform: translateX(3px);
+    }
+
+    .search-item-image {
+        width: 60px;
+        height: 60px;
+        object-fit: cover;
+        border-radius: 6px;
+        flex-shrink: 0;
+        background: #f5f5f5;
+    }
+
+    .search-item-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .search-item-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: #1a1a1a;
+        margin-bottom: 4px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .search-item-desc {
+        font-size: 12px;
+        color: #666;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .search-item-price {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--luxury-black);
+        margin-top: 4px;
+    }
+
+    .search-view-all {
+        display: block;
+        text-align: center;
+        padding: 12px;
+        margin-top: 10px;
+        background: #f8f8f8;
+        border-radius: 8px;
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--luxury-black);
+        text-decoration: none;
+        transition: all 0.2s ease;
+    }
+
+    .search-view-all:hover {
+        background: #ececec;
+    }
+
     .language-switcher {
         position: relative;
     }
@@ -864,6 +1020,13 @@ $languages = [
         bottom: 3px;
         right: 3px;
     }
+
+    /* Search Dropdown - Mobile */
+    .search-dropdown {
+        min-width: 320px;
+        max-width: calc(100vw - 40px);
+        right: -100px;
+    }
 }
 
 @media (max-width: 600px) {
@@ -935,6 +1098,11 @@ $languages = [
         text-align: center;
         font-weight: 400;
     }
+
+    /* Search Dropdown - Small Mobile */
+    .search-dropdown {
+        right: -80px;
+    }
 }
 
 @media (max-width: 480px) {
@@ -963,6 +1131,11 @@ $languages = [
         width: 12px;
         height: 12px;
         border: 2px solid white;
+    }
+
+    /* Search Dropdown - Very Small Mobile */
+    .search-dropdown {
+        min-width: 280px;
     }
 }
 
@@ -1229,9 +1402,58 @@ $languages = [
                 </div>
             </div>
 
-            <button class="action-btn" aria-label="Search">
-                <i class="fas fa-search"></i>
-            </button>
+            <!-- Search Button with Dropdown -->
+            <div class="search-container" id="searchContainer">
+                <button class="action-btn" id="searchBtn" aria-label="Search">
+                    <i class="fas fa-search"></i>
+                </button>
+                
+                <!-- Search Dropdown -->
+                <div class="search-dropdown" id="searchDropdown">
+                    <div class="search-input-wrapper">
+                        <input 
+                            type="text" 
+                            id="globalSearchInput" 
+                            class="search-dropdown-input" 
+                            placeholder="<?php echo match($lang) {
+                                'en' => 'Search news & products...',
+                                'cn' => '搜索新闻和产品...',
+                                'jp' => 'ニュースと製品を検索...',
+                                'kr' => '뉴스 및 제품 검색...',
+                                default => 'ค้นหาข่าวและสินค้า...',
+                            }; ?>"
+                            autocomplete="off"
+                        >
+                        <i class="fas fa-search search-icon"></i>
+                    </div>
+                    
+                    <div class="search-results" id="searchResults">
+                        <div class="search-loading" id="searchLoading" style="display: none;">
+                            <i class="fas fa-spinner fa-spin"></i> 
+                            <?php echo match($lang) {
+                                'en' => 'Searching...',
+                                'cn' => '搜索中...',
+                                'jp' => '検索中...',
+                                'kr' => '검색 중...',
+                                default => 'กำลังค้นหา...',
+                            }; ?>
+                        </div>
+                        
+                        <div class="search-empty" id="searchEmpty" style="display: none;">
+                            <?php echo match($lang) {
+                                'en' => 'No results found',
+                                'cn' => '未找到结果',
+                                'jp' => '結果が見つかりません',
+                                'kr' => '결과를 찾을 수 없습니다',
+                                default => 'ไม่พบผลลัพธ์',
+                            }; ?>
+                        </div>
+                        
+                        <div id="newsResults"></div>
+                        <div id="productResults"></div>
+                    </div>
+                </div>
+            </div>
             
             <!-- User Menu with AI Avatar -->
             <div class="user-menu" id="userMenu">
@@ -1341,6 +1563,190 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 });
+
+// ========================================
+// GLOBAL SEARCH FUNCTIONALITY
+// ========================================
+let searchTimeout = null;
+const searchContainer = document.getElementById('searchContainer');
+const searchBtn = document.getElementById('searchBtn');
+const searchInput = document.getElementById('globalSearchInput');
+const searchResults = document.getElementById('searchResults');
+const searchLoading = document.getElementById('searchLoading');
+const searchEmpty = document.getElementById('searchEmpty');
+const newsResults = document.getElementById('newsResults');
+const productResults = document.getElementById('productResults');
+
+// Toggle search dropdown
+searchBtn.addEventListener('click', function(e) {
+    e.stopPropagation();
+    searchContainer.classList.toggle('active');
+    if (searchContainer.classList.contains('active')) {
+        setTimeout(() => searchInput.focus(), 100);
+    }
+});
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    if (!searchContainer.contains(e.target)) {
+        searchContainer.classList.remove('active');
+    }
+});
+
+// Search input handler
+searchInput.addEventListener('input', function() {
+    const query = this.value.trim();
+    
+    clearTimeout(searchTimeout);
+    
+    if (query.length < 2) {
+        newsResults.innerHTML = '';
+        productResults.innerHTML = '';
+        searchLoading.style.display = 'none';
+        searchEmpty.style.display = 'none';
+        return;
+    }
+    
+    searchLoading.style.display = 'block';
+    searchEmpty.style.display = 'none';
+    newsResults.innerHTML = '';
+    productResults.innerHTML = '';
+    
+    searchTimeout = setTimeout(() => {
+        performSearch(query);
+    }, 300);
+});
+
+function performSearch(query) {
+    $.ajax({
+        url: 'app/actions/global_search.php',
+        type: 'GET',
+        data: {
+            q: query,
+            lang: currentLang
+        },
+        dataType: 'json',
+        success: function(response) {
+            searchLoading.style.display = 'none';
+            
+            if (response.status === 'success') {
+                const hasResults = response.news.length > 0 || response.products.length > 0;
+                
+                if (!hasResults) {
+                    searchEmpty.style.display = 'block';
+                    return;
+                }
+                
+                // Display news results
+                if (response.news.length > 0) {
+                    displayNewsResults(response.news, query);
+                }
+                
+                // Display product results
+                if (response.products.length > 0) {
+                    displayProductResults(response.products, query);
+                }
+            } else {
+                searchEmpty.style.display = 'block';
+            }
+        },
+        error: function() {
+            searchLoading.style.display = 'none';
+            searchEmpty.style.display = 'block';
+        }
+    });
+}
+
+function displayNewsResults(news, query) {
+    const translations = {
+        'th': 'ข่าวสาร',
+        'en': 'News',
+        'cn': '新闻',
+        'jp': 'ニュース',
+        'kr': '뉴스'
+    };
+    
+    const viewAllText = {
+        'th': 'ดูข่าวทั้งหมดเกี่ยวกับ "' + query + '"',
+        'en': 'View all news about "' + query + '"',
+        'cn': '查看所有关于 "' + query + '" 的新闻',
+        'jp': '"' + query + '" に関するすべてのニュースを表示',
+        'kr': '"' + query + '"에 대한 모든 뉴스 보기'
+    };
+    
+    let html = '<div class="search-section-title">' + translations[currentLang] + '</div>';
+    
+    const displayCount = Math.min(news.length, 3);
+    for (let i = 0; i < displayCount; i++) {
+        const item = news[i];
+        const encodedId = encodeURIComponent(btoa(item.news_id));
+        const link = '?news_detail&id=' + encodedId + '&lang=' + currentLang;
+        
+        html += '<a href="' + link + '" class="search-item">';
+        if (item.image) {
+            html += '<img src="' + item.image + '" alt="' + item.title + '" class="search-item-image">';
+        } else {
+            html += '<div class="search-item-image" style="background: #f0f0f0;"></div>';
+        }
+        html += '<div class="search-item-content">';
+        html += '<div class="search-item-title">' + item.title + '</div>';
+        if (item.description) {
+            html += '<div class="search-item-desc">' + item.description + '</div>';
+        }
+        html += '</div></a>';
+    }
+    
+    html += '<a href="?news&s=' + encodeURIComponent(query) + '&lang=' + currentLang + '" class="search-view-all">' + 
+            viewAllText[currentLang] + '</a>';
+    
+    newsResults.innerHTML = html;
+}
+
+function displayProductResults(products, query) {
+    const translations = {
+        'th': 'สินค้า',
+        'en': 'Products',
+        'cn': '产品',
+        'jp': '製品',
+        'kr': '제품'
+    };
+    
+    const viewAllText = {
+        'th': 'ดูสินค้าทั้งหมดเกี่ยวกับ "' + query + '"',
+        'en': 'View all products about "' + query + '"',
+        'cn': '查看所有关于 "' + query + '" 的产品',
+        'jp': '"' + query + '" に関するすべての製品を表示',
+        'kr': '"' + query + '"에 대한 모든 제품 보기'
+    };
+    
+    let html = '<div class="search-section-title">' + translations[currentLang] + '</div>';
+    
+    const displayCount = Math.min(products.length, 3);
+    for (let i = 0; i < displayCount; i++) {
+        const item = products[i];
+        const encodedId = encodeURIComponent(btoa(item.product_id));
+        const link = '?product_detail&id=' + encodedId + '&lang=' + currentLang;
+        
+        html += '<a href="' + link + '" class="search-item">';
+        if (item.image) {
+            html += '<img src="' + item.image + '" alt="' + item.name + '" class="search-item-image">';
+        } else {
+            html += '<div class="search-item-image" style="background: #f0f0f0;"></div>';
+        }
+        html += '<div class="search-item-content">';
+        html += '<div class="search-item-title">' + item.name + '</div>';
+        if (item.description) {
+            html += '<div class="search-item-desc">' + item.description + '</div>';
+        }
+        html += '<div class="search-item-price">฿' + parseFloat(item.price).toLocaleString('en-US', {minimumFractionDigits: 2}) + '</div>';
+        html += '</div></a>';
+    }
+    
+    html += '<a href="?product&s=' + encodeURIComponent(query) + '&lang=' + currentLang + '" class="search-view-all">' + 
+            viewAllText[currentLang] + '</a>';
+    
+    productResults.innerHTML = html;
+}
 
 // Hamburger Menu Toggle - Drop down style
 const hamburgerBtn = document.getElementById('hamburgerBtn');
