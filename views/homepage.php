@@ -334,14 +334,8 @@ if ($ticker_result && $ticker_result->num_rows > 0) {
 <html lang="<?= $lang ?>">
 <head>
      <?php include 'template/header.php'; ?>
-    
- 
-    
 </head>
 <body>
-
-   
-
     <?php include 'template/banner_slide.php'; ?>
 
     <!-- NEWS TICKER -->
@@ -387,128 +381,6 @@ if ($ticker_result && $ticker_result->num_rows > 0) {
         </div>
     </div>
 </section>
-
-<style>
-/* NEWS TICKER SECTION */
-.news-ticker-section {
-    background: #ffffff;
-    border-top: 1px solid #e5e5e5;
-    border-bottom: 1px solid #e5e5e5;
-    padding: 0;
-    overflow: hidden;
-}
-
-.ticker-wrapper {
-    display: flex;
-    align-items: center;
-    max-width: 100%;
-}
-
-.ticker-label {
-    background: #000000;
-    color: #ffffff;
-    padding: 18px 40px;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    white-space: nowrap;
-    flex-shrink: 0;
-    position: relative;
-}
-
-.ticker-label::after {
-    content: '';
-    position: absolute;
-    right: -10px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 0;
-    height: 0;
-    border-left: 10px solid #000000;
-    border-top: 22px solid transparent;
-    border-bottom: 22px solid transparent;
-}
-
-.ticker-content {
-    flex: 1;
-    overflow: hidden;
-    padding: 18px 0;
-    background: #fafafa;
-}
-
-.ticker-track {
-    display: flex;
-    gap: 50px;
-    animation: ticker-scroll 40s linear infinite;
-    will-change: transform;
-}
-
-.ticker-item {
-    color: #1a1a1a;
-    text-decoration: none;
-    font-size: 14px;
-    font-weight: 500;
-    white-space: nowrap;
-    transition: color 0.3s ease;
-    position: relative;
-    padding: 0 25px;
-}
-
-.ticker-item::before {
-    content: '◆';
-    position: absolute;
-    left: 0;
-    color: #c9a961;
-    font-size: 10px;
-}
-
-.ticker-item:hover {
-    color: #c9a961;
-}
-
-@keyframes ticker-scroll {
-    0% {
-        transform: translateX(0);
-    }
-    100% {
-        transform: translateX(-50%);
-    }
-}
-
-/* Pause animation on hover */
-.ticker-content:hover .ticker-track {
-    animation-play-state: paused;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .ticker-label {
-        padding: 15px 25px;
-        font-size: 10px;
-    }
-    
-    .ticker-item {
-        font-size: 13px;
-        padding: 0 20px;
-    }
-    
-    .ticker-track {
-        gap: 30px;
-    }
-}
-
-@media (max-width: 480px) {
-    .ticker-label {
-        padding: 12px 20px;
-    }
-    
-    .ticker-item {
-        font-size: 12px;
-        padding: 0 15px;
-    }
-}
-</style>
 
     <!-- BLOCK 1: THE SYMPHONY OF SCENT -->
     <section class="symphony-section">
