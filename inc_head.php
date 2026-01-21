@@ -1,4 +1,4 @@
-<link rel="icon" type="image/x-icon" href="../public/img/q-removebg-preview1.png">
+<link rel="icon" type="image/x-icon" href="public/product_images/696089dc2eba5_1767934428.jpg">
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
