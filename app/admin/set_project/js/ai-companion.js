@@ -158,8 +158,6 @@ $(document).ready(function() {
                     showConfirmButton: false,
                     showCloseButton: true,
                     didOpen: () => {
-                        // Generate QR code (you'll need to include qrcode.js library)
-                        // For now, showing placeholder
                         $('#qrcode').html(`
                             <div style="width: 200px; height: 200px; margin: 0 auto; background: #f0f0f0; display: flex; align-items: center; justify-content: center; border-radius: 8px;">
                                 <div style="text-align: center;">
@@ -168,13 +166,6 @@ $(document).ready(function() {
                                 </div>
                             </div>
                         `);
-                        
-                        // If you have QRCode.js library:
-                        // new QRCode(document.getElementById("qrcode"), {
-                        //     text: `https://yourapp.com/scan?code=${aiCode}`,
-                        //     width: 200,
-                        //     height: 200
-                        // });
                     }
                 });
             });
@@ -267,12 +258,38 @@ $(document).ready(function() {
         }
     });
     
-    // Video Preview
+    // Intro Video Preview
     $('#aiVideo').on('change', function(e) {
         let file = e.target.files[0];
         if (file) {
             let url = URL.createObjectURL(file);
             $('#videoPreview').html(`
+                <video controls style="width: 100%; height: 250px; border-radius: 8px;">
+                    <source src="${url}" type="${file.type}">
+                </video>
+            `);
+        }
+    });
+    
+    // Idle Video Preview
+    $('#idleVideo').on('change', function(e) {
+        let file = e.target.files[0];
+        if (file) {
+            let url = URL.createObjectURL(file);
+            $('#idleVideoPreview').html(`
+                <video controls style="width: 100%; height: 250px; border-radius: 8px;">
+                    <source src="${url}" type="${file.type}">
+                </video>
+            `);
+        }
+    });
+    
+    // Talking Video Preview
+    $('#talkingVideo').on('change', function(e) {
+        let file = e.target.files[0];
+        if (file) {
+            let url = URL.createObjectURL(file);
+            $('#talkingVideoPreview').html(`
                 <video controls style="width: 100%; height: 250px; border-radius: 8px;">
                     <source src="${url}" type="${file.type}">
                 </video>
@@ -337,7 +354,13 @@ $(document).ready(function() {
             window.location.href = 'list_project.php';
         }
     });
-     $('#deleteAvatar').on('click', function(e) {
+    
+    // ========================================
+    // EDIT AI COMPANION PAGE
+    // ========================================
+    
+    // Delete Avatar
+    $('#deleteAvatar').on('click', function(e) {
         e.stopPropagation();
         
         Swal.fire({
@@ -361,13 +384,13 @@ $(document).ready(function() {
         });
     });
     
-    // Delete Video
+    // Delete Intro Video
     $('#deleteVideo').on('click', function(e) {
         e.stopPropagation();
         
         Swal.fire({
-            title: 'Delete Video?',
-            text: "This will remove the AI video",
+            title: 'Delete Intro Video?',
+            text: "This will remove the AI intro video",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
@@ -378,15 +401,65 @@ $(document).ready(function() {
                 $('#deleteVideoFlag').val('1');
                 $('#videoPreview').html(`
                     <i class="fas fa-film"></i>
-                    <p>Click to upload video</p>
+                    <p>Click to upload intro video</p>
                     <small>MP4, WebM (Max 50MB)</small>
                 `);
-                Swal.fire('Marked for deletion!', 'Video will be deleted when you save.', 'success');
+                Swal.fire('Marked for deletion!', 'Intro video will be deleted when you save.', 'success');
             }
         });
     });
     
-    // Avatar Preview on new upload
+    // Delete Idle Video
+    $('#deleteIdleVideo').on('click', function(e) {
+        e.stopPropagation();
+        
+        Swal.fire({
+            title: 'Delete Idle Video?',
+            text: "This will remove the AI idle video",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $('#deleteIdleVideoFlag').val('1');
+                $('#idleVideoPreview').html(`
+                    <i class="fas fa-pause-circle"></i>
+                    <p>Click to upload idle video</p>
+                    <small>MP4, WebM (Max 50MB)</small>
+                `);
+                Swal.fire('Marked for deletion!', 'Idle video will be deleted when you save.', 'success');
+            }
+        });
+    });
+    
+    // Delete Talking Video
+    $('#deleteTalkingVideo').on('click', function(e) {
+        e.stopPropagation();
+        
+        Swal.fire({
+            title: 'Delete Talking Video?',
+            text: "This will remove the AI talking video",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $('#deleteTalkingVideoFlag').val('1');
+                $('#talkingVideoPreview').html(`
+                    <i class="fas fa-play-circle"></i>
+                    <p>Click to upload talking video</p>
+                    <small>MP4, WebM (Max 50MB)</small>
+                `);
+                Swal.fire('Marked for deletion!', 'Talking video will be deleted when you save.', 'success');
+            }
+        });
+    });
+    
+    // Avatar Preview on new upload (Edit page)
     $('#aiAvatar').on('change', function(e) {
         let file = e.target.files[0];
         if (file) {
@@ -401,13 +474,41 @@ $(document).ready(function() {
         }
     });
     
-    // Video Preview on new upload
+    // Intro Video Preview on new upload (Edit page)
     $('#aiVideo').on('change', function(e) {
         let file = e.target.files[0];
         if (file) {
             $('#deleteVideoFlag').val('0');
             let url = URL.createObjectURL(file);
             $('#videoPreview').html(`
+                <video controls style="width: 100%; height: 250px; border-radius: 8px;">
+                    <source src="${url}" type="${file.type}">
+                </video>
+            `);
+        }
+    });
+    
+    // Idle Video Preview on new upload (Edit page)
+    $('#idleVideo').on('change', function(e) {
+        let file = e.target.files[0];
+        if (file) {
+            $('#deleteIdleVideoFlag').val('0');
+            let url = URL.createObjectURL(file);
+            $('#idleVideoPreview').html(`
+                <video controls style="width: 100%; height: 250px; border-radius: 8px;">
+                    <source src="${url}" type="${file.type}">
+                </video>
+            `);
+        }
+    });
+    
+    // Talking Video Preview on new upload (Edit page)
+    $('#talkingVideo').on('change', function(e) {
+        let file = e.target.files[0];
+        if (file) {
+            $('#deleteTalkingVideoFlag').val('0');
+            let url = URL.createObjectURL(file);
+            $('#talkingVideoPreview').html(`
                 <video controls style="width: 100%; height: 250px; border-radius: 8px;">
                     <source src="${url}" type="${file.type}">
                 </video>
