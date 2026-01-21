@@ -233,7 +233,14 @@ $languages = [
 
 <!-- Favicon -->
 <link rel="icon" type="image/x-icon" href="public/product_images/696089dc2eba5_1767934428.jpg">
-<link href="app/css/index_.css?v=<?= time(); ?>" rel="stylesheet">
+<link rel="preload"
+      href="app/css/index_.css?v=176"
+      as="style"
+      onload="this.rel='stylesheet'">
+<noscript>
+  <link rel="stylesheet" href="app/css/index_.css?v=176">
+</noscript>
+
 <!-- Header Styles -->
 <style>
     :root {
@@ -1235,7 +1242,13 @@ $languages = [
 
         <!-- Logo (Centered) -->
         <a href="?lang=<?= $lang ?>" class="logo">
-            <img src="public/product_images/696463601df83_1768186720.png" alt="Perfume Luxury Logo">
+            <img
+                src="public/product_images/696463601df83_1768186720.png"
+                alt="Perfume Luxury Logo"
+                width="180"
+                height="50"
+                fetchpriority="high"
+                decoding="async">
         </a>
 
         <!-- Navigation -->
@@ -1551,7 +1564,8 @@ $languages = [
     const currentLang = '<?= $lang ?>';
 </script>
 
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js" defer></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const params = new URLSearchParams(window.location.search);
