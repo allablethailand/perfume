@@ -1,14 +1,9 @@
 /**
- * AI Chat 3D - Enhanced with 2 Video Files (Idle + Speaking) + Welcome Message
- * รองรับวิดีโอ 2 ไฟล์แยก: ไม่พูด กับ พูด
- * เพิ่ม: ทักทายอัตโนมัติเมื่อเข้าหน้าหรือรีเฟรช (ดึงภาษาจาก preferred_language)
- * 
- * ✅ ใช้วิดีโอ 2 ไฟล์
+ * AI Chat 3D - Enhanced with Dynamic Video URLs from Database
+ * ✅ ดึง idle_video_url และ talking_video_url จาก database ตาม ai_id
+ * ✅ รองรับวิดีโอ 2 ไฟล์แยก: ไม่พูด กับ พูด
  * ✅ Smooth transition ไม่มี AbortError
- * ✅ Preload วิดีโอล่วงหน้า
- * ✅ รองรับ WebM with Alpha Channel (transparent background)
- * ✅ Welcome message โดยดึงภาษาจาก database (preferred_language)
- * ✅ แสดงผลเร็ว ไม่มี air time
+ * ✅ Welcome message อัตโนมัติ
  */
 
 let currentConversationId = 0;
@@ -21,16 +16,15 @@ let waveIntensity = 0;
 // Video Avatar Settings
 let videoAvatar = null;
 let useVideoAvatar = true;
-const VIDEO_AVATAR_PATH = 'public/ai_videos/';
 
-// ⭐ ชื่อไฟล์วิดีโอ 2 ไฟล์
-const IDLE_VIDEO = 'video_696f62ca1fc32_1768907466.webm';      // วิดีโอตอนไม่พูด
-const SPEAKING_VIDEO = 'video_696f62b67a40a_1768907446.webm';  // วิดีโอตอนพูด (เปลี่ยนเป็น .webm)
+// ⭐ URL วิดีโอจะดึงจาก database
+let IDLE_VIDEO_URL = '';
+let SPEAKING_VIDEO_URL = '';
 let currentVideoState = 'idle';
 let isTransitioning = false;
 let preloadedSpeakingVideo = null;
 
-// ทำให้ isSpeaking เป็น global variable
+// Global variables
 window.isSpeaking = false;
 window.waveIntensity = 0;
 
@@ -38,14 +32,14 @@ window.waveIntensity = 0;
 const WELCOME_MESSAGES = {
     th: "ยินดีต้อนรับกลับมานะเพื่อน",
     en: "Welcome back, my friend",
-    zh: "欢迎回来，我的朋友",
+    zh: "欢迎回来,我的朋友",
     ja: "おかえりなさい、友よ",
     ko: "다시 오신 것을 환영합니다, 친구"
 };
 
-// 🌍 เก็บภาษาที่ได้จาก database
-let userPreferredLanguage = 'th'; // Default
-let isWelcomeMessagePlayed = false; // ป้องกันเล่นซ้ำ
+let userPreferredLanguage = 'th';
+let isWelcomeMessagePlayed = false;
+let aiCompanionData = null; // เก็บข้อมูล AI companion
 
 $(document).ready(function() {
     if (!jwt) {
@@ -53,16 +47,21 @@ $(document).ready(function() {
         return;
     }
     
-    if (useVideoAvatar) {
-        initVideoAvatar();
-    } else {
-        init3DAvatar();
-    }
-    
-    loadConversations();
-    
-    // 🎤 ✅ เริ่มดึงภาษาทันทีและเล่นทันที (ไม่รอ)
-    fetchUserLanguageAndWelcome();
+    // ✅ ดึงข้อมูล AI companion ก่อน (รวม video URLs)
+    fetchAICompanionData().then(() => {
+        if (useVideoAvatar && IDLE_VIDEO_URL && SPEAKING_VIDEO_URL) {
+            initVideoAvatar();
+        } else {
+            init3DAvatar();
+        }
+        
+        loadConversations();
+        
+        // เล่น Welcome Message
+        setTimeout(() => {
+            playWelcomeMessage();
+        }, 800);
+    });
     
     $('#messageInput').on('input', function() {
         this.style.height = 'auto';
@@ -71,43 +70,60 @@ $(document).ready(function() {
 });
 
 /**
- * 🌍 Fetch User's Preferred Language from Database
- * ✅ เปลี่ยนแปลง: เล่นทันทีด้วยภาษา default แล้วค่อยอัพเดทภาษาที่ถูกต้องทีหลัง
+ * 🔍 Fetch AI Companion Data (รวม video URLs และ preferred_language)
  */
-function fetchUserLanguageAndWelcome() {
-    // ✅ เล่น Welcome Message ทันทีด้วยภาษา default (ไม่รอ AJAX)
-    setTimeout(() => {
-        playWelcomeMessage();
-    }, 800); // ลด delay จาก 1500ms เหลือ 800ms
-    
-    // ✅ ดึงภาษาจาก database (ไว้ใช้ในครั้งถัดไป)
-    $.ajax({
-        url: 'app/actions/get_user_language.php',
-        type: 'GET',
-        headers: { 'Authorization': 'Bearer ' + jwt },
-        dataType: 'json',
-        success: function(response) {
-            if (response.status === 'success' && response.preferred_language) {
-                userPreferredLanguage = response.preferred_language;
-                console.log('✅ User preferred language updated:', userPreferredLanguage);
-            } else {
-                console.warn('⚠️ Cannot fetch language, using default: th');
-                userPreferredLanguage = 'th';
+function fetchAICompanionData() {
+    return new Promise((resolve, reject) => {
+        $.ajax({
+            url: 'app/actions/get_ai_companion_info.php',
+            type: 'GET',
+            headers: { 'Authorization': 'Bearer ' + jwt },
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    aiCompanionData = response.companion;
+                    
+                    // ✅ ดึง video URLs จาก database
+                    IDLE_VIDEO_URL = response.companion.idle_video_url || '';
+                    SPEAKING_VIDEO_URL = response.companion.talking_video_url || '';
+                    
+                    // ✅ ดึงภาษาที่ user เลือก
+                    userPreferredLanguage = response.companion.preferred_language || 'th';
+                    
+                    console.log('✅ AI Companion loaded:', {
+                        ai_id: response.companion.ai_id,
+                        ai_name: response.companion.ai_name,
+                        language: userPreferredLanguage,
+                        idle_video: IDLE_VIDEO_URL,
+                        talking_video: SPEAKING_VIDEO_URL
+                    });
+                    
+                    // ✅ ตรวจสอบว่ามี video URLs หรือไม่
+                    if (!IDLE_VIDEO_URL || !SPEAKING_VIDEO_URL) {
+                        console.warn('⚠️ Video URLs not found, switching to 3D avatar');
+                        useVideoAvatar = false;
+                    }
+                    
+                    resolve();
+                } else {
+                    console.error('❌ Failed to fetch AI companion data');
+                    useVideoAvatar = false;
+                    resolve();
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('❌ Error fetching AI companion:', error);
+                useVideoAvatar = false;
+                resolve();
             }
-        },
-        error: function() {
-            console.error('❌ Failed to fetch user language, using default: th');
-            userPreferredLanguage = 'th';
-        }
+        });
     });
 }
 
 /**
- * 🎉 Play Welcome Message (ใช้ภาษาจาก database)
- * ✅ เปลี่ยนแปลง: ป้องกันเล่นซ้ำ + force play video
+ * 🎉 Play Welcome Message
  */
 function playWelcomeMessage() {
-    // ✅ ป้องกันเล่นซ้ำ
     if (isWelcomeMessagePlayed) {
         console.log('⏭️ Welcome message already played');
         return;
@@ -119,17 +135,13 @@ function playWelcomeMessage() {
     
     console.log(`🎉 Playing welcome message in ${userPreferredLanguage}: ${welcomeText}`);
     
-    // ✅ Force play video ถ้ายังไม่ได้เล่น (แก้บัคตอนรีเฟรช)
     if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
         videoAvatar.play().catch(e => {
             console.warn('⚠️ Autoplay blocked, will play on user interaction');
         });
     }
     
-    // แสดงข้อความ
     showMessage(welcomeText);
-    
-    // เล่นเสียง
     speakText(welcomeText, userPreferredLanguage);
 }
 
@@ -139,11 +151,9 @@ function playWelcomeMessage() {
 function initVideoAvatar() {
     const container = document.querySelector('.avatar-container');
     
-    // สร้าง video element
     videoAvatar = document.createElement('video');
     videoAvatar.id = 'videoAvatar';
     
-    // ✅ CSS สำหรับ transparent background
     videoAvatar.style.cssText = `
         position: absolute;
         max-width: 80%;
@@ -156,19 +166,17 @@ function initVideoAvatar() {
         mix-blend-mode: normal;
     `;
     
-    // ตั้งค่าวิดีโอ
     videoAvatar.muted = true;
     videoAvatar.playsInline = true;
     videoAvatar.loop = true;
     videoAvatar.preload = 'auto';
     
-    // ✅ เริ่มต้นด้วย idle video
-    videoAvatar.src = VIDEO_AVATAR_PATH + IDLE_VIDEO;
+    // ✅ ใช้ URL จาก database
+    videoAvatar.src = IDLE_VIDEO_URL;
     currentVideoState = 'idle';
     
     container.appendChild(videoAvatar);
     
-    // Timeout fallback
     const loadTimeout = setTimeout(() => {
         if (videoAvatar.readyState < 2) {
             console.warn('Video loading timeout. Switching to 3D avatar...');
@@ -189,13 +197,11 @@ function initVideoAvatar() {
         }
     }, 5000);
     
-    // Event Listeners
     videoAvatar.addEventListener('loadeddata', function() {
         clearTimeout(loadTimeout);
-        console.log('✅ Idle video loaded');
+        console.log('✅ Idle video loaded from database');
         console.log('Video dimensions:', videoAvatar.videoWidth, 'x', videoAvatar.videoHeight);
         
-        // ✅ พยายาม autoplay
         videoAvatar.play().catch(e => {
             console.log('⏸️ Autoplay prevented, waiting for user interaction');
         });
@@ -213,7 +219,7 @@ function initVideoAvatar() {
     
     videoAvatar.load();
     
-    // ✅ Preload speaking video ล่วงหน้า
+    // Preload speaking video
     setTimeout(() => preloadSpeakingVideo(), 1000);
 }
 
@@ -221,17 +227,17 @@ function initVideoAvatar() {
  * 📥 Preload speaking video
  */
 function preloadSpeakingVideo() {
-    if (preloadedSpeakingVideo) return;
+    if (preloadedSpeakingVideo || !SPEAKING_VIDEO_URL) return;
     
     preloadedSpeakingVideo = document.createElement('video');
     preloadedSpeakingVideo.muted = true;
     preloadedSpeakingVideo.playsInline = true;
     preloadedSpeakingVideo.loop = true;
     preloadedSpeakingVideo.preload = 'auto';
-    preloadedSpeakingVideo.src = VIDEO_AVATAR_PATH + SPEAKING_VIDEO;
+    preloadedSpeakingVideo.src = SPEAKING_VIDEO_URL;
     
     preloadedSpeakingVideo.addEventListener('loadeddata', function() {
-        console.log('✅ Speaking video preloaded');
+        console.log('✅ Speaking video preloaded from database');
     });
     
     preloadedSpeakingVideo.load();
@@ -241,32 +247,31 @@ function preloadSpeakingVideo() {
  * 🎭 Play idle animation
  */
 function playIdleAnimation() {
-    if (!videoAvatar || isTransitioning) return;
+    if (!videoAvatar || isTransitioning || !IDLE_VIDEO_URL) return;
     if (currentVideoState === 'idle') return;
     
-    switchToVideo(IDLE_VIDEO, 'idle');
+    switchToVideo(IDLE_VIDEO_URL, 'idle');
 }
 
 /**
  * 🗣️ Play speaking animation
  */
 function playSpeakingAnimation() {
-    if (!videoAvatar || isTransitioning) return;
+    if (!videoAvatar || isTransitioning || !SPEAKING_VIDEO_URL) return;
     if (currentVideoState === 'speaking') return;
     
-    switchToVideo(SPEAKING_VIDEO, 'speaking');
+    switchToVideo(SPEAKING_VIDEO_URL, 'speaking');
 }
 
 /**
  * 🔄 Switch video smoothly
  */
-function switchToVideo(videoFile, newState) {
-    if (isTransitioning) return;
+function switchToVideo(videoUrl, newState) {
+    if (isTransitioning || !videoUrl) return;
     
     isTransitioning = true;
     const container = videoAvatar.parentElement;
     
-    // ✅ สร้าง video ใหม่
     const newVideo = document.createElement('video');
     newVideo.id = 'videoAvatar';
     newVideo.style.cssText = videoAvatar.style.cssText;
@@ -274,22 +279,18 @@ function switchToVideo(videoFile, newState) {
     newVideo.muted = true;
     newVideo.playsInline = true;
     newVideo.loop = true;
-    newVideo.src = VIDEO_AVATAR_PATH + videoFile;
+    newVideo.src = videoUrl;
     
     container.appendChild(newVideo);
     
-    // เมื่อ video ใหม่พร้อม
     newVideo.addEventListener('canplay', function playNew() {
         newVideo.removeEventListener('canplay', playNew);
         
-        // เล่นวิดีโอใหม่
         newVideo.play().then(() => {
-            // Fade out เก่า, fade in ใหม่
             videoAvatar.style.opacity = '0';
             newVideo.style.opacity = '1';
             
             setTimeout(() => {
-                // ลบวิดีโอเก่า
                 container.removeChild(videoAvatar);
                 videoAvatar = newVideo;
                 currentVideoState = newState;
@@ -499,7 +500,6 @@ function sendMessage() {
     
     if (!message) return;
     
-    // ✅ เล่นวิดีโอถ้ายังไม่ได้เล่น (autoplay policy)
     if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
         videoAvatar.play().catch(e => console.log('Play on interaction'));
     }
@@ -520,7 +520,6 @@ function sendMessage() {
         data: JSON.stringify({
             conversation_id: currentConversationId,
             message: message
-            // ไม่ต้องส่ง language เพราะ PHP จะดึงจาก preferred_language เอง
         }),
         dataType: 'json',
         success: function(response) {
@@ -554,14 +553,10 @@ function showMessage(text) {
     $('#currentMessage').fadeIn();
 }
 
-/**
- * 🗣️ Speak Text (รองรับการส่ง langCode จาก Welcome Message)
- */
 function speakText(text, forceLangCode = null) {
-    let langCode = forceLangCode; // ถ้ามีการบังคับภาษา ให้ใช้เลย
+    let langCode = forceLangCode;
     let detectedLang = 'Thai';
     
-    // ถ้าไม่มีการบังคับภาษา ให้ detect จากข้อความ
     if (!langCode) {
         if (/[\u0E00-\u0E7F]/.test(text)) {
             langCode = 'th';
@@ -580,7 +575,6 @@ function speakText(text, forceLangCode = null) {
             detectedLang = 'English';
         }
     } else {
-        // Map langCode to detectedLang
         const langMap = {
             'th': 'Thai',
             'en': 'English',
@@ -595,7 +589,6 @@ function speakText(text, forceLangCode = null) {
     window.isSpeaking = true;
     updateStatus('Speaking in ' + detectedLang + '...', true);
     
-    // ✅ เริ่ม speaking animation
     if (useVideoAvatar) {
         playSpeakingAnimation();
     }
@@ -634,7 +627,6 @@ function playTTSChunks(chunks, index, langCode) {
         
         if (mouth) mouth.scale.y = 1;
         
-        // ✅ หยุด speaking animation
         if (useVideoAvatar) {
             stopSpeakingAnimation();
         }
