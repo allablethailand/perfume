@@ -173,6 +173,13 @@ $modalTranslations = [
         'cn' => '发送电子邮件',
         'jp' => 'メールを送信',
         'kr' => '이메일 보내기'
+    ],
+    'language' => [
+        'th' => 'เลือกภาษา',
+        'en' => 'Choose Language',
+        'cn' => '选择语言',
+        'jp' => '言語を選択',
+        'kr' => '언어 선택'
     ]
 ];
 
@@ -746,6 +753,11 @@ $languages = [
         }
     }
 
+    /* Mobile Language Section - ซ่อนไว้ก่อน */
+    .mobile-language-section {
+        display: none;
+    }
+
     /* ========================================
        MOBILE RESPONSIVE
        ======================================== */
@@ -779,7 +791,7 @@ $languages = [
     }
 
     .nav.active {
-        max-height: 400px;
+        max-height: 600px;
         opacity: 1;
     }
 
@@ -792,7 +804,7 @@ $languages = [
     }
 
     .nav-link:last-child {
-        border-bottom: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     .nav-link::after {
@@ -801,6 +813,70 @@ $languages = [
 
     .nav-link:hover {
         background-color: rgba(255, 255, 255, 0.66);
+    }
+
+    /* แสดง Mobile Language Section ใน dropdown */
+    .mobile-language-section {
+        display: block;
+        padding: 15px 30px;
+        border-top: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(0, 0, 0, 0.3);
+    }
+
+    .mobile-language-title {
+        font-size: 11px;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.6);
+        margin-bottom: 12px;
+        font-weight: 500;
+    }
+
+    .mobile-language-options {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+
+    .mobile-lang-option {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 12px 8px;
+        text-decoration: none;
+        color: rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 8px;
+        transition: all 0.3s ease;
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .mobile-lang-option:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(255, 255, 255, 0.4);
+        transform: translateY(-2px);
+    }
+
+    .mobile-lang-option.active {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.6);
+        color: #ffffff;
+    }
+
+    .mobile-lang-flag {
+        width: 24px;
+        height: 18px;
+        object-fit: cover;
+        border-radius: 2px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .mobile-lang-name {
+        font-size: 10px;
+        letter-spacing: 0.05em;
+        text-align: center;
+        font-weight: 400;
     }
 
     /* Logo stays centered */
@@ -858,6 +934,24 @@ $languages = [
     /* ซ่อนปุ่มเปลี่ยนภาษา */
     .language-switcher {
         display: none !important;
+    }
+
+    .mobile-language-options {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .mobile-lang-option {
+        padding: 10px 6px;
+    }
+
+    .mobile-lang-flag {
+        width: 22px;
+        height: 16px;
+    }
+
+    .mobile-lang-name {
+        font-size: 9px;
     }
 }
 
@@ -937,16 +1031,6 @@ $languages = [
         width: 22px;
         height: 2px;
     }
-
-    /* ลดขนาด language flag ถ้ายังแสดง */
-    .language-flag {
-        width: 16px;
-        height: 12px;
-    }
-
-    .language-current {
-        padding: 6px 8px;
-    }
 }
 
 /* ========================================
@@ -1022,6 +1106,75 @@ $languages = [
                     <?= t($item['key'], $menuTranslations, $lang) ?>
                 </a>
             <?php endforeach; ?>
+            
+            <!-- Mobile Language Section - แสดงเฉพาะใน Mobile -->
+            <div class="mobile-language-section">
+                <div class="mobile-language-title">
+                    <?= t('language', $modalTranslations, $lang) ?>
+                </div>
+                <div class="mobile-language-options">
+                    <?php foreach ($languages as $code => $info): ?>
+                        <?php
+                        // ตรวจสอบว่าอยู่หน้าไหน
+                        $currentPage = '';
+                        $queryParams = [];
+                        
+                        if (isset($_GET['product'])) {
+                            $currentPage = '?product';
+                        } elseif (isset($_GET['news'])) {
+                            $currentPage = '?news';
+                        } elseif (isset($_GET['news_detail'])) {
+                            $currentPage = '?news_detail';
+                            if (isset($_GET['id'])) {
+                                $queryParams['id'] = $_GET['id'];
+                            }
+                        } elseif (isset($_GET['about'])) {
+                            $currentPage = '?about';
+                        } elseif (isset($_GET['privacy'])) {
+                            $currentPage = '?privacy';
+                        } elseif (isset($_GET['termofuse'])) {
+                            $currentPage = '?termofuse';
+                        } elseif (isset($_GET['contact'])) {
+                            $currentPage = '?contact';
+                        } elseif (isset($_GET['cart'])) {
+                            $currentPage = '?cart';
+                        } elseif (isset($_GET['register'])) {
+                            $currentPage = '?register';
+                        } elseif (isset($_GET['profile'])) {
+                            $currentPage = '?profile';
+                        } elseif (isset($_GET['checkout'])) {
+                            $currentPage = '?checkout';
+                        } elseif (isset($_GET['payment'])) {
+                            $currentPage = '?payment';
+                            if (isset($_GET['order_id'])) {
+                                $queryParams['order_id'] = $_GET['order_id'];
+                            }
+                        } elseif (isset($_GET['orders'])) {
+                            $currentPage = '?orders';
+                        } elseif (isset($_GET['order_detail'])) {
+                            $currentPage = '?order_detail';
+                            if (isset($_GET['id'])) {
+                                $queryParams['id'] = $_GET['id'];
+                            }
+                        } elseif (isset($_GET['ai_activation'])) {
+                            $currentPage = '?ai_activation';
+                        } else {
+                            $currentPage = '?';
+                        }
+                        
+                        $queryParams['lang'] = $code;
+                        $langUrl = $currentPage . '&' . http_build_query($queryParams);
+                        ?>
+                        <a href="<?= $langUrl ?>"
+                           class="mobile-lang-option <?= $code === $lang ? 'active' : '' ?>">
+                            <img src="<?= $info['flag'] ?>" 
+                                 alt="<?= $info['name'] ?>" 
+                                 class="mobile-lang-flag">
+                            <span class="mobile-lang-name"><?= $info['name'] ?></span>
+                        </a>
+                    <?php endforeach; ?>
+                </div>
+            </div>
         </nav>
 
         <div class="header-actions">
