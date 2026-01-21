@@ -4,180 +4,7 @@ if (session_status() == PHP_SESSION_NONE) {
 }
 
 require_once(__DIR__ . '/../../lib/connect.php');
-// ต้องมีการ include ไฟล์ base_directory.php ด้วย หากฟังก์ชัน ensureWebPNativeNews ยังคงใช้ global $base_path หรือเพื่อให้โค้ดสมบูรณ์ตามตัวอย่างแรก
-// require_once(__DIR__ . '/../../../lib/base_directory.php'); 
 global $conn;
-// global $base_path; // ถ้าไม่ใช้ global $base_path ในไฟล์นี้ ก็ไม่จำเป็นต้องประกาศ
-
-// ------------------------
-// 1️⃣ Ensure WebP exists (คัดลอกจากโค้ดตัวอย่าง)
-// ------------------------
-function ensureWebPNativeNews($originalPath, $destDir = null, $quality = 80) {
-    // ปรับปรุงการจัดการ path: โค้ดตัวอย่างมีการเพิ่ม "../" เพื่อให้อ้างอิงพาธจากไฟล์ที่เรียกใช้
-    // หากไฟล์นี้อยู่ที่ /path/to/project/news/index.php 
-    // และรูปภาพอยู่ที่ /path/to/project/uploads/img.jpg (pic_path เป็น uploads/img.jpg) 
-    // การเพิ่ม "../" อาจทำให้พาธผิด
-    // ถ้า $originalPath ที่มาจากฐานข้อมูลเป็นพาธสัมพัทธ์ที่ถูกต้อง เช่น 'uploads/news/image.jpg' 
-    // และไฟล์นี้ต้องการเข้าถึงมันจากตำแหน่งของมันเอง, อาจต้องใช้พาธสัมบูรณ์หรือสัมพัทธ์ที่ถูกต้องกว่า
-
-    // สำหรับโค้ดตัวอย่างแรกที่มี: $originalPath = preg_replace('#^(\.\./)+#', '', $originalPath); $originalPath = "../" . $originalPath;
-    // เราจะใช้การจัดการพาธแบบเดิมเพื่อรักษาความเข้ากันได้
-    $originalPath = preg_replace('#^(\.\./)+#', '', $originalPath);
-    $originalPath = "../" . $originalPath; // สันนิษฐานว่าการเพิ่ม '../' ทำให้พาธเข้าถึงไฟล์รูปภาพได้ถูกต้องจากที่ที่ไฟล์นี้อยู่
-
-    if (!file_exists($originalPath)) return $originalPath;
-
-    // Use directory of original file if destination directory is not specified
-    if ($destDir === null) $destDir = dirname($originalPath);
-
-    $fileName = basename($originalPath);
-    $destPath = rtrim($destDir, '/') . '/' . $fileName;
-    // Replace extension with .webp
-    $webpPath = preg_replace('/\.\w+$/', '.webp', $destPath);
-
-    if (file_exists($webpPath)) return $webpPath;
-
-    if (!is_dir($destDir)) mkdir($destDir, 0755, true);
-
-    $info = getimagesize($originalPath);
-    if (!$info) return $originalPath;
-
-    $mime = $info['mime'];
-    switch ($mime) {
-        case 'image/jpeg': $img = imagecreatefromjpeg($originalPath); break;
-        case 'image/png':  $img = imagecreatefrompng($originalPath); break;
-        case 'image/gif':  $img = imagecreatefromgif($originalPath); break;
-        default: return $originalPath;
-    }
-
-    if (!$img) return $originalPath;
-    
-    // Save as WebP
-    if (!function_exists('imagewebp') || !imagewebp($img, $webpPath, $quality)) { 
-        imagedestroy($img); 
-        return $originalPath; 
-    }
-    imagedestroy($img);
-
-    // ตัด '../' ออกเมื่อส่งคืนพาธเพื่อให้ใช้งานในแท็ก <img> ได้
-    return str_replace('../', '', $webpPath);
-}
-
-// ------------------------
-// 2️⃣ Resize WebP dynamically (Modified for Aspect Ratio "Cover" - Crop-and-Resize) (คัดลอกจากโค้ดตัวอย่าง)
-// ------------------------
-function resizeWebPNews($srcPath, $targetWidth = null, $targetHeight = null, $quality = 80) {
-    // การเรียกใช้ resizeWebPNews() ในโค้ดตัวอย่างแรกคาดหวังพาธที่สามารถเข้าถึงไฟล์ได้ (เช่น มี '../' นำหน้า)
-    // ดังนั้นจึงต้องตรวจสอบและเพิ่ม '../' เข้าไปใหม่หากไม่มี (เนื่องจาก ensureWebPNativeNews ลบออกไปแล้ว)
-    $internalSrcPath = (strpos($srcPath, '../') !== 0) ? '../' . $srcPath : $srcPath;
-
-    if (!file_exists($internalSrcPath)) return $srcPath;
-
-    $info = getimagesize($internalSrcPath);
-    if (!$info) return $srcPath;
-
-    list($origW, $origH) = $info;
-    
-    // If no target width or height is provided, return original path
-    if ($targetWidth === null && $targetHeight === null) return $srcPath;
-
-    // Use original dimensions if target is not specified, but this would not trigger resizing if both are null
-    $targetWidth  = $targetWidth ?? $origW;
-    $targetHeight = $targetHeight ?? $origH;
-    
-    // If target size is the same as original size, return original path
-    if ($targetWidth == $origW && $targetHeight == $origH) return $srcPath;
-
-    // สร้างพาธสำหรับจัดเก็บไฟล์ที่ปรับขนาดแล้ว (พาธสัมพัทธ์สำหรับการเข้าถึงไฟล์ภายใน)
-    $destDir = dirname($internalSrcPath) . '/resized';
-    // สร้างพาธสำหรับส่งคืนผลลัพธ์ (พาธสำหรับแสดงผลบนเว็บ)
-    $destDirWeb = dirname($srcPath) . '/resized';
-
-    if (!is_dir($destDir)) mkdir($destDir, 0755, true);
-
-    $fileName      = basename($srcPath);
-    $fileNameNoExt = preg_replace('/\.\w+$/', '', $fileName);
-    
-    // พาธเต็มรูปแบบสำหรับการบันทึกไฟล์ (ภายใน)
-    $resizedPath = $destDir . '/' . $fileNameNoExt . "-{$targetWidth}x{$targetHeight}.webp";
-    // พาธเต็มรูปแบบสำหรับการแสดงผลบนเว็บ
-    $resizedPathWeb = $destDirWeb . '/' . $fileNameNoExt . "-{$targetWidth}x{$targetHeight}.webp";
-
-    if (file_exists($resizedPath)) return $resizedPathWeb; // ถ้ามีอยู่แล้วให้ส่งคืนพาธสำหรับเว็บ
-
-    $mime = $info['mime'];
-    switch ($mime) {
-        case 'image/jpeg': $img = imagecreatefromjpeg($internalSrcPath); break;
-        case 'image/png':  $img = imagecreatefrompng($internalSrcPath); break;
-        case 'image/gif':  $img = imagecreatefromgif($internalSrcPath); break;
-        case 'image/webp': $img = imagecreatefromwebp($internalSrcPath); break;
-        default: return $srcPath;
-    }
-
-    if (!$img) return $srcPath;
-
-    // --- Crop-and-Resize (Aspect Ratio "Cover") Logic ---
-    $widthRatio  = $targetWidth / $origW;
-    $heightRatio = $targetHeight / $origH;
-
-    // Determine the scaling ratio that will 'cover' the target dimensions
-    $ratio = max($widthRatio, $heightRatio);
-
-    // Calculate the dimensions and position of the source rectangle to crop
-    $newW = $origW * $ratio;
-    $newH = $origH * $ratio;
-
-    $srcX = ($newW - $targetWidth) / 2 / $ratio;
-    $srcY = ($newH - $targetHeight) / 2 / $ratio;
-    
-    $srcW = $origW - (2 * $srcX);
-    $srcH = $origH - (2 * $srcY);
-
-    // Create the new canvas
-    $resizedImg = imagecreatetruecolor($targetWidth, $targetHeight);
-
-    // Handle transparency for PNG and GIF
-    if (in_array($mime, ['image/png', 'image/gif', 'image/webp'])) {
-        imagecolortransparent($resizedImg, imagecolorallocatealpha($resizedImg, 0, 0, 0, 127));
-        imagealphablending($resizedImg, false);
-        imagesavealpha($resizedImg, true);
-    }
-
-    // Resample the cropped area onto the new canvas
-    imagecopyresampled($resizedImg, $img, 
-        0, 0, // Destination coordinates (start at top-left of the new image)
-        (int)$srcX, (int)$srcY, // Source coordinates (start at the calculated crop point)
-        $targetWidth, $targetHeight, // Destination width and height
-        (int)$srcW, (int)$srcH // Source width and height (the cropped area)
-    );
-
-    // Save the new WebP image
-    imagewebp($resizedImg, $resizedPath, $quality);
-
-    imagedestroy($img);
-    imagedestroy($resizedImg);
-
-    return $resizedPathWeb; // ส่งคืนพาธสำหรับแสดงผลบนเว็บ
-}
-
-// ------------------------
-// 3️⃣ Merged function (คัดลอกจากโค้ดตัวอย่าง)
-// ------------------------
-function ensureWebPAndResizeNews($originalPath, $width = null, $height = null, $quality = 80) {
-    // 1. Convert to WebP (if necessary)
-    // ensureWebPNativeNews จะส่งคืนพาธสำหรับเว็บ (ไม่มี '../' นำหน้า)
-    $webpPath = ensureWebPNativeNews($originalPath, null, $quality);
-    
-    // 2. Resize/Crop (if dimensions are specified)
-    if ($width !== null || $height !== null) {
-        // resizeWebPNews จะรับพาธสำหรับเว็บ และจัดการเพิ่ม/ลด '../' ภายในฟังก์ชันเอง
-        $webpPath = resizeWebPNews($webpPath, $width, $height, $quality);
-    }
-    return $webpPath;
-}
-
-// โค้ดส่วนดึงข้อมูลข่าว...
-// ... (ส่วนที่ยังไม่เปลี่ยนแปลง)
 
 $perPage = 15;
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -226,8 +53,7 @@ $sql = "SELECT
             dn.content_news_jp,
             dn.content_news_kr,
             dn.date_create,
-            GROUP_CONCAT(DISTINCT dnc.file_name) AS file_name,
-            GROUP_CONCAT(DISTINCT dnc.file_path) AS pic_path
+            GROUP_CONCAT(DISTINCT dnc.api_path) AS api_path
         FROM
             dn_news dn
         LEFT JOIN
@@ -260,19 +86,15 @@ if ($result->num_rows > 0) {
             $iframeSrc = isset($matches[1]) ? explode(',', $matches[1]) : null;
         }
 
-        $paths = !empty($row['pic_path']) ? explode(',', $row['pic_path']) : [];
+        $paths = !empty($row['api_path']) ? explode(',', $row['api_path']) : [];
         $iframe = isset($iframeSrc[0]) ? $iframeSrc[0] : null;
 
-        // ------------------------
-        // ⭐ เรียกใช้ฟังก์ชันแปลงและปรับขนาด/ครอบตัด ⭐
-        // ------------------------
-        // กำหนดขนาดที่ต้องการสำหรับรูปภาพข่าว (สมมติ 350x240 พิกเซล)
-        $processedImage = !empty($paths) ? ensureWebPAndResizeNews($paths[0], 350, 240) : null;
-        // ------------------------
+        // ใช้รูปต้นฉบับจาก api_path โดยตรง
+        $originalImage = !empty($paths) ? $paths[0] : null;
 
         $boxesNews[] = [
             'id' => $row['news_id'],
-            'image' => $processedImage, // ⭐ ใช้พาธรูปภาพที่ถูกประมวลผลแล้ว
+            'image' => $originalImage,
             'date_time' => $row['date_create'],
             'title' => $title,
             'description' => $description,
@@ -299,10 +121,7 @@ if ($result->num_rows > 0) {
                     <?php if(!empty($box['iframe'])): ?>
                         <iframe frameborder="0" src="<?= htmlspecialchars($box['iframe']); ?>" width="100%" height="100%" class="note-video-clip"></iframe>
                     <?php elseif (!empty($box['image'])): ?>
-                        <picture>
-                            <source srcset="<?= htmlspecialchars($box['image']); ?>" type="image/webp">
-                            <img src="<?= htmlspecialchars(str_replace('../','',$box['image'])) ?>" alt="Image for <?= htmlspecialchars($box['title']); ?>" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
-                        </picture>
+                        <img src="<?= htmlspecialchars($box['image']); ?>" alt="Image for <?= htmlspecialchars($box['title']); ?>" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
                     <?php else: ?>
                         <div style="width: 100%; height: 100%; background-color: #f0f0f0; display: flex; align-items: center; justify-content: center; color: #ccc;">No Image</div>
                     <?php endif; ?>
