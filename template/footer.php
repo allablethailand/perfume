@@ -345,7 +345,7 @@ $social_links = [
         font-size: 14px;
         font-weight: 300;
         line-height: 1.9;
-        color: rgba(255, 255, 255, 0.6);
+        color: rgba(255, 255, 255, 0.8);
         margin-bottom: 30px;
     }
 
@@ -399,7 +399,7 @@ $social_links = [
     .footer-link {
         font-size: 14px;
         font-weight: 300;
-        color: rgba(255, 255, 255, 0.6);
+        color: rgba(255, 255, 255, 0.8);
         text-decoration: none;
         transition: all 0.3s ease;
         position: relative;
@@ -438,14 +438,14 @@ $social_links = [
     .footer-copyright {
         font-size: 12px;
         font-weight: 300;
-        color: rgba(255, 255, 255, 0.4);
+        color: rgba(255, 255, 255, 0.7);
         letter-spacing: 0.05em;
     }
 
     .footer-made-with {
         font-size: 12px;
         font-weight: 300;
-        color: rgba(255, 255, 255, 0.4);
+        color: rgba(255, 255, 255, 0.7);
         letter-spacing: 0.05em;
     }
 
@@ -523,7 +523,7 @@ $social_links = [
             <!-- Brand Column -->
             <div class="footer-brand-section">
                 <a href="?" class="logo2">
-                    <img src="public/product_images/6965ad2fca016_1768271151.png" alt="Perfume Luxury Logo" style="height: 50px;">
+                    <img src="public/product_images/6965ad2fca016_1768271151.png" alt="Trandar Innovation Logo" style="height: 50px;">
                 </a>
                 <p class="footer-description">
                     <?= ft('brand_desc', $lang) ?>
