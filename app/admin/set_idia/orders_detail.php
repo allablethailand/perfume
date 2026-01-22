@@ -49,6 +49,32 @@ $stmt_items->execute();
 $items_result = $stmt_items->get_result();
 $items = $items_result->fetch_all(MYSQLI_ASSOC);
 $stmt_items->close();
+
+// ✅ ดึงที่อยู่จัดส่ง
+$shipping_address = null;
+if ($order['address_id']) {
+    $stmt_address = $conn->prepare("SELECT 
+                                    address_id,
+                                    address_label,
+                                    recipient_name,
+                                    recipient_phone,
+                                    address_line1,
+                                    address_line2,
+                                    subdistrict,
+                                    district,
+                                    province,
+                                    country,
+                                    postal_code
+                                FROM user_addresses
+                                WHERE address_id = ? AND del = 0");
+    $stmt_address->bind_param("i", $order['address_id']);
+    $stmt_address->execute();
+    $address_result = $stmt_address->get_result();
+    if ($address_result->num_rows > 0) {
+        $shipping_address = $address_result->fetch_assoc();
+    }
+    $stmt_address->close();
+}
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -315,6 +341,27 @@ $stmt_items->close();
             padding: 40px;
             color: #718096;
         }
+
+        /* ✅ Shipping Address Styles */
+        .shipping-box {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            line-height: 1.8;
+        }
+
+        .shipping-box strong {
+            display: block;
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: #2d3748;
+        }
+
+        .no-address-message {
+            text-align: center;
+            padding: 30px;
+            color: #718096;
+        }
     </style>
 </head>
 
@@ -382,6 +429,34 @@ $stmt_items->close();
                     </div>
                 </div>
 
+                <!-- ✅ Shipping Address -->
+                <div class="card-modern">
+                    <div class="card-title">
+                        <i class="fas fa-truck" style="color: #667eea;"></i>
+                        ที่อยู่จัดส่ง
+                    </div>
+                    <?php if ($shipping_address): ?>
+                    <div class="shipping-box">
+                        <strong><?= htmlspecialchars($shipping_address['recipient_name']) ?></strong>
+                        <?= htmlspecialchars($shipping_address['recipient_phone']) ?><br>
+                        <?= htmlspecialchars($shipping_address['address_line1']) ?>
+                        <?php if ($shipping_address['address_line2']): ?>
+                            , <?= htmlspecialchars($shipping_address['address_line2']) ?>
+                        <?php endif; ?><br>
+                        <?= htmlspecialchars($shipping_address['subdistrict']) ?>, 
+                        <?= htmlspecialchars($shipping_address['district']) ?><br>
+                        <?= htmlspecialchars($shipping_address['province']) ?>, 
+                        <?= htmlspecialchars($shipping_address['country'] ?? 'Thailand') ?><br>
+                        <?= htmlspecialchars($shipping_address['postal_code']) ?>
+                    </div>
+                    <?php else: ?>
+                    <div class="no-address-message">
+                        <i class="fas fa-map-marker-alt" style="font-size: 40px; color: #cbd5e0; margin-bottom: 10px;"></i>
+                        <p>ไม่พบข้อมูลที่อยู่จัดส่ง</p>
+                    </div>
+                    <?php endif; ?>
+                </div>
+
                 <!-- Order Status - เพิ่มสถานะ Paid -->
                 <div class="card-modern">
                     <div class="card-title">
@@ -433,13 +508,13 @@ $stmt_items->close();
                         <div class="product-details">
                             <div class="product-name"><?= htmlspecialchars($item['name_th']) ?></div>
                             <div class="product-price">
-                                ราคา: <?= number_format($item['unit_price'], 2) ?> ฿ × 
+                                ราคา: <?= number_format($item['unit_price'], 0) ?> ฿ × 
                                 <span class="product-quantity"><?= $item['quantity'] ?> ชิ้น</span>
                             </div>
                         </div>
                         <div style="text-align: right;">
                             <strong style="color: #667eea; font-size: 18px;">
-                                <?= number_format($item['total'], 2) ?> ฿
+                                <?= number_format($item['total'], 0) ?> ฿
                             </strong>
                         </div>
                     </div>
@@ -492,27 +567,27 @@ $stmt_items->close();
                     <table class="summary-table">
                         <tr>
                             <td>ยอดรวมสินค้า</td>
-                            <td style="text-align: right;"><?= number_format($order['subtotal'], 2) ?> ฿</td>
+                            <td style="text-align: right;"><?= number_format($order['subtotal'], 0) ?> ฿</td>
                         </tr>
                         <tr>
                             <td>ภาษี VAT</td>
-                            <td style="text-align: right;"><?= number_format($order['vat_amount'], 2) ?> ฿</td>
+                            <td style="text-align: right;"><?= number_format($order['vat_amount'], 0) ?> ฿</td>
                         </tr>
                         <?php if ($order['shipping_fee'] > 0): ?>
                         <tr>
                             <td>ค่าจัดส่ง</td>
-                            <td style="text-align: right;"><?= number_format($order['shipping_fee'], 2) ?> ฿</td>
+                            <td style="text-align: right;"><?= number_format($order['shipping_fee'], 0) ?> ฿</td>
                         </tr>
                         <?php endif; ?>
                         <?php if ($order['discount_amount'] > 0): ?>
                         <tr style="color: #f56565;">
                             <td>ส่วนลด</td>
-                            <td style="text-align: right;">-<?= number_format($order['discount_amount'], 2) ?> ฿</td>
+                            <td style="text-align: right;">-<?= number_format($order['discount_amount'], 0) ?> ฿</td>
                         </tr>
                         <?php endif; ?>
                         <tr>
                             <td>ยอดชำระทั้งหมด</td>
-                            <td style="text-align: right;"><?= number_format($order['total_amount'], 2) ?> ฿</td>
+                            <td style="text-align: right;"><?= number_format($order['total_amount'], 0) ?> ฿</td>
                         </tr>
                     </table>
                 </div>

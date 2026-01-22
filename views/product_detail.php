@@ -597,9 +597,9 @@ $page_title = $product['product_name'];
                             <i class="fas fa-chevron-down"></i>
                         </div>
                         <div class="detail-content">
-                            <p><strong><?= $lang === 'en' ? 'Price (Excluding VAT):' : ($lang === 'cn' ? '价格（不含税）：' : ($lang === 'jp' ? '価格（税抜）：' : ($lang === 'kr' ? '가격 (세전):' : 'ราคา (ไม่รวม VAT):'))) ?></strong> ฿<?= number_format($product['price'], 2) ?></p>
+                            <p><strong><?= $lang === 'en' ? 'Price (Excluding VAT):' : ($lang === 'cn' ? '价格（不含税）：' : ($lang === 'jp' ? '価格（税抜）：' : ($lang === 'kr' ? '가격 (세전):' : 'ราคา (ไม่รวม VAT):'))) ?></strong> ฿<?= number_format($product['price'], 0) ?></p>
                             <p><strong><?= $lang === 'en' ? 'VAT:' : ($lang === 'cn' ? '增值税：' : ($lang === 'jp' ? 'VAT：' : ($lang === 'kr' ? '부가세:' : 'VAT:'))) ?></strong> <?= number_format($product['vat_percentage'], 0) ?>%</p>
-                            <p><strong><?= $lang === 'en' ? 'Total Price (Including VAT):' : ($lang === 'cn' ? '总价（含税）：' : ($lang === 'jp' ? '合計価格（税込）：' : ($lang === 'kr' ? '총 가격 (세금 포함):' : 'ราคารวม VAT:'))) ?></strong> ฿<?= number_format($product['price_with_vat'], 2) ?></p>
+                            <p><strong><?= $lang === 'en' ? 'Total Price (Including VAT):' : ($lang === 'cn' ? '总价（含税）：' : ($lang === 'jp' ? '合計価格（税込）：' : ($lang === 'kr' ? '총 가격 (세금 포함):' : 'ราคารวม VAT:'))) ?></strong> ฿<?= number_format($product['price_with_vat'], 0) ?></p>
                         </div>
                     </div>
 

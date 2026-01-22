@@ -459,7 +459,7 @@ if (!isset($_SESSION['guest_session_id'])) {
                         <div class="item-details">
                             <div>
                                 <div class="item-name">${item.product_name}</div>
-                                <div class="item-price">฿${parseFloat(item.price).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                <div class="item-price">฿${parseFloat(item.price).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div>
                                 ${stockInfoHtml}
                             </div>
                             <div class="quantity-control">
@@ -473,7 +473,7 @@ if (!isset($_SESSION['guest_session_id'])) {
                             </div>
                         </div>
                         <div class="item-actions">
-                            <div class="item-total">฿${itemTotal.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                            <div class="item-total">฿${itemTotal.toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</div>
                             <button class="remove-btn" onclick="removeItem(${item.cart_id})">
                                 <i class="fas fa-trash"></i> Remove
                             </button>
@@ -504,15 +504,15 @@ if (!isset($_SESSION['guest_session_id'])) {
                         <div class="summary-title">Order Summary</div>
                         <div class="summary-row">
                             <span>Subtotal (${summary.total_items} items)</span>
-                            <span>฿${parseFloat(summary.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                            <span>฿${parseFloat(summary.subtotal).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
                         </div>
                         <div class="summary-row">
                             <span>VAT (${summary.vat_percentage.toFixed(2)}%)</span>
-                            <span>฿${parseFloat(summary.vat_amount).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                            <span>฿${parseFloat(summary.vat_amount).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
                         </div>
                         <div class="summary-row total">
                             <span>Total</span>
-                            <span>฿${parseFloat(summary.total).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                            <span>฿${parseFloat(summary.total).toLocaleString('en-US', {minimumFractionDigits: 0, maximumFractionDigits: 0})}</span>
                         </div>
                         <button class="checkout-btn" onclick="proceedToCheckout()" ${!jwt || summary.has_stock_issue ? 'disabled' : ''}>
                             ${!jwt ? 'Please Login to Checkout' : (summary.has_stock_issue ? 'Fix Stock Issues to Continue' : 'Proceed to Checkout')}

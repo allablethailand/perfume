@@ -462,136 +462,138 @@ if (!isset($_SESSION['guest_session_id'])) {
         }
 
         // แสดงหน้า Checkout
-        function displayCheckout() {
-            let addressesHtml = '';
-            
-            if (addresses.length === 0) {
-                addressesHtml = `
-                    <div class="empty-state">
-                        <i class="fas fa-map-marker-alt"></i>
-                        <p>No delivery address found</p>
-                        <button class="btn btn-primary" onclick="window.location.href='?profile'">
-                            Add Address
-                        </button>
-                    </div>
-                `;
-            } else {
-                addresses.forEach(function(addr) {
-                    addressesHtml += `
-                        <div class="address-card ${addr.address_id == selectedAddressId ? 'selected' : ''}" 
-                             onclick="selectAddress(${addr.address_id})">
-                            <div class="address-label">${addr.address_label || 'Address'}</div>
-                            <div class="address-details">
-                                <strong>${addr.recipient_name}</strong> - ${addr.recipient_phone}<br>
-                                ${addr.address_line1}${addr.address_line2 ? ', ' + addr.address_line2 : ''}<br>
-                                ${addr.subdistrict}, ${addr.district}, ${addr.province} ${addr.postal_code}
-                            </div>
-                        </div>
-                    `;
-                });
-                
-                addressesHtml += `
-                    <button class="add-address-btn" onclick="window.location.href='?profile'">
-                        <i class="fas fa-plus"></i> Add New Address
-                    </button>
-                `;
-            }
-
-            // สร้าง HTML สำหรับรายการสินค้า
-            let itemsHtml = '';
-            cartData.items.forEach(function(item) {
-                const itemTotal = item.price_with_vat * item.quantity;
-                itemsHtml += `
-                    <div class="order-item">
-                        <img src="${item.product_image || 'public/img/no-image.png'}" 
-                             alt="${item.product_name}" 
-                             class="item-image">
-                        <div class="item-info">
-                            <div class="item-name">${item.product_name}</div>
-                            <div class="item-quantity">Qty: ${item.quantity} × ฿${parseFloat(item.price_with_vat).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
-                        </div>
-                        <div class="item-price">฿${itemTotal.toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
-                    </div>
-                `;
-            });
-
-            const html = `
-                <div class="checkout-content">
-                    <div class="checkout-main">
-                        <!-- Shipping Address -->
-                        <div class="section-card">
-                            <div class="section-title">
-                                <i class="fas fa-map-marker-alt"></i> Shipping Address
-                            </div>
-                            ${addressesHtml}
-                        </div>
-
-                        <!-- Payment Method -->
-                        <div class="section-card">
-                            <div class="section-title">
-                                <i class="fas fa-credit-card"></i> Payment Method
-                            </div>
-                            <div class="payment-methods">
-                                <label class="payment-method selected">
-                                    <input type="radio" name="payment_method" value="bank_transfer" checked onchange="selectPayment('bank_transfer')">
-                                    <div class="payment-icon">
-                                        <i class="fas fa-university"></i>
-                                    </div>
-                                    <div class="payment-info">
-                                        <div class="payment-name">Bank Transfer</div>
-                                        <div class="payment-desc">Transfer to our bank account</div>
-                                    </div>
-                                </label>
-                                <label class="payment-method">
-                                    <input type="radio" name="payment_method" value="qr_code" onchange="selectPayment('qr_code')">
-                                    <div class="payment-icon">
-                                        <i class="fas fa-qrcode"></i>
-                                    </div>
-                                    <div class="payment-info">
-                                        <div class="payment-name">QR Code</div>
-                                        <div class="payment-desc">Scan QR code to pay</div>
-                                    </div>
-                                </label>
-                            </div>
-                        </div>
-
-                        <!-- Order Items -->
-                        <div class="section-card">
-                            <div class="section-title">
-                                <i class="fas fa-box"></i> Order Items (${cartData.summary.total_items})
-                            </div>
-                            ${itemsHtml}
-                        </div>
-                    </div>
-
-                    <!-- Summary -->
-                    <div class="checkout-summary">
-                        <div class="summary-title">Order Summary</div>
-                        <div class="summary-row">
-                            <span>Subtotal</span>
-                            <span>฿${parseFloat(cartData.summary.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span>VAT (${cartData.summary.vat_percentage}%)</span>
-                            <span>฿${parseFloat(cartData.summary.vat_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
-                        </div>
-                        <div class="summary-row">
-                            <span>Shipping Fee</span>
-                            <span>฿0.00</span>
-                        </div>
-                        <div class="summary-row total">
-                            <span>Total</span>
-                            <span>฿${parseFloat(cartData.summary.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
-                        </div>
-                        <button class="place-order-btn" onclick="placeOrder()" ${!selectedAddressId ? 'disabled' : ''}>
-                            <i class="fas fa-check"></i> Place Order
-                        </button>
+        // แสดงหน้า Checkout
+function displayCheckout() {
+    let addressesHtml = '';
+    
+    if (addresses.length === 0) {
+        addressesHtml = `
+            <div class="empty-state">
+                <i class="fas fa-map-marker-alt"></i>
+                <p>No delivery address found</p>
+                <button class="btn btn-primary" onclick="window.location.href='?profile'">
+                    Add Address
+                </button>
+            </div>
+        `;
+    } else {
+        addresses.forEach(function(addr) {
+            addressesHtml += `
+                <div class="address-card ${addr.address_id == selectedAddressId ? 'selected' : ''}" 
+                     onclick="selectAddress(${addr.address_id})">
+                    <div class="address-label">${addr.address_label || 'Address'}</div>
+                    <div class="address-details">
+                        <strong>${addr.recipient_name}</strong> - ${addr.recipient_phone}<br>
+                        ${addr.address_line1}${addr.address_line2 ? ', ' + addr.address_line2 : ''}<br>
+                        ${addr.subdistrict}, ${addr.district}, ${addr.province}, ${addr.country}<br>
+                        ${addr.postal_code}
                     </div>
                 </div>
             `;
+        });
+        
+        addressesHtml += `
+            <button class="add-address-btn" onclick="window.location.href='?profile'">
+                <i class="fas fa-plus"></i> Add New Address
+            </button>
+        `;
+    }
 
-            $('#checkoutContent').html(html);
-        }
+    // สร้าง HTML สำหรับรายการสินค้า
+    let itemsHtml = '';
+    cartData.items.forEach(function(item) {
+        const itemTotal = item.price_with_vat * item.quantity;
+        itemsHtml += `
+            <div class="order-item">
+                <img src="${item.product_image || 'public/img/no-image.png'}" 
+                     alt="${item.product_name}" 
+                     class="item-image">
+                <div class="item-info">
+                    <div class="item-name">${item.product_name}</div>
+                    <div class="item-quantity">Qty: ${item.quantity} × ฿${Math.round(item.price_with_vat).toLocaleString('en-US')}</div>
+                </div>
+                <div class="item-price">฿${Math.round(itemTotal).toLocaleString('en-US')}</div>
+            </div>
+        `;
+    });
+
+    const html = `
+        <div class="checkout-content">
+            <div class="checkout-main">
+                <!-- Shipping Address -->
+                <div class="section-card">
+                    <div class="section-title">
+                        <i class="fas fa-map-marker-alt"></i> Shipping Address
+                    </div>
+                    ${addressesHtml}
+                </div>
+
+                <!-- Payment Method -->
+                <div class="section-card">
+                    <div class="section-title">
+                        <i class="fas fa-credit-card"></i> Payment Method
+                    </div>
+                    <div class="payment-methods">
+                        <label class="payment-method selected">
+                            <input type="radio" name="payment_method" value="bank_transfer" checked onchange="selectPayment('bank_transfer')">
+                            <div class="payment-icon">
+                                <i class="fas fa-university"></i>
+                            </div>
+                            <div class="payment-info">
+                                <div class="payment-name">Bank Transfer</div>
+                                <div class="payment-desc">Transfer to our bank account</div>
+                            </div>
+                        </label>
+                        <label class="payment-method">
+                            <input type="radio" name="payment_method" value="qr_code" onchange="selectPayment('qr_code')">
+                            <div class="payment-icon">
+                                <i class="fas fa-qrcode"></i>
+                            </div>
+                            <div class="payment-info">
+                                <div class="payment-name">QR Code</div>
+                                <div class="payment-desc">Scan QR code to pay</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Order Items -->
+                <div class="section-card">
+                    <div class="section-title">
+                        <i class="fas fa-box"></i> Order Items (${cartData.summary.total_items})
+                    </div>
+                    ${itemsHtml}
+                </div>
+            </div>
+
+            <!-- Summary -->
+            <div class="checkout-summary">
+                <div class="summary-title">Order Summary</div>
+                <div class="summary-row">
+                    <span>Subtotal</span>
+                    <span>฿${Math.round(cartData.summary.subtotal).toLocaleString('en-US')}</span>
+                </div>
+                <div class="summary-row">
+                    <span>VAT (${cartData.summary.vat_percentage}%)</span>
+                    <span>฿${Math.round(cartData.summary.vat_amount).toLocaleString('en-US')}</span>
+                </div>
+                <div class="summary-row">
+                    <span>Shipping Fee</span>
+                    <span>฿0</span>
+                </div>
+                <div class="summary-row total">
+                    <span>Total</span>
+                    <span>฿${Math.round(cartData.summary.total).toLocaleString('en-US')}</span>
+                </div>
+                <button class="place-order-btn" onclick="placeOrder()" ${!selectedAddressId ? 'disabled' : ''}>
+                    <i class="fas fa-check"></i> Place Order
+                </button>
+            </div>
+        </div>
+    `;
+
+    $('#checkoutContent').html(html);
+}
 
         // เลือกที่อยู่
         function selectAddress(addressId) {

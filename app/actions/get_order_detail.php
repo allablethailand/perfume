@@ -109,7 +109,7 @@ try {
     $items_stmt->close();
     $order['items'] = $items;
     
-    // ดึงที่อยู่จัดส่ง
+    // ดึงที่อยู่จัดส่ง (เพิ่ม country)
     if ($order['address_id']) {
         $address_sql = "SELECT 
                           address_id,
@@ -121,6 +121,7 @@ try {
                           subdistrict,
                           district,
                           province,
+                          country,
                           postal_code
                       FROM user_addresses
                       WHERE address_id = ? AND del = 0";
