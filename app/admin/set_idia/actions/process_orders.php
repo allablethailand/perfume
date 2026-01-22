@@ -209,8 +209,8 @@ try {
             
             $deducted_items = [];
             
-            // Stock deduction logic for 'completed' status
-            if ($new_status === 'completed' && $payment_status === 'paid' && $old_status !== 'completed') {
+            // Stock deduction logic for 'paid' status
+            if ($new_status === 'paid' && $payment_status === 'paid' && $old_status !== 'paid') {
                 
                 $stmt_items = $conn->prepare("SELECT product_id, quantity FROM order_items WHERE order_id = ?");
                 $stmt_items->bind_param("i", $order_id);
@@ -244,7 +244,7 @@ try {
                         
                         $created_by = $_SESSION['user_id'] ?? null;
                         logStockChange($conn, $product_id, 'deduct', $current_stock, $quantity, $new_stock, 
-                            'order_completed', $order_id, $order_id, "Stock deducted - order completed", $created_by);
+                            'order_paid', $order_id, $order_id, "Stock deducted - order paid", $created_by);
                         
                         $deducted_items[] = [
                             'product_id' => $product_id,
@@ -507,8 +507,9 @@ try {
             'all' => 0,
             'pending' => 0,
             'processing' => 0,
-            'completed' => 0,
+            'paid' => 0,
             'shipped' => 0,
+            'completed' => 0,
             'cancelled' => 0
         ];
         
