@@ -271,7 +271,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
                 $verify = 1;
                 $generate_otp = rand(100000, 999999);
-                $confirm_email = 0; // เพิ่มตัวแปรนี้
+                $confirm_email = 0;
+                $del = 0; // เพิ่มตัวแปรนี้
 
                 $sql = "INSERT INTO mb_user ( 
                     first_name, 
@@ -287,12 +288,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     email_verified, 
                     phone_verified,
                     confirm_email,
+                    del,
                     date_create 
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, NOW())";
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?, NOW())";
 
                 $stmt = $conn->prepare($sql);
                 $stmt->bind_param(
-                    "sssssssiiis",  // เปลี่ยนจาก "sssssssiis" เป็น "sssssssiiis" (เพิ่ม i 1 ตัว)
+                    "sssssssiisii",  // เปลี่ยนเป็น type string นี้ (เพิ่ม i 2 ตัวสำหรับ confirm_email และ del)
                     $first_name, 
                     $last_name, 
                     $hashedPassword, 
@@ -303,7 +305,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $consent, 
                     $verify, 
                     $generate_otp,
-                    $confirm_email  // เพิ่มพารามิเตอร์นี้
+                    $confirm_email,
+                    $del
                 );
 
                 if (!$stmt->execute()) {
