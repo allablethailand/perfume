@@ -271,36 +271,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
                 $verify = 1;
                 $generate_otp = rand(100000, 999999);
+                $confirm_email = 0; // เพิ่มตัวแปรนี้
 
-                $sql = "INSERT INTO mb_user (
-                            first_name,
-                            last_name,
-                            password,
-                            email,
-                            country_code,
-                            phone_number,
-                            login_method,
-                            consent,
-                            verify,
-                            generate_otp,
-                            email_verified,
-                            phone_verified,
-                            date_create
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, NOW())";
+                $sql = "INSERT INTO mb_user ( 
+                    first_name, 
+                    last_name, 
+                    password, 
+                    email, 
+                    country_code, 
+                    phone_number, 
+                    login_method, 
+                    consent, 
+                    verify, 
+                    generate_otp, 
+                    email_verified, 
+                    phone_verified,
+                    confirm_email,
+                    date_create 
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, NOW())";
 
                 $stmt = $conn->prepare($sql);
                 $stmt->bind_param(
-                    "sssssssiis",
-                    $first_name,
-                    $last_name,
-                    $hashedPassword,
-                    $email,
-                    $country_code,
-                    $full_phone,
-                    $login_method,
-                    $consent,
-                    $verify,
-                    $generate_otp
+                    "sssssssiiis",  // เปลี่ยนจาก "sssssssiis" เป็น "sssssssiiis" (เพิ่ม i 1 ตัว)
+                    $first_name, 
+                    $last_name, 
+                    $hashedPassword, 
+                    $email, 
+                    $country_code, 
+                    $full_phone, 
+                    $login_method, 
+                    $consent, 
+                    $verify, 
+                    $generate_otp,
+                    $confirm_email  // เพิ่มพารามิเตอร์นี้
                 );
 
                 if (!$stmt->execute()) {
