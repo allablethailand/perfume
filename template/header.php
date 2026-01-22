@@ -1291,7 +1291,11 @@ $languages = [
                             $currentPage = '?product';
                         }elseif (isset($_GET['product_detail'])) {
                             $currentPage = '?product_detail';
-                        } elseif (isset($_GET['news'])) {
+                            if (isset($_GET['id'])) {
+                                $queryParams['id'] = $_GET['id'];
+                            }
+                        }
+                        elseif (isset($_GET['news'])) {
                             $currentPage = '?news';
                         } elseif (isset($_GET['news_detail'])) {
                             $currentPage = '?news_detail';
