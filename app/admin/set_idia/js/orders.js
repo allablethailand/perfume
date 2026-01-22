@@ -126,7 +126,7 @@ $(document).ready(function() {
                         "target": 4,
                         data: "total_amount",
                         render: function(data) {
-                            return `<strong style="color: #2d3748; font-size: 13px;">${parseFloat(data).toLocaleString('th-TH', {minimumFractionDigits: 2, maximumFractionDigits: 2})} ฿</strong>`;
+                            return `<strong style="color: #2d3748; font-size: 13px;">${parseFloat(data).toLocaleString('th-TH', {minimumFractionDigits: 0, maximumFractionDigits: 0})} ฿</strong>`;
                         }
                     },
                     {

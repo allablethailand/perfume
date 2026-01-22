@@ -439,7 +439,7 @@ $order_id = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
 
                     <div class="amount-section">
                         <div class="amount-label">Total Amount</div>
-                        <div class="amount-value">฿${parseFloat(orderData.total_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                        <div class="amount-value">฿${parseFloat(orderData.total_amount).toLocaleString('en-US', {minimumFractionDigits: 0})}</div>
                         <div class="amount-text">(${numberToThaiText(orderData.total_amount)})</div>
                     </div>
 
