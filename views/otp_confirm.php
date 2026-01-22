@@ -11,7 +11,7 @@ global $conn;
     <title>OTP Verification</title>
     <?php include 'template/header.php' ?>
     <?php include 'inc_head.php' ?>
-    <link href="css/index_.css?v=<?php echo time(); ?>" rel="stylesheet">
+    <link href="app/css/index_.css?v=<?php echo time(); ?>" rel="stylesheet">
 
     <style>
         body {
