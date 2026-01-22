@@ -659,6 +659,7 @@ if (!isset($_SESSION['guest_session_id'])) {
                             <option value="อื่นๆ">Other</option>
                         </select>
                     </div>
+                    
                     <div class="form-row">
                         <div class="form-group">
                             <label>Recipient Name</label>
@@ -692,6 +693,31 @@ if (!isset($_SESSION['guest_session_id'])) {
                             <label>Province</label>
                             <input type="text" class="form-control" id="province" name="province" required>
                         </div>
+                        <div class="form-group">
+                                    <label>Country</label>
+                                    <select class="form-control" id="country" name="country" required>
+                                        <option value="Thailand">Thailand</option>
+                                        <option value="Singapore">Singapore</option>
+                                        <option value="Malaysia">Malaysia</option>
+                                        <option value="Vietnam">Vietnam</option>
+                                        <option value="Indonesia">Indonesia</option>
+                                        <option value="Philippines">Philippines</option>
+                                        <option value="Myanmar">Myanmar</option>
+                                        <option value="Laos">Laos</option>
+                                        <option value="Cambodia">Cambodia</option>
+                                        <option value="Brunei">Brunei</option>
+                                        <option value="Japan">Japan</option>
+                                        <option value="South Korea">South Korea</option>
+                                        <option value="China">China</option>
+                                        <option value="Hong Kong">Hong Kong</option>
+                                        <option value="Taiwan">Taiwan</option>
+                                        <option value="United States">United States</option>
+                                        <option value="United Kingdom">United Kingdom</option>
+                                        <option value="Australia">Australia</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
                         <div class="form-group">
                             <label>Postal Code</label>
                             <input type="text" class="form-control" id="postal_code" name="postal_code" required>
@@ -852,7 +878,8 @@ if (!isset($_SESSION['guest_session_id'])) {
                             ${addr.recipient_phone}<br>
                             ${addr.address_line1}${addr.address_line2 ? ', ' + addr.address_line2 : ''}<br>
                             ${addr.subdistrict}, ${addr.district}<br>
-                            ${addr.province} ${addr.postal_code}
+                            ${addr.province}, ${addr.country}<br>
+                            ${addr.postal_code}
                         </div>
                         <div class="address-actions">
                             ${addr.is_default != 1 ? `<button class="btn-small" onclick="setDefaultAddress(${addr.address_id})">Set as Default</button>` : ''}
@@ -878,7 +905,7 @@ if (!isset($_SESSION['guest_session_id'])) {
 
         function editAddress(addressId) {
             $.ajax({
-                url: 'app/actions/get_addresses.php',
+                url: 'app/actions/get_address.php',
                 type: 'GET',
                 data: { address_id: addressId },
                 headers: {
@@ -898,6 +925,7 @@ if (!isset($_SESSION['guest_session_id'])) {
                         $('#subdistrict').val(addr.subdistrict);
                         $('#district').val(addr.district);
                         $('#province').val(addr.province);
+                        $('#country').val(addr.country || 'Thailand');
                         $('#postal_code').val(addr.postal_code);
                         $('#is_default').prop('checked', addr.is_default == 1);
                         $('#addressModal').show();
