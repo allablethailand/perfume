@@ -382,7 +382,7 @@ $stmt_items->close();
                     </div>
                 </div>
 
-                <!-- Order Status - ปรับลำดับ dropdown: Pending > Processing > Shipped > Completed > Cancelled -->
+                <!-- Order Status - เพิ่มสถานะ Paid -->
                 <div class="card-modern">
                     <div class="card-title">
                         <i class="fas fa-tasks" style="color: #667eea;"></i>
@@ -394,8 +394,9 @@ $stmt_items->close();
                             <select class="status-dropdown change-order-status" data-order-id="<?= $order['order_id'] ?>">
                                 <option value="pending" <?= $order['order_status'] === 'pending' ? 'selected' : '' ?>>🟡 Pending</option>
                                 <option value="processing" <?= $order['order_status'] === 'processing' ? 'selected' : '' ?>>🔵 Processing</option>
+                                <option value="paid" <?= $order['order_status'] === 'paid' ? 'selected' : '' ?>>💰 Paid</option>
                                 <option value="shipped" <?= $order['order_status'] === 'shipped' ? 'selected' : '' ?>>🚚 Shipped</option>
-                                <option value="completed" <?= $order['order_status'] === 'completed' ? 'selected' : '' ?>>🟢 Completed</option>
+                                <option value="completed" <?= $order['order_status'] === 'completed' ? 'selected' : '' ?>>✅ Completed</option>
                                 <option value="cancelled" <?= $order['order_status'] === 'cancelled' ? 'selected' : '' ?>>🔴 Cancelled</option>
                             </select>
                         </div>
@@ -448,7 +449,7 @@ $stmt_items->close();
 
             <div class="col-md-4">
                 <!-- Payment Slip -->
-                <?php if (($order['payment_status'] === 'paid' || $order['order_status'] === 'processing') && $order['slip_image']): ?>
+                <?php if (($order['payment_status'] === 'paid' || $order['order_status'] === 'processing' || $order['order_status'] === 'paid') && $order['slip_image']): ?>
                 <div class="card-modern">
                     <div class="card-title">
                         <i class="fas fa-receipt" style="color: #667eea;"></i>
@@ -547,6 +548,7 @@ $stmt_items->close();
             const statusText = {
                 'pending': 'Pending',
                 'processing': 'Processing',
+                'paid': 'Paid',
                 'shipped': 'Shipped',
                 'completed': 'Completed',
                 'cancelled': 'Cancelled'

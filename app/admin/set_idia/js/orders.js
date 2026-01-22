@@ -35,6 +35,7 @@ $(document).ready(function() {
                     $('#count-all').text(counts.all || 0);
                     $('#count-pending').text(counts.pending || 0);
                     $('#count-processing').text(counts.processing || 0);
+                    $('#count-paid').text(counts.paid || 0);
                     $('#count-shipped').text(counts.shipped || 0);
                     $('#count-completed').text(counts.completed || 0);
                     $('#count-cancelled').text(counts.cancelled || 0);
@@ -135,8 +136,9 @@ $(document).ready(function() {
                             const statusConfig = {
                                 'pending': { emoji: '🟡', text: 'Pending', color: '#f59e0b' },
                                 'processing': { emoji: '🔵', text: 'Processing', color: '#3b82f6' },
+                                'paid': { emoji: '💰', text: 'Paid', color: '#10b981' },
                                 'shipped': { emoji: '🚚', text: 'Shipped', color: '#8b5cf6' },
-                                'completed': { emoji: '🟢', text: 'Completed', color: '#10b981' },
+                                'completed': { emoji: '✅', text: 'Completed', color: '#059669' },
                                 'cancelled': { emoji: '🔴', text: 'Cancelled', color: '#ef4444' }
                             };
                             
@@ -148,8 +150,9 @@ $(document).ready(function() {
                                         style="font-size: 12px; padding: 4px 8px; border-color: ${current.color}; color: ${current.color}; font-weight: 500;">
                                     <option value="pending" ${data === 'pending' ? 'selected' : ''}>🟡 Pending</option>
                                     <option value="processing" ${data === 'processing' ? 'selected' : ''}>🔵 Processing</option>
+                                    <option value="paid" ${data === 'paid' ? 'selected' : ''}>💰 Paid</option>
                                     <option value="shipped" ${data === 'shipped' ? 'selected' : ''}>🚚 Shipped</option>
-                                    <option value="completed" ${data === 'completed' ? 'selected' : ''}>🟢 Completed</option>
+                                    <option value="completed" ${data === 'completed' ? 'selected' : ''}>✅ Completed</option>
                                     <option value="cancelled" ${data === 'cancelled' ? 'selected' : ''}>🔴 Cancelled</option>
                                 </select>
                             `;
@@ -313,6 +316,7 @@ $(document).ready(function() {
         const statusText = {
             'pending': 'Pending',
             'processing': 'Processing',
+            'paid': 'Paid',
             'shipped': 'Shipped',
             'completed': 'Completed',
             'cancelled': 'Cancelled'
