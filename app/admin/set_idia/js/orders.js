@@ -3,6 +3,9 @@ let ordersTable = null;
 
 $(document).ready(function() {
     
+    // Enable console logging
+    console.log('Orders page initialized');
+    
     // Load status counts
     loadStatusCounts();
     
@@ -14,6 +17,7 @@ $(document).ready(function() {
         $(this).addClass('active');
         
         currentFilterStatus = $(this).data('status');
+        console.log('Filter changed to:', currentFilterStatus);
         
         if (ordersTable) {
             ordersTable.ajax.reload();
@@ -24,21 +28,34 @@ $(document).ready(function() {
     // LOAD STATUS COUNTS
     // ========================================
     function loadStatusCounts() {
+        console.log('Loading status counts...');
+        
         $.ajax({
             url: 'actions/process_orders.php',
             type: 'POST',
             data: { action: 'getStatusCounts' },
             dataType: 'json',
             success: function(response) {
+                console.log('Status counts response:', response);
+                
                 if (response.status === 'success') {
                     const counts = response.counts;
                     $('#count-all').text(counts.all || 0);
                     $('#count-pending').text(counts.pending || 0);
                     $('#count-processing').text(counts.processing || 0);
                     $('#count-shipped').text(counts.shipped || 0);
-                    $('#count-confirmed').text(counts.confirmed || 0);
+                    $('#count-completed').text(counts.completed || 0);
                     $('#count-cancelled').text(counts.cancelled || 0);
+                } else {
+                    console.error('Status counts error:', response.message);
                 }
+            },
+            error: function(xhr, status, error) {
+                console.error('Status counts AJAX error:', {
+                    status: status,
+                    error: error,
+                    response: xhr.responseText
+                });
             }
         });
     }
@@ -49,6 +66,8 @@ $(document).ready(function() {
     if ($('#td_list_orders').length > 0) {
         
         function loadListOrders() {
+            console.log('Initializing DataTable...');
+            
             if ($.fn.DataTable.isDataTable('#td_list_orders')) {
                 $('#td_list_orders').DataTable().destroy();
                 $('#td_list_orders tbody').empty();
@@ -63,11 +82,47 @@ $(document).ready(function() {
                     method: 'POST',
                     dataType: 'json',
                     data: function(d) {
+                        console.log('DataTables request data:', d);
                         d.action = 'getData_orders';
                         d.filter_status = currentFilterStatus;
+                        return d;
                     },
                     dataSrc: function(json) {
+                        console.log('DataTables response:', json);
+                        
+                        if (!json || typeof json !== 'object') {
+                            console.error('Invalid JSON response:', json);
+                            alert('Server returned invalid data. Check console for details.');
+                            return [];
+                        }
+                        
+                        if (json.status === 'error') {
+                            console.error('Server error:', json.message);
+                            alert('Error: ' + json.message);
+                            return [];
+                        }
+                        
+                        if (!Array.isArray(json.data)) {
+                            console.error('Data is not an array:', json.data);
+                            return [];
+                        }
+                        
+                        console.log('Total records:', json.recordsTotal);
+                        console.log('Filtered records:', json.recordsFiltered);
+                        console.log('Data rows:', json.data.length);
+                        
                         return json.data;
+                    },
+                    error: function(xhr, error, thrown) {
+                        console.error('DataTables AJAX Error:', {
+                            status: xhr.status,
+                            statusText: xhr.statusText,
+                            error: error,
+                            thrown: thrown,
+                            responseText: xhr.responseText
+                        });
+                        
+                        alert('Failed to load orders. Check console for details.\n\nStatus: ' + xhr.status + '\nError: ' + error);
                     }
                 },
                 "ordering": false,
@@ -132,12 +187,11 @@ $(document).ready(function() {
                         "target": 5,
                         data: "order_status",
                         render: function(data, type, row) {
-                            // แสดง dropdown สำหรับเปลี่ยนสถานะ แบบกะทัดรัด
                             const statusConfig = {
                                 'pending': { emoji: '🟡', text: 'Pending', color: '#f59e0b' },
                                 'processing': { emoji: '🔵', text: 'Processing', color: '#3b82f6' },
                                 'shipped': { emoji: '🚚', text: 'Shipped', color: '#8b5cf6' },
-                                'confirmed': { emoji: '🟢', text: 'confirmed', color: '#10b981' },
+                                'completed': { emoji: '🟢', text: 'Completed', color: '#10b981' },
                                 'cancelled': { emoji: '🔴', text: 'Cancelled', color: '#ef4444' }
                             };
                             
@@ -150,7 +204,7 @@ $(document).ready(function() {
                                     <option value="pending" ${data === 'pending' ? 'selected' : ''}>🟡 Pending</option>
                                     <option value="processing" ${data === 'processing' ? 'selected' : ''}>🔵 Processing</option>
                                     <option value="shipped" ${data === 'shipped' ? 'selected' : ''}>🚚 Shipped</option>
-                                    <option value="confirmed" ${data === 'confirmed' ? 'selected' : ''}>🟢 confirmed</option>
+                                    <option value="completed" ${data === 'completed' ? 'selected' : ''}>🟢 Completed</option>
                                     <option value="cancelled" ${data === 'cancelled' ? 'selected' : ''}>🔴 Cancelled</option>
                                 </select>
                             `;
@@ -197,7 +251,6 @@ $(document).ready(function() {
                         "target": 7,
                         data: null,
                         render: function(data, type, row) {
-                            // แสดงปุ่มดูรูปสลิปถ้ามีการ paid และมีรูป
                             if ((row.payment_status === 'paid' || row.order_status === 'processing') && row.slip_image) {
                                 return `
                                     <button type="button" class="btn btn-compact btn-view-slip view-slip" 
@@ -230,6 +283,8 @@ $(document).ready(function() {
                     }
                 ],
                 drawCallback: function(settings) {
+                    console.log('DataTable drawn');
+                    
                     var targetDivTable = $('div.dt-layout-row.dt-layout-table');
                     if (targetDivTable.length) {
                         targetDivTable.addClass('tables-overflow');
@@ -239,41 +294,39 @@ $(document).ready(function() {
                         });
                     }
                     
-                    // Reload counts after table draw
                     loadStatusCounts();
                 }
             });
 
-            // Event delegation for View Details button
+            // Event delegation
             $('#td_list_orders').on('click', '.btn-view', function() {
                 let orderId = $(this).data('id');
+                console.log('View order:', orderId);
                 viewOrderDetailsPage(orderId);
             });
 
-            // Event delegation for View Slip button
             $('#td_list_orders').on('click', '.view-slip', function() {
                 let slipPath = $(this).data('slip');
+                console.log('View slip:', slipPath);
                 viewSlipImage(slipPath);
             });
 
-            // Event delegation for Change Order Status
             $('#td_list_orders').on('change', '.change-order-status', function() {
                 let orderId = $(this).data('order-id');
                 let newStatus = $(this).val();
                 let selectElement = $(this);
-                let oldStatus = selectElement.find('option:selected').data('old-value') || selectElement.data('old-value');
+                let oldStatus = selectElement.data('old-value');
                 
-                // บันทึกค่าเก่าก่อนเปลี่ยน
+                console.log('Change status:', {orderId, oldStatus, newStatus});
+                
                 if (!oldStatus) {
-                    selectElement.data('old-value', selectElement.find('option:selected').val());
-                    oldStatus = newStatus;
-                    return; // ครั้งแรกแค่บันทึกค่า
+                    selectElement.data('old-value', newStatus);
+                    return;
                 }
                 
                 changeOrderStatus(orderId, newStatus, oldStatus, selectElement);
             });
 
-            // บันทึกค่าเริ่มต้นของ dropdown
             $('#td_list_orders').on('focus', '.change-order-status', function() {
                 $(this).data('old-value', $(this).val());
             });
@@ -319,7 +372,7 @@ $(document).ready(function() {
             'pending': 'Pending',
             'processing': 'Processing',
             'shipped': 'Shipped',
-            'confirmed': 'confirmed',
+            'completed': 'Completed',
             'cancelled': 'Cancelled'
         };
 
@@ -331,11 +384,7 @@ $(document).ready(function() {
             confirmButtonColor: '#667eea',
             cancelButtonColor: '#6c757d',
             confirmButtonText: '✓ ยืนยัน',
-            cancelButtonText: '✗ ยกเลิก',
-            customClass: {
-                confirmButton: 'btn-modern',
-                cancelButton: 'btn-modern'
-            }
+            cancelButtonText: '✗ ยกเลิก'
         }).then((result) => {
             if (result.isConfirmed) {
                 $('#loading-overlay').css('display', 'flex');
@@ -350,16 +399,15 @@ $(document).ready(function() {
                     },
                     dataType: 'json',
                     success: function(response) {
+                        console.log('Update status response:', response);
+                        
                         if (response.status === 'success') {
                             Swal.fire({
                                 icon: 'success',
                                 title: '✓ สำเร็จ!',
                                 text: response.message,
                                 timer: 2000,
-                                showConfirmButton: false,
-                                customClass: {
-                                    popup: 'success-popup'
-                                }
+                                showConfirmButton: false
                             }).then(() => {
                                 ordersTable.ajax.reload(null, false);
                             });
@@ -369,7 +417,7 @@ $(document).ready(function() {
                         }
                     },
                     error: function(xhr, status, error) {
-                        console.error('Error:', error);
+                        console.error('Update status error:', {xhr, status, error});
                         alertError('เกิดข้อผิดพลาดในการเปลี่ยนสถานะ');
                         selectElement.val(oldStatus);
                     },
@@ -412,14 +460,7 @@ $(document).ready(function() {
             position: "top-end",
             showConfirmButton: false,
             timer: 3000,
-            timerProgressBar: true,
-            didOpen: (toast) => {
-                toast.onmouseenter = Swal.stopTimer;
-                toast.onmouseleave = Swal.resumeTimer;
-            },
-            customClass: {
-                popup: 'error-toast'
-            }
+            timerProgressBar: true
         });
         Toast.fire({
             icon: "error",
@@ -431,7 +472,6 @@ $(document).ready(function() {
 // Custom Styles for Compact Design
 const style = document.createElement('style');
 style.textContent = `
-    /* Compact Customer Info */
     .customer-info-compact {
         display: flex;
         align-items: center;
@@ -470,7 +510,6 @@ style.textContent = `
         text-overflow: ellipsis;
     }
     
-    /* Compact Badges */
     .badge-compact {
         font-size: 11px !important;
         padding: 3px 8px !important;
@@ -478,7 +517,6 @@ style.textContent = `
         border-radius: 4px !important;
     }
     
-    /* Compact Status Dropdown */
     .status-dropdown-compact {
         font-size: 12px !important;
         padding: 4px 8px !important;
@@ -490,17 +528,6 @@ style.textContent = `
         transition: all 0.2s ease !important;
     }
     
-    .status-dropdown-compact:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .status-dropdown-compact:focus {
-        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        outline: none;
-    }
-    
-    /* Compact Buttons */
     .btn-compact {
         padding: 4px 10px !important;
         font-size: 12px !important;
@@ -510,11 +537,6 @@ style.textContent = `
         color: white !important;
         cursor: pointer !important;
         transition: all 0.2s ease !important;
-    }
-    
-    .btn-compact:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
     }
     
     .btn-circle-compact {
@@ -530,42 +552,6 @@ style.textContent = `
         cursor: pointer !important;
         transition: all 0.2s ease !important;
         font-size: 13px !important;
-    }
-    
-    .btn-circle-compact:hover {
-        transform: scale(1.1);
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-    
-    /* Table Cell Padding */
-    #td_list_orders td {
-        padding: 8px 10px !important;
-        vertical-align: middle !important;
-    }
-    
-    #td_list_orders th {
-        padding: 10px !important;
-        font-size: 13px !important;
-        font-weight: 600 !important;
-        background: #f7fafc !important;
-    }
-    
-    /* SweetAlert Styles */
-    .slip-modal {
-        border-radius: 15px !important;
-    }
-    
-    .slip-image {
-        border-radius: 10px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-    
-    .success-popup {
-        border-radius: 15px !important;
-    }
-    
-    .error-toast {
-        border-radius: 10px !important;
     }
 `;
 document.head.appendChild(style);
