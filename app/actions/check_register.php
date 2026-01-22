@@ -72,9 +72,10 @@ try {
             $otp = generateOTP();
 
             // Insert user
+            // Insert user
             $stmt = $conn->prepare(
-                "INSERT INTO mb_user (first_name, last_name, password, email, phone_number, consent, verify, generate_otp, date_create) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                "INSERT INTO mb_user (first_name, last_name, password, email, phone_number, consent, verify, generate_otp, confirm_email, date_create) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
             );
             if (!$stmt) {
                 throw new Exception("Prepare statement failed: " . $conn->error);
@@ -82,9 +83,10 @@ try {
 
             $hashed_password = password_hash($register_data['password'], PASSWORD_BCRYPT);
             $current_date = date('Y-m-d H:i:s');
+            $confirm_email = 0; // เริ่มต้นเป็น 0 (ยังไม่ได้ยืนยัน)
 
             $stmt->bind_param(
-                "sssssiiss", 
+                "sssssiisis", 
                 $register_data['first_name'], 
                 $register_data['last_name'], 
                 $hashed_password, 
@@ -93,6 +95,7 @@ try {
                 $register_data['consent'], 
                 $register_data['verify'], 
                 $otp,
+                $confirm_email,  // เพิ่มค่านี้
                 $current_date
             );
 
