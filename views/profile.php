@@ -41,7 +41,6 @@ if (!isset($_SESSION['guest_session_id'])) {
             gap: 0;
             flex-wrap: wrap;
             overflow: hidden;
-            height: 200px;
         }
 
         .profile-header-left {
@@ -59,8 +58,8 @@ if (!isset($_SESSION['guest_session_id'])) {
 
         /* AI Avatar - Full Width Right Section */
         .ai-avatar-section {
-            width: 250px;
-            min-width: 250px;
+            width: 150px;
+            min-width: 150px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -68,6 +67,7 @@ if (!isset($_SESSION['guest_session_id'])) {
             transition: all 0.3s ease;
             position: relative;
             overflow: hidden;
+            height: 200px;
         }
 
         .ai-avatar-section:hover {
