@@ -65,7 +65,7 @@ try {
         $dataQuery = "SELECT 
                         p.*,
                         pi.api_path as primary_image,
-                        ROUND(p.price * (1 + p.vat_percentage / 100), 2) as price_with_vat
+                        ROUND(p.price * (1 + p.vat_percentage / 100)) as price_with_vat
                       FROM products p
                       LEFT JOIN product_images pi ON p.product_id = pi.product_id AND pi.is_primary = 1 AND pi.del = 0
                       WHERE $whereClause
