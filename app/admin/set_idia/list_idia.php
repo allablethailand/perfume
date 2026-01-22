@@ -155,6 +155,7 @@ function getTextByLang($key) {
         .status-btn-all { background: #6c757d; color: white; }
         .status-btn-pending { background: #ffc107; color: #333; }
         .status-btn-processing { background: #17a2b8; color: white; }
+        .status-btn-paid { background: #20c997; color: white; }
         .status-btn-shipped { background: #007bff; color: white; }
         .status-btn-completed { background: #28a745; color: white; }
         .status-btn-cancelled { background: #dc3545; color: white; }
@@ -237,6 +238,7 @@ function getTextByLang($key) {
 
         .badge-warning { background: #ffc107; color: #333; }
         .badge-info { background: #17a2b8; color: white; }
+        .badge-paid { background: #20c997; color: white; }
         .badge-success { background: #28a745; color: white; }
         .badge-primary { background: #007bff; color: white; }
         .badge-danger { background: #dc3545; color: white; }
@@ -372,7 +374,7 @@ function getTextByLang($key) {
                     </div>
                 </div>
 
-                <!-- Status Filter - ปรับลำดับใหม่: Pending > Processing > Shipped > Completed > Cancelled -->
+                <!-- Status Filter - เพิ่มปุ่ม Paid -->
                 <div class="status-filter-container">
                     <div class="d-flex flex-wrap align-items-center">
                         <span class="filter-title">
@@ -386,6 +388,9 @@ function getTextByLang($key) {
                         </button>
                         <button type="button" class="status-btn status-btn-processing" data-status="processing">
                             Processing <span class="badge badge-light" id="count-processing">0</span>
+                        </button>
+                        <button type="button" class="status-btn status-btn-paid" data-status="paid">
+                            Paid <span class="badge badge-light" id="count-paid">0</span>
                         </button>
                         <button type="button" class="status-btn status-btn-shipped" data-status="shipped">
                             Shipped <span class="badge badge-light" id="count-shipped">0</span>
