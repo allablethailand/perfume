@@ -1752,7 +1752,7 @@ function displayProductResults(products, query) {
         if (item.description) {
             html += '<div class="search-item-desc">' + item.description + '</div>';
         }
-        html += '<div class="search-item-price">฿' + parseFloat(item.price).toLocaleString('en-US', {minimumFractionDigits: 2}) + '</div>';
+        html += '<div class="search-item-price">฿' + parseFloat(item.price).toLocaleString('en-US', {minimumFractionDigits: 0}) + '</div>';
         html += '</div></a>';
     }
     

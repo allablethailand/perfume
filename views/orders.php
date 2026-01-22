@@ -526,15 +526,15 @@ if (!isset($_SESSION['guest_session_id'])) {
                                     <div class="item-quantity">Quantity: ${item.quantity}</div>
                                 </div>
                                 <div class="item-price-section">
-                                    <div class="item-unit-price">฿${parseFloat(item.unit_price_with_vat).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
-                                    <div class="item-total-price">฿${parseFloat(item.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                                    <div class="item-unit-price">฿${Math.round(item.unit_price_with_vat).toLocaleString('en-US')}</div>
+                                    <div class="item-total-price">฿${Math.round(item.total).toLocaleString('en-US')}</div>
                                 </div>
                             </div>
                         `;
                     });
                 }
 
-                // สร้าง HTML สำหรับที่อยู่จัดส่ง
+                // สร้าง HTML สำหรับที่อยู่จัดส่ง (เพิ่ม country)
                 let shippingHtml = '';
                 if (order.shipping_address) {
                     const addr = order.shipping_address;
@@ -548,7 +548,8 @@ if (!isset($_SESSION['guest_session_id'])) {
                                 ${addr.recipient_phone}<br>
                                 ${addr.address_line1}${addr.address_line2 ? ', ' + addr.address_line2 : ''}<br>
                                 ${addr.subdistrict}, ${addr.district}<br>
-                                ${addr.province} ${addr.postal_code}
+                                ${addr.province}, ${addr.country || 'Thailand'}<br>
+                                ${addr.postal_code}
                             </div>
                         </div>
                     `;
@@ -571,7 +572,7 @@ if (!isset($_SESSION['guest_session_id'])) {
                             </div>
                             <div class="order-total">
                                 <div class="total-label">Total Amount</div>
-                                <div class="total-amount">฿${parseFloat(order.total_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                                <div class="total-amount">฿${Math.round(order.total_amount).toLocaleString('en-US')}</div>
                             </div>
                         </div>
 
@@ -584,27 +585,27 @@ if (!isset($_SESSION['guest_session_id'])) {
                         <div class="order-summary">
                             <div class="summary-row">
                                 <span>Subtotal</span>
-                                <span>฿${parseFloat(order.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                                <span>฿${Math.round(order.subtotal).toLocaleString('en-US')}</span>
                             </div>
                             <div class="summary-row">
                                 <span>VAT</span>
-                                <span>฿${parseFloat(order.vat_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                                <span>฿${Math.round(order.vat_amount).toLocaleString('en-US')}</span>
                             </div>
                             ${order.shipping_fee > 0 ? `
                                 <div class="summary-row">
                                     <span>Shipping Fee</span>
-                                    <span>฿${parseFloat(order.shipping_fee).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                                    <span>฿${Math.round(order.shipping_fee).toLocaleString('en-US')}</span>
                                 </div>
                             ` : ''}
                             ${order.discount_amount > 0 ? `
                                 <div class="summary-row">
                                     <span>Discount ${order.coupon_code ? '(' + order.coupon_code + ')' : ''}</span>
-                                    <span>-฿${parseFloat(order.discount_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                                    <span>-฿${Math.round(order.discount_amount).toLocaleString('en-US')}</span>
                                 </div>
                             ` : ''}
                             <div class="summary-row total">
                                 <span>Total</span>
-                                <span>฿${parseFloat(order.total_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                                <span>฿${Math.round(order.total_amount).toLocaleString('en-US')}</span>
                             </div>
                         </div>
 
@@ -650,6 +651,18 @@ if (!isset($_SESSION['guest_session_id'])) {
             });
 
             $('#ordersContent').html(html);
+        }
+
+        function viewPaymentSlip(filePath) {
+            Swal.fire({
+                title: 'Payment Slip',
+                imageUrl: filePath,
+                imageWidth: '100%',
+                imageAlt: 'Payment Slip',
+                showCloseButton: true,
+                showConfirmButton: false,
+                width: '40%'
+            });
         }
 
         function viewOrderDetails(orderId) {

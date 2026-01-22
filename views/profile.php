@@ -1115,7 +1115,7 @@ if (!isset($_SESSION['guest_session_id'])) {
 
                         <div class="order-total-row">
                             <div class="order-total-label">Total Amount</div>
-                            <div class="order-total-amount">฿${parseFloat(order.total_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
+                            <div class="order-total-amount">฿${parseFloat(order.total_amount).toLocaleString('en-US', {minimumFractionDigits: 0})}</div>
                         </div>
                     </div>
                 `;

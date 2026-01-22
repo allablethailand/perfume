@@ -380,223 +380,224 @@ if ($order_id <= 0) {
         }
 
         function displayOrderDetail(order) {
-            const orderDate = new Date(order.date_created).toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
+    const orderDate = new Date(order.date_created).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 
-            // สร้าง HTML สำหรับรายการสินค้า
-            let itemsHtml = '';
-            if (order.items && order.items.length > 0) {
-                order.items.forEach(function(item) {
-                    itemsHtml += `
-                        <div class="product-item">
-                            <img src="${item.product_image || 'public/img/no-image.png'}" 
-                                 alt="${item.product_name}" 
-                                 class="products-image"
-                                 onerror="this.src='public/img/no-image.png'">
-                            <div class="product-info">
-                                <div class="product-name">${item.product_name}</div>
-                                <div class="product-quantity">Quantity: ${item.quantity}</div>
-                                <div class="product-unit-price">฿${parseFloat(item.unit_price_with_vat).toLocaleString('en-US', {minimumFractionDigits: 2})} per unit</div>
-                            </div>
-                            <div class="product-price">
-                                <div class="product-total">฿${parseFloat(item.total).toLocaleString('en-US', {minimumFractionDigits: 2})}</div>
-                            </div>
-                        </div>
-                    `;
-                });
-            }
-
-            // สร้าง HTML สำหรับที่อยู่จัดส่ง
-            let shippingHtml = '';
-            if (order.shipping_address) {
-                const addr = order.shipping_address;
-                shippingHtml = `
-                    <div class="address-box">
-                        <strong>${addr.recipient_name}</strong>
-                        ${addr.recipient_phone}<br>
-                        ${addr.address_line1}${addr.address_line2 ? ', ' + addr.address_line2 : ''}<br>
-                        ${addr.subdistrict}, ${addr.district}<br>
-                        ${addr.province} ${addr.postal_code}
+    // สร้าง HTML สำหรับรายการสินค้า
+    let itemsHtml = '';
+    if (order.items && order.items.length > 0) {
+        order.items.forEach(function(item) {
+            itemsHtml += `
+                <div class="product-item">
+                    <img src="${item.product_image || 'public/img/no-image.png'}" 
+                         alt="${item.product_name}" 
+                         class="products-image"
+                         onerror="this.src='public/img/no-image.png'">
+                    <div class="product-info">
+                        <div class="product-name">${item.product_name}</div>
+                        <div class="product-quantity">Quantity: ${item.quantity}</div>
+                        <div class="product-unit-price">฿${Math.round(item.unit_price_with_vat).toLocaleString('en-US')} per unit</div>
                     </div>
-                `;
-            }
-
-            // ✅ สร้าง HTML สำหรับหลักฐานการโอนเงิน
-            let paymentSlipHtml = '';
-            if (order.payment_slip) {
-                const slip = order.payment_slip;
-                const uploadDate = new Date(slip.date_uploaded).toLocaleDateString('en-GB', {
-                    day: '2-digit',
-                    month: 'long',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-                
-                const transferDate = slip.transfer_date ? new Date(slip.transfer_date).toLocaleDateString('en-GB', {
-                    day: '2-digit',
-                    month: 'long',
-                    year: 'numeric'
-                }) : '-';
-
-                const statusClass = slip.status === 'verified' ? 'paid' : 
-                                slip.status === 'rejected' ? 'cancelled' : 'pending';
-                const statusLabel = slip.status === 'verified' ? 'Verified' : 
-                                slip.status === 'rejected' ? 'Rejected' : 'Pending Verification';
-
-                paymentSlipHtml = `
-                    <div class="section-card">
-                        <div class="section-title">
-                            <i class="fas fa-receipt"></i> Payment Slip
-                        </div>
-                        <div class="payment-slip-container">
-                            <div class="slip-info">
-                                <div class="slip-row">
-                                    <span class="slip-label">Status:</span>
-                                    <span class="status-badge ${statusClass}">${statusLabel}</span>
-                                </div>
-                                <div class="slip-row">
-                                    <span class="slip-label">Transfer Amount:</span>
-                                    <span class="slip-value">฿${parseFloat(slip.transfer_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
-                                </div>
-                                <div class="slip-row">
-                                    <span class="slip-label">Transfer Date:</span>
-                                    <span class="slip-value">${transferDate}</span>
-                                </div>
-                                <div class="slip-row">
-                                    <span class="slip-label">Uploaded:</span>
-                                    <span class="slip-value">${uploadDate}</span>
-                                </div>
-                                ${slip.notes ? `
-                                <div class="slip-row">
-                                    <span class="slip-label">Notes:</span>
-                                    <span class="slip-value">${slip.notes}</span>
-                                </div>
-                                ` : ''}
-                            </div>
-                            <div class="slip-actions">
-                                <button class="btn btn-primary" onclick="viewPaymentSlip('${slip.file_path}')">
-                                    <i class="fas fa-eye"></i> View Payment Slip
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-
-            const html = `
-                <!-- Order Header -->
-                <div class="order-header">
-                    <h1><i class="fas fa-receipt"></i> Order #${order.order_number}</h1>
-                    <div class="order-meta">
-                        <div class="meta-item">
-                            <div class="meta-label">Order Date</div>
-                            <div class="meta-value">${orderDate}</div>
-                        </div>
-                        <div class="meta-item">
-                            <div class="meta-label">Order Status</div>
-                            <div class="meta-value">
-                                <span class="status-badge ${order.order_status}">${order.order_status_label || order.order_status}</span>
-                            </div>
-                        </div>
-                        <div class="meta-item">
-                            <div class="meta-label">Payment Status</div>
-                            <div class="meta-value">
-                                <span class="status-badge ${order.payment_status}">${order.payment_status_label || order.payment_status}</span>
-                                ${order.payment_status === 'pending' ? `
-                                    <button class="btn btn-primary" onclick="payOrder(${order.order_id})">
-                                        <i class="fas fa-credit-card"></i> Pay Now
-                                    </button>
-                                ` : ''}
-                            </div>
-                        </div>
-                        <div class="meta-item">
-                            <div class="meta-label">Payment Method</div>
-                            <div class="meta-value">${getPaymentMethodLabel(order.payment_method)}</div>
-                        </div>
+                    <div class="product-price">
+                        <div class="product-total">฿${Math.round(item.total).toLocaleString('en-US')}</div>
                     </div>
                 </div>
+            `;
+        });
+    }
 
-                <!-- Product Items -->
-                <div class="section-card">
-                    <div class="section-title">
-                        <i class="fas fa-box"></i> Order Items
-                    </div>
-                    <div class="product-items">
-                        ${itemsHtml}
-                    </div>
+    // สร้าง HTML สำหรับที่อยู่จัดส่ง
+    let shippingHtml = '';
+    if (order.shipping_address) {
+        const addr = order.shipping_address;
+        shippingHtml = `
+            <div class="address-box">
+                <strong>${addr.recipient_name}</strong>
+                ${addr.recipient_phone}<br>
+                ${addr.address_line1}${addr.address_line2 ? ', ' + addr.address_line2 : ''}<br>
+                ${addr.subdistrict}, ${addr.district}<br>
+                ${addr.province}, ${addr.country}<br>
+                ${addr.postal_code}
+            </div>
+        `;
+    }
+
+    // ✅ สร้าง HTML สำหรับหลักฐานการโอนเงิน
+    let paymentSlipHtml = '';
+    if (order.payment_slip) {
+        const slip = order.payment_slip;
+        const uploadDate = new Date(slip.date_uploaded).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+        const transferDate = slip.transfer_date ? new Date(slip.transfer_date).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric'
+        }) : '-';
+
+        const statusClass = slip.status === 'verified' ? 'paid' : 
+                        slip.status === 'rejected' ? 'cancelled' : 'pending';
+        const statusLabel = slip.status === 'verified' ? 'Verified' : 
+                        slip.status === 'rejected' ? 'Rejected' : 'Pending Verification';
+
+        paymentSlipHtml = `
+            <div class="section-card">
+                <div class="section-title">
+                    <i class="fas fa-receipt"></i> Payment Slip
                 </div>
-
-                <!-- Shipping Address -->
-                ${order.shipping_address ? `
-                <div class="section-card">
-                    <div class="section-title">
-                        <i class="fas fa-truck"></i> Shipping Address
-                    </div>
-                    ${shippingHtml}
-                </div>
-                ` : ''}
-
-                ${paymentSlipHtml}
-
-                <!-- Order Summary -->
-                <div class="section-card">
-                    <div class="section-title">
-                        <i class="fas fa-file-invoice-dollar"></i> Order Summary
-                    </div>
-                    <div class="order-summary">
-                        <div class="summary-row">
-                            <span>Subtotal</span>
-                            <span>฿${parseFloat(order.subtotal).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                <div class="payment-slip-container">
+                    <div class="slip-info">
+                        <div class="slip-row">
+                            <span class="slip-label">Status:</span>
+                            <span class="status-badge ${statusClass}">${statusLabel}</span>
                         </div>
-                        <div class="summary-row">
-                            <span>VAT (${parseFloat(order.vat_amount / order.subtotal * 100).toFixed(0)}%)</span>
-                            <span>฿${parseFloat(order.vat_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                        <div class="slip-row">
+                            <span class="slip-label">Transfer Amount:</span>
+                            <span class="slip-value">฿${Math.round(slip.transfer_amount).toLocaleString('en-US')}</span>
                         </div>
-                        ${order.shipping_fee > 0 ? `
-                            <div class="summary-row">
-                                <span>Shipping Fee</span>
-                                <span>฿${parseFloat(order.shipping_fee).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
-                            </div>
+                        <div class="slip-row">
+                            <span class="slip-label">Transfer Date:</span>
+                            <span class="slip-value">${transferDate}</span>
+                        </div>
+                        <div class="slip-row">
+                            <span class="slip-label">Uploaded:</span>
+                            <span class="slip-value">${uploadDate}</span>
+                        </div>
+                        ${slip.notes ? `
+                        <div class="slip-row">
+                            <span class="slip-label">Notes:</span>
+                            <span class="slip-value">${slip.notes}</span>
+                        </div>
                         ` : ''}
-                        ${order.discount_amount > 0 ? `
-                            <div class="summary-row">
-                                <span>Discount ${order.coupon_code ? '(' + order.coupon_code + ')' : ''}</span>
-                                <span style="color: #28a745;">-฿${parseFloat(order.discount_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
-                            </div>
-                        ` : ''}
-                        <div class="summary-row total">
-                            <span>Total Amount</span>
-                            <span>฿${parseFloat(order.total_amount).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
-                        </div>
                     </div>
+                    <div class="slip-actions">
+                        <button class="btn btn-primary" onclick="viewPaymentSlip('${slip.file_path}')">
+                            <i class="fas fa-eye"></i> View Payment Slip
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
 
-                    <!-- Actions -->
-                    <div class="order-actions">
-                        ${(order.order_status === 'pending' || order.order_status === 'processing') && order.payment_status === 'unpaid' ? `
+    const html = `
+        <!-- Order Header -->
+        <div class="order-header">
+            <h1><i class="fas fa-receipt"></i> Order #${order.order_number}</h1>
+            <div class="order-meta">
+                <div class="meta-item">
+                    <div class="meta-label">Order Date</div>
+                    <div class="meta-value">${orderDate}</div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Order Status</div>
+                    <div class="meta-value">
+                        <span class="status-badge ${order.order_status}">${order.order_status_label || order.order_status}</span>
+                    </div>
+                </div>
+                <div class="meta-item">
+                    <div class="meta-label">Payment Status</div>
+                    <div class="meta-value">
+                        <span class="status-badge ${order.payment_status}">${order.payment_status_label || order.payment_status}</span>
+                        ${order.payment_status === 'pending' ? `
                             <button class="btn btn-primary" onclick="payOrder(${order.order_id})">
                                 <i class="fas fa-credit-card"></i> Pay Now
                             </button>
                         ` : ''}
-                        ${order.order_status === 'delivered' ? `
-                            <button class="btn btn-primary" onclick="reorder(${order.order_id})">
-                                <i class="fas fa-redo"></i> Reorder
-                            </button>
-                        ` : ''}
-                        <button class="btn btn-secondary" onclick="window.print()">
-                            <i class="fas fa-print"></i> Print
-                        </button>
                     </div>
                 </div>
-            `;
+                <div class="meta-item">
+                    <div class="meta-label">Payment Method</div>
+                    <div class="meta-value">${getPaymentMethodLabel(order.payment_method)}</div>
+                </div>
+            </div>
+        </div>
 
-            $('#orderContent').html(html);
-        }
+        <!-- Product Items -->
+        <div class="section-card">
+            <div class="section-title">
+                <i class="fas fa-box"></i> Order Items
+            </div>
+            <div class="product-items">
+                ${itemsHtml}
+            </div>
+        </div>
+
+        <!-- Shipping Address -->
+        ${order.shipping_address ? `
+        <div class="section-card">
+            <div class="section-title">
+                <i class="fas fa-truck"></i> Shipping Address
+            </div>
+            ${shippingHtml}
+        </div>
+        ` : ''}
+
+        ${paymentSlipHtml}
+
+        <!-- Order Summary -->
+        <div class="section-card">
+            <div class="section-title">
+                <i class="fas fa-file-invoice-dollar"></i> Order Summary
+            </div>
+            <div class="order-summary">
+                <div class="summary-row">
+                    <span>Subtotal</span>
+                    <span>฿${Math.round(order.subtotal).toLocaleString('en-US')}</span>
+                </div>
+                <div class="summary-row">
+                    <span>VAT (${parseFloat(order.vat_amount / order.subtotal * 100).toFixed(0)}%)</span>
+                    <span>฿${Math.round(order.vat_amount).toLocaleString('en-US')}</span>
+                </div>
+                ${order.shipping_fee > 0 ? `
+                    <div class="summary-row">
+                        <span>Shipping Fee</span>
+                        <span>฿${Math.round(order.shipping_fee).toLocaleString('en-US')}</span>
+                    </div>
+                ` : ''}
+                ${order.discount_amount > 0 ? `
+                    <div class="summary-row">
+                        <span>Discount ${order.coupon_code ? '(' + order.coupon_code + ')' : ''}</span>
+                        <span style="color: #28a745;">-฿${Math.round(order.discount_amount).toLocaleString('en-US')}</span>
+                    </div>
+                ` : ''}
+                <div class="summary-row total">
+                    <span>Total Amount</span>
+                    <span>฿${Math.round(order.total_amount).toLocaleString('en-US')}</span>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="order-actions">
+                ${(order.order_status === 'pending' || order.order_status === 'processing') && order.payment_status === 'unpaid' ? `
+                    <button class="btn btn-primary" onclick="payOrder(${order.order_id})">
+                        <i class="fas fa-credit-card"></i> Pay Now
+                    </button>
+                ` : ''}
+                ${order.order_status === 'delivered' ? `
+                    <button class="btn btn-primary" onclick="reorder(${order.order_id})">
+                        <i class="fas fa-redo"></i> Reorder
+                    </button>
+                ` : ''}
+                <button class="btn btn-secondary" onclick="window.print()">
+                    <i class="fas fa-print"></i> Print
+                </button>
+            </div>
+        </div>
+    `;
+
+    $('#orderContent').html(html);
+}
 
         // ✅ ฟังก์ชันดูหลักฐานการโอนเงิน
         function viewPaymentSlip(filePath) {
