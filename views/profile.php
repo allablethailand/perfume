@@ -32,9 +32,22 @@ if (!isset($_SESSION['guest_session_id'])) {
         .profile-header {
             background: white;
             border-radius: 12px;
-            padding: 40px;
+            padding: 0;
             margin-bottom: 30px;
             box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: stretch;
+            gap: 0;
+            flex-wrap: wrap;
+            overflow: hidden;
+            height: 200px;
+        }
+
+        .profile-header-left {
+            flex: 1;
+            min-width: 300px;
+            padding: 40px;
         }
 
         .profile-header h1 {
@@ -42,6 +55,79 @@ if (!isset($_SESSION['guest_session_id'])) {
             font-weight: 600;
             margin-bottom: 10px;
             color: #000;
+        }
+
+        /* AI Avatar - Full Width Right Section */
+        .ai-avatar-section {
+            width: 250px;
+            min-width: 250px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ai-avatar-section:hover {
+            transform: scale(1.02);
+        }
+
+        .ai-avatar-image-full {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: all 0.3s ease;
+        }
+
+        .ai-avatar-section:hover .ai-avatar-image-full {
+            transform: scale(1.05);
+        }
+
+        .no-ai-section {
+            width: 250px;
+            min-width: 250px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .no-ai-section:hover {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+
+        .no-ai-section i {
+            font-size: 80px;
+            color: rgba(255, 255, 255, 0.9);
+            transition: all 0.3s ease;
+        }
+
+        .no-ai-section:hover i {
+            transform: scale(1.1);
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .profile-header {
+                flex-direction: column;
+            }
+            
+            .profile-header-left {
+                text-align: center;
+                padding: 30px 20px;
+            }
+            
+            .ai-avatar-section,
+            .no-ai-section {
+                width: 100%;
+                min-width: 100%;
+                min-height: 300px;
+            }
         }
 
         .profile-tabs {
@@ -536,8 +622,13 @@ if (!isset($_SESSION['guest_session_id'])) {
 
     <div class="profile-container">
         <div class="profile-header">
-            <h1><i class="fas fa-user-circle"></i> My Profile</h1>
-            <p style="color: #666; margin-top: 10px;">Manage your personal information, addresses, and order history</p>
+            <div class="profile-header-left">
+                <h1><i class="fas fa-user-circle"></i> My Profile</h1>
+                <p style="color: #666; margin-top: 10px;">Manage your personal information, addresses, and order history</p>
+            </div>
+            
+            <!-- AI Avatar Section ด้านขวา -->
+            <div id="aiAvatarSection"></div>
         </div>
 
         <div class="profile-tabs">
@@ -986,6 +1077,53 @@ if (!isset($_SESSION['guest_session_id'])) {
             });
         }
 
+        // =========================================
+        // AI AVATAR - Full Width Version
+        // =========================================
+        function loadUserAI() {
+            $.ajax({
+                url: 'app/actions/get_user_ai_avatar.php',
+                type: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + jwt
+                },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success') {
+                        if (response.has_ai) {
+                            displayAIAvatarFull(response);
+                        } else {
+                            displayNoAISection();
+                        }
+                    } else {
+                        displayNoAISection();
+                    }
+                },
+                error: function(xhr) {
+                    console.log('Failed to load AI avatar');
+                    displayNoAISection();
+                }
+            });
+        }
+
+        function displayAIAvatarFull(aiData) {
+            const html = `
+                <div class="ai-avatar-section" onclick="window.location.href='?chat&ai=${aiData.ai_code}'" title="${aiData.ai_name_th} (${aiData.ai_name_en})">
+                    <img src="${aiData.ai_avatar_url}" alt="${aiData.ai_name_en}" class="ai-avatar-image-full">
+                </div>
+            `;
+            $('#aiAvatarSection').html(html);
+        }
+
+        function displayNoAISection() {
+            const html = `
+                <div class="no-ai-section" onclick="window.location.href='?product'" title="Browse AI Companions">
+                    <i class="fas fa-robot"></i>
+                </div>
+            `;
+            $('#aiAvatarSection').html(html);
+        }
+
         $('#addressForm').on('submit', function(e) {
             e.preventDefault();
             const formData = $(this).serialize();
@@ -1165,6 +1303,7 @@ if (!isset($_SESSION['guest_session_id'])) {
         // =========================================
         $(document).ready(function() {
             loadUserData();
+            loadUserAI();
             loadAddresses();
             checkUnpaidOrders(); // ⭐ เช็คออเดอร์ที่ยังไม่จ่ายทันทีเมื่อโหลดหน้า
         });
