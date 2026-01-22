@@ -3,9 +3,6 @@ let ordersTable = null;
 
 $(document).ready(function() {
     
-    // Enable console logging
-    console.log('Orders page initialized');
-    
     // Load status counts
     loadStatusCounts();
     
@@ -17,7 +14,6 @@ $(document).ready(function() {
         $(this).addClass('active');
         
         currentFilterStatus = $(this).data('status');
-        console.log('Filter changed to:', currentFilterStatus);
         
         if (ordersTable) {
             ordersTable.ajax.reload();
@@ -28,16 +24,12 @@ $(document).ready(function() {
     // LOAD STATUS COUNTS
     // ========================================
     function loadStatusCounts() {
-        console.log('Loading status counts...');
-        
         $.ajax({
             url: 'actions/process_orders.php',
             type: 'POST',
             data: { action: 'getStatusCounts' },
             dataType: 'json',
             success: function(response) {
-                console.log('Status counts response:', response);
-                
                 if (response.status === 'success') {
                     const counts = response.counts;
                     $('#count-all').text(counts.all || 0);
@@ -46,16 +38,7 @@ $(document).ready(function() {
                     $('#count-shipped').text(counts.shipped || 0);
                     $('#count-completed').text(counts.completed || 0);
                     $('#count-cancelled').text(counts.cancelled || 0);
-                } else {
-                    console.error('Status counts error:', response.message);
                 }
-            },
-            error: function(xhr, status, error) {
-                console.error('Status counts AJAX error:', {
-                    status: status,
-                    error: error,
-                    response: xhr.responseText
-                });
             }
         });
     }
@@ -66,8 +49,6 @@ $(document).ready(function() {
     if ($('#td_list_orders').length > 0) {
         
         function loadListOrders() {
-            console.log('Initializing DataTable...');
-            
             if ($.fn.DataTable.isDataTable('#td_list_orders')) {
                 $('#td_list_orders').DataTable().destroy();
                 $('#td_list_orders tbody').empty();
@@ -82,47 +63,11 @@ $(document).ready(function() {
                     method: 'POST',
                     dataType: 'json',
                     data: function(d) {
-                        console.log('DataTables request data:', d);
                         d.action = 'getData_orders';
                         d.filter_status = currentFilterStatus;
-                        return d;
                     },
                     dataSrc: function(json) {
-                        console.log('DataTables response:', json);
-                        
-                        if (!json || typeof json !== 'object') {
-                            console.error('Invalid JSON response:', json);
-                            alert('Server returned invalid data. Check console for details.');
-                            return [];
-                        }
-                        
-                        if (json.status === 'error') {
-                            console.error('Server error:', json.message);
-                            alert('Error: ' + json.message);
-                            return [];
-                        }
-                        
-                        if (!Array.isArray(json.data)) {
-                            console.error('Data is not an array:', json.data);
-                            return [];
-                        }
-                        
-                        console.log('Total records:', json.recordsTotal);
-                        console.log('Filtered records:', json.recordsFiltered);
-                        console.log('Data rows:', json.data.length);
-                        
                         return json.data;
-                    },
-                    error: function(xhr, error, thrown) {
-                        console.error('DataTables AJAX Error:', {
-                            status: xhr.status,
-                            statusText: xhr.statusText,
-                            error: error,
-                            thrown: thrown,
-                            responseText: xhr.responseText
-                        });
-                        
-                        alert('Failed to load orders. Check console for details.\n\nStatus: ' + xhr.status + '\nError: ' + error);
                     }
                 },
                 "ordering": false,
@@ -283,8 +228,6 @@ $(document).ready(function() {
                     }
                 ],
                 drawCallback: function(settings) {
-                    console.log('DataTable drawn');
-                    
                     var targetDivTable = $('div.dt-layout-row.dt-layout-table');
                     if (targetDivTable.length) {
                         targetDivTable.addClass('tables-overflow');
@@ -298,26 +241,24 @@ $(document).ready(function() {
                 }
             });
 
-            // Event delegation
+            // Event delegation for View Details button
             $('#td_list_orders').on('click', '.btn-view', function() {
                 let orderId = $(this).data('id');
-                console.log('View order:', orderId);
                 viewOrderDetailsPage(orderId);
             });
 
+            // Event delegation for View Slip button
             $('#td_list_orders').on('click', '.view-slip', function() {
                 let slipPath = $(this).data('slip');
-                console.log('View slip:', slipPath);
                 viewSlipImage(slipPath);
             });
 
+            // Event delegation for Change Order Status
             $('#td_list_orders').on('change', '.change-order-status', function() {
                 let orderId = $(this).data('order-id');
                 let newStatus = $(this).val();
                 let selectElement = $(this);
                 let oldStatus = selectElement.data('old-value');
-                
-                console.log('Change status:', {orderId, oldStatus, newStatus});
                 
                 if (!oldStatus) {
                     selectElement.data('old-value', newStatus);
@@ -327,6 +268,7 @@ $(document).ready(function() {
                 changeOrderStatus(orderId, newStatus, oldStatus, selectElement);
             });
 
+            // บันทึกค่าเริ่มต้นของ dropdown
             $('#td_list_orders').on('focus', '.change-order-status', function() {
                 $(this).data('old-value', $(this).val());
             });
@@ -384,7 +326,11 @@ $(document).ready(function() {
             confirmButtonColor: '#667eea',
             cancelButtonColor: '#6c757d',
             confirmButtonText: '✓ ยืนยัน',
-            cancelButtonText: '✗ ยกเลิก'
+            cancelButtonText: '✗ ยกเลิก',
+            customClass: {
+                confirmButton: 'btn-modern',
+                cancelButton: 'btn-modern'
+            }
         }).then((result) => {
             if (result.isConfirmed) {
                 $('#loading-overlay').css('display', 'flex');
@@ -399,15 +345,16 @@ $(document).ready(function() {
                     },
                     dataType: 'json',
                     success: function(response) {
-                        console.log('Update status response:', response);
-                        
                         if (response.status === 'success') {
                             Swal.fire({
                                 icon: 'success',
                                 title: '✓ สำเร็จ!',
                                 text: response.message,
                                 timer: 2000,
-                                showConfirmButton: false
+                                showConfirmButton: false,
+                                customClass: {
+                                    popup: 'success-popup'
+                                }
                             }).then(() => {
                                 ordersTable.ajax.reload(null, false);
                             });
@@ -417,7 +364,7 @@ $(document).ready(function() {
                         }
                     },
                     error: function(xhr, status, error) {
-                        console.error('Update status error:', {xhr, status, error});
+                        console.error('Error:', error);
                         alertError('เกิดข้อผิดพลาดในการเปลี่ยนสถานะ');
                         selectElement.val(oldStatus);
                     },
@@ -460,7 +407,14 @@ $(document).ready(function() {
             position: "top-end",
             showConfirmButton: false,
             timer: 3000,
-            timerProgressBar: true
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.onmouseenter = Swal.stopTimer;
+                toast.onmouseleave = Swal.resumeTimer;
+            },
+            customClass: {
+                popup: 'error-toast'
+            }
         });
         Toast.fire({
             icon: "error",
@@ -472,6 +426,7 @@ $(document).ready(function() {
 // Custom Styles for Compact Design
 const style = document.createElement('style');
 style.textContent = `
+    /* Compact Customer Info */
     .customer-info-compact {
         display: flex;
         align-items: center;
@@ -510,6 +465,7 @@ style.textContent = `
         text-overflow: ellipsis;
     }
     
+    /* Compact Badges */
     .badge-compact {
         font-size: 11px !important;
         padding: 3px 8px !important;
@@ -517,6 +473,7 @@ style.textContent = `
         border-radius: 4px !important;
     }
     
+    /* Compact Status Dropdown */
     .status-dropdown-compact {
         font-size: 12px !important;
         padding: 4px 8px !important;
@@ -528,6 +485,17 @@ style.textContent = `
         transition: all 0.2s ease !important;
     }
     
+    .status-dropdown-compact:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .status-dropdown-compact:focus {
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        outline: none;
+    }
+    
+    /* Compact Buttons */
     .btn-compact {
         padding: 4px 10px !important;
         font-size: 12px !important;
@@ -537,6 +505,11 @@ style.textContent = `
         color: white !important;
         cursor: pointer !important;
         transition: all 0.2s ease !important;
+    }
+    
+    .btn-compact:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
     }
     
     .btn-circle-compact {
@@ -552,6 +525,42 @@ style.textContent = `
         cursor: pointer !important;
         transition: all 0.2s ease !important;
         font-size: 13px !important;
+    }
+    
+    .btn-circle-compact:hover {
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    /* Table Cell Padding */
+    #td_list_orders td {
+        padding: 8px 10px !important;
+        vertical-align: middle !important;
+    }
+    
+    #td_list_orders th {
+        padding: 10px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        background: #f7fafc !important;
+    }
+    
+    /* SweetAlert Styles */
+    .slip-modal {
+        border-radius: 15px !important;
+    }
+    
+    .slip-image {
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    
+    .success-popup {
+        border-radius: 15px !important;
+    }
+    
+    .error-toast {
+        border-radius: 10px !important;
     }
 `;
 document.head.appendChild(style);
