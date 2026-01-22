@@ -1117,9 +1117,7 @@ if (!isset($_SESSION['guest_session_id'])) {
 
         function displayNoAISection() {
             const html = `
-                <div class="no-ai-section" onclick="window.location.href='?product'" title="Browse AI Companions">
-                    <i class="fas fa-robot"></i>
-                </div>
+                <div style="width: 150px; min-width: 150px; height: 200px; background: white;"></div>
             `;
             $('#aiAvatarSection').html(html);
         }
