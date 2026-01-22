@@ -428,6 +428,42 @@
             display: block;
         }
 
+        /* Speaking Indicator */
+        .speaking-indicator {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 16px 32px;
+            background: rgba(120, 119, 198, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(120, 119, 198, 0.4);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 14px;
+            display: none;
+            align-items: center;
+            gap: 12px;
+            z-index: 10000;
+        }
+
+        .speaking-indicator.active {
+            display: flex;
+        }
+
+        .speaking-dot {
+            width: 8px;
+            height: 8px;
+            background: #7877c6;
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.2); }
+        }
+
         @media (max-width: 768px) {
             .card {
                 padding: 40px 30px;
@@ -561,12 +597,46 @@
         </div>
     </div>
 
+    <!-- Speaking Indicator -->
+    <div class="speaking-indicator" id="speakingIndicator">
+        <div class="speaking-dot"></div>
+        <span id="speakingText">Speaking...</span>
+    </div>
+
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         let currentAI = null;
         let selectedLanguage = 'th';
         let selectedGreeting = 'สวัสดี ฉันยินดีที่ได้รู้จักคุณ';
         let userId = null;
+        let currentAudio = null;
+        let isSpeaking = false;
+
+        // 🗣️ Video Greeting Messages - รวมทั้ง 2 ส่วน (5 ภาษา)
+        const VIDEO_GREETINGS = {
+            th: "สวัสดี ฉันยินดีที่ได้รู้จักคุณ เรามาทำความรู้จักกันหน่อยดีกว่า",
+            en: "Hello! Nice to meet you. Let's get to know each other",
+            cn: "你好！很高兴认识你。让我们互相了解一下吧",
+            jp: "こんにちは！お会いできて嬉しいです。お互いを知り合いましょう",
+            kr: "안녕하세요! 만나서 반갑습니다. 서로 알아가 봅시다"
+        };
+
+        // Language code mapping for TTS
+        const LANG_CODE_MAP = {
+            'th': 'th',
+            'en': 'en',
+            'cn': 'zh',
+            'jp': 'ja',
+            'kr': 'ko'
+        };
+
+        const LANG_DISPLAY_MAP = {
+            'th': 'Thai',
+            'en': 'English',
+            'cn': 'Chinese',
+            'jp': 'Japanese',
+            'kr': 'Korean'
+        };
 
         $(document).ready(function() {
             const jwt = sessionStorage.getItem('jwt');
@@ -671,18 +741,29 @@
                         $('#avatarSection').fadeOut(600, function() {
                             $('#videoSection').fadeIn(600);
                             
+                            // 🎤 พูดเฉพาะตอนแสดงวิดีโอ (รวมคำทักทายทั้งหมด)
+                            setTimeout(() => {
+                                const videoGreeting = VIDEO_GREETINGS[selectedLanguage] || VIDEO_GREETINGS.th;
+                                speakText(videoGreeting, LANG_CODE_MAP[selectedLanguage]);
+                            }, 800);
+                            
                             $('#aiVideo')[0].onended = function() {
                                 showDescriptionSection();
                             };
                         });
                     } else {
-                        showDescriptionSection();
+                        // No video, go straight to description after avatar
+                        setTimeout(() => {
+                            showDescriptionSection();
+                        }, 2000);
                     }
                 }, 3000);
             });
         });
 
         function skipVideo() {
+            // Stop any current speech
+            stopSpeaking();
             showDescriptionSection();
         }
 
@@ -693,6 +774,9 @@
         }
 
         $('#btnStartQuestions').on('click', function() {
+            // Stop any current speech before navigating
+            stopSpeaking();
+            
             if (!userId || !currentAI || !selectedLanguage) {
                 showError('ข้อมูลไม่ครบถ้วน กรุณาลองใหม่');
                 return;
@@ -721,6 +805,126 @@
                 }
             });
         });
+
+        /**
+         * 🗣️ Text-to-Speech Function (รองรับ 5 ภาษา)
+         */
+        function speakText(text, langCode) {
+            if (!text || isSpeaking) return;
+            
+            // Stop any previous speech
+            stopSpeaking();
+            
+            isSpeaking = true;
+            updateSpeakingIndicator(true, LANG_DISPLAY_MAP[langCode] || 'Speaking');
+            
+            let ttsUrl;
+            const encodedText = encodeURIComponent(text);
+            
+            // Use Thai-specific TTS for Thai language
+            if (langCode === 'th') {
+                ttsUrl = `https://code.responsivevoice.org/getvoice.php?t=${encodedText}&tl=th&sv=&vn=&pitch=0.5&rate=0.5&vol=1`;
+            } else {
+                ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${langCode}&client=tw-ob&q=${encodedText}`;
+            }
+            
+            currentAudio = new Audio();
+            
+            currentAudio.oncanplaythrough = function() {
+                this.play().catch(err => {
+                    console.error('TTS play error:', err);
+                    fallbackToWebSpeech(text, langCode);
+                });
+            };
+            
+            currentAudio.onplay = function() {
+                isSpeaking = true;
+                updateSpeakingIndicator(true, LANG_DISPLAY_MAP[langCode] || 'Speaking');
+            };
+            
+            currentAudio.onended = function() {
+                isSpeaking = false;
+                updateSpeakingIndicator(false);
+                currentAudio = null;
+            };
+            
+            currentAudio.onerror = function(e) {
+                console.error('TTS error:', e);
+                fallbackToWebSpeech(text, langCode);
+            };
+            
+            currentAudio.src = ttsUrl;
+            currentAudio.load();
+        }
+
+        /**
+         * 🔇 Stop Speaking
+         */
+        function stopSpeaking() {
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+            
+            isSpeaking = false;
+            updateSpeakingIndicator(false);
+        }
+
+        /**
+         * 🎤 Fallback to Web Speech API
+         */
+        function fallbackToWebSpeech(text, langCode) {
+            if (!window.speechSynthesis) {
+                isSpeaking = false;
+                updateSpeakingIndicator(false);
+                console.warn('Speech synthesis not available');
+                return;
+            }
+            
+            window.speechSynthesis.cancel();
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = langCode === 'th' ? 'th-TH' : 
+                             langCode === 'zh' ? 'zh-CN' :
+                             langCode === 'ja' ? 'ja-JP' :
+                             langCode === 'ko' ? 'ko-KR' : 'en-US';
+            utterance.rate = 0.9;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+            
+            utterance.onstart = function() {
+                isSpeaking = true;
+            };
+            
+            utterance.onend = function() {
+                isSpeaking = false;
+                updateSpeakingIndicator(false);
+            };
+            
+            utterance.onerror = function(event) {
+                isSpeaking = false;
+                updateSpeakingIndicator(false);
+                console.error('Speech synthesis error:', event);
+            };
+            
+            window.speechSynthesis.speak(utterance);
+        }
+
+        /**
+         * 💬 Update Speaking Indicator
+         */
+        function updateSpeakingIndicator(speaking, language = 'Speaking') {
+            if (speaking) {
+                $('#speakingText').text(`Speaking in ${language}...`);
+                $('#speakingIndicator').addClass('active');
+            } else {
+                $('#speakingIndicator').removeClass('active');
+            }
+        }
 
         function showLoading() {
             $('#loading').addClass('active');
