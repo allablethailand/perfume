@@ -50,6 +50,7 @@ try {
     $subdistrict = $_POST['subdistrict'] ?? '';
     $district = $_POST['district'] ?? '';
     $province = $_POST['province'] ?? '';
+    $country = $_POST['country'] ?? 'Thailand';
     $postal_code = $_POST['postal_code'] ?? '';
     $is_default = isset($_POST['is_default']) ? 1 : 0;
 
@@ -76,25 +77,28 @@ try {
                     subdistrict = ?,
                     district = ?,
                     province = ?,
+                    country = ?,
                     postal_code = ?,
                     is_default = ?,
                     date_updated = NOW()
                     WHERE address_id = ? AND user_id = ?";
             
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("ssssssssiii", 
-                $address_label,
-                $recipient_name,
-                $recipient_phone,
-                $address_line1,
-                $address_line2,
-                $subdistrict,
-                $district,
-                $province,
-                $postal_code,
-                $is_default,
-                $address_id,
-                $user_id
+            // แก้ไข: เพิ่ม i อีก 1 ตัวสำหรับ user_id (iiii = 4 integers)
+            $stmt->bind_param("sssssssssiiii", 
+                $address_label,      // s
+                $recipient_name,     // s
+                $recipient_phone,    // s
+                $address_line1,      // s
+                $address_line2,      // s
+                $subdistrict,        // s
+                $district,           // s
+                $province,           // s
+                $country,            // s
+                $postal_code,        // s
+                $is_default,         // i
+                $address_id,         // i
+                $user_id             // i
             );
         } else {
             // Insert new address
@@ -108,24 +112,26 @@ try {
                     subdistrict,
                     district,
                     province,
+                    country,
                     postal_code,
                     is_default,
                     date_created
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
             
             $stmt = $conn->prepare($sql);
-            $stmt->bind_param("isssssssssi",
-                $user_id,
-                $address_label,
-                $recipient_name,
-                $recipient_phone,
-                $address_line1,
-                $address_line2,
-                $subdistrict,
-                $district,
-                $province,
-                $postal_code,
-                $is_default
+            $stmt->bind_param("issssssssssi",
+                $user_id,            // i
+                $address_label,      // s
+                $recipient_name,     // s
+                $recipient_phone,    // s
+                $address_line1,      // s
+                $address_line2,      // s
+                $subdistrict,        // s
+                $district,           // s
+                $province,           // s
+                $country,            // s
+                $postal_code,        // s
+                $is_default          // i
             );
         }
 
