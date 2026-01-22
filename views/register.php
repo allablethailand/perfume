@@ -326,10 +326,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt_role->close();
 
                 $conn->commit();
-                
-                // ส่ง OTP ตาม login_method ที่เลือก
-                require_once(__DIR__ . '/../../lib/send_mail.php');
 
+                // ส่ง OTP ตาม login_method ที่เลือก
+                require_once(__DIR__ . '/../lib/send_mail.php');
                 
                 if ($login_method == 'email') {
                     // ส่ง OTP ทางอีเมล
