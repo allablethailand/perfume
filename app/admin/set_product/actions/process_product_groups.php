@@ -39,87 +39,97 @@ try {
     // ========================================
         if ($action === 'getData_groups') {
 
-        $draw   = intval($_POST['draw'] ?? 1);
-        $start  = intval($_POST['start'] ?? 0);
-        $length = intval($_POST['length'] ?? 10);
-        $lang   = $_POST['lang'] ?? 'th';
-        $search = $conn->real_escape_string($_POST['search']['value'] ?? '');
+    $draw   = intval($_POST['draw'] ?? 1);
+    $start  = intval($_POST['start'] ?? 0);
+    $length = intval($_POST['length'] ?? 10);
+    $lang   = $_POST['lang'] ?? 'th';
+    $search = $conn->real_escape_string($_POST['search']['value'] ?? '');
 
-        $name_col = "name_" . $lang;
+    $name_col = "name_" . $lang;
 
-        $where = "pg.del = 0";
-        if ($search !== '') {
-            $where .= " AND (
-                pg.name_th LIKE '%$search%' OR
-                pg.name_en LIKE '%$search%' OR
-                pg.name_cn LIKE '%$search%' OR
-                pg.name_jp LIKE '%$search%' OR
-                pg.name_kr LIKE '%$search%'
-            )";
-        }
+    $where = "pg.del = 0";
+    if ($search !== '') {
+        $where .= " AND (
+            pg.name_th LIKE '%$search%' OR
+            pg.name_en LIKE '%$search%' OR
+            pg.name_cn LIKE '%$search%' OR
+            pg.name_jp LIKE '%$search%' OR
+            pg.name_kr LIKE '%$search%'
+        )";
+    }
 
-        // total
-        $total = $conn->query("SELECT COUNT(*) FROM product_groups WHERE del = 0")->fetch_row()[0];
+    // total
+    $total = $conn->query("SELECT COUNT(*) FROM product_groups WHERE del = 0")->fetch_row()[0];
 
-        // filtered
-        $filtered = $conn->query("
-            SELECT COUNT(DISTINCT pg.group_id)
-            FROM product_groups pg
-            WHERE $where
-        ")->fetch_row()[0];
+    // filtered
+    $filtered = $conn->query("
+        SELECT COUNT(DISTINCT pg.group_id)
+        FROM product_groups pg
+        WHERE $where
+    ")->fetch_row()[0];
 
-        // 🔥 FIX: NO pg.*
-        $sql = "
-            SELECT
-                pg.group_id,
-                pg.name_th,
-                pg.name_en,
-                pg.name_cn,
-                pg.name_jp,
-                pg.name_kr,
-                pg.price,
-                pg.status,
-                pg.created_at,
+    // ✅ แก้ไข SQL: เพิ่ม GROUP BY ให้ครบถ้วนตามมาตรฐาน only_full_group_by
+    $sql = "
+        SELECT
+            pg.group_id,
+            pg.name_th,
+            pg.name_en,
+            pg.name_cn,
+            pg.name_jp,
+            pg.name_kr,
+            pg.price,
+            pg.status,
+            pg.created_at,
 
-                pgi.api_path AS primary_image,
+            MAX(pgi.api_path) AS primary_image,
 
-                COUNT(DISTINCT pi.item_id) AS total_bottles,
-                SUM(pi.status = 'available') AS available_bottles,
-                SUM(pi.status = 'sold') AS sold_bottles,
-                SUM(pi.status = 'reserved') AS reserved_bottles
+            COUNT(DISTINCT pi.item_id) AS total_bottles,
+            SUM(CASE WHEN pi.status = 'available' AND pi.del = 0 THEN 1 ELSE 0 END) AS available_bottles,
+            SUM(CASE WHEN pi.status = 'sold' AND pi.del = 0 THEN 1 ELSE 0 END) AS sold_bottles,
+            SUM(CASE WHEN pi.status = 'reserved' AND pi.del = 0 THEN 1 ELSE 0 END) AS reserved_bottles
 
-            FROM product_groups pg
-            LEFT JOIN product_group_images pgi
-                ON pg.group_id = pgi.group_id
-               AND pgi.is_primary = 1
-               AND pgi.del = 0
-            LEFT JOIN product_items pi
-                ON pg.group_id = pi.group_id
-               AND pi.del = 0
-            WHERE $where
-            GROUP BY pg.group_id
-            ORDER BY pg.created_at DESC
-            LIMIT $start, $length
-        ";
+        FROM product_groups pg
+        LEFT JOIN product_group_images pgi
+            ON pg.group_id = pgi.group_id
+           AND pgi.is_primary = 1
+           AND pgi.del = 0
+        LEFT JOIN product_items pi
+            ON pg.group_id = pi.group_id
+           AND pi.del = 0
+        WHERE $where
+        GROUP BY 
+            pg.group_id, 
+            pg.name_th, 
+            pg.name_en, 
+            pg.name_cn, 
+            pg.name_jp, 
+            pg.name_kr, 
+            pg.price, 
+            pg.status, 
+            pg.created_at
+        ORDER BY pg.created_at DESC
+        LIMIT $start, $length
+    ";
 
-        $result = $conn->query($sql);
-        if (!$result) {
-            throw new Exception("SQL ERROR: " . $conn->error);
-        }
+    $result = $conn->query($sql);
+    if (!$result) {
+        throw new Exception("SQL ERROR: " . $conn->error);
+    }
 
-        $data = [];
-        while ($row = $result->fetch_assoc()) {
-            $row['name_display'] = $row[$name_col] ?? '-';
-            $data[] = $row;
-        }
+    $data = [];
+    while ($row = $result->fetch_assoc()) {
+        $row['name_display'] = $row[$name_col] ?? '-';
+        $data[] = $row;
+    }
 
-        echo json_encode([
-            'draw' => $draw,
-            'recordsTotal' => intval($total),
-            'recordsFiltered' => intval($filtered),
-            'data' => $data
-        ]);
-        exit;
+    echo json_encode([
+        'draw' => $draw,
+        'recordsTotal' => intval($total),
+        'recordsFiltered' => intval($filtered),
+        'data' => $data
+    ]);
+    exit;
+
     
         
     // ========================================
