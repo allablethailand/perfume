@@ -1115,6 +1115,7 @@ $languages = [
 @media (max-width: 480px) {
     .logo img {
         height: 40px;
+        width: auto;
     }
 
     .action-btn {
@@ -1181,6 +1182,7 @@ $languages = [
     /* ปรับขนาด logo ให้เล็กลง */
     .logo img {
         height: 35px;
+        width: auto;
     }
 
     /* ลด padding ของ header */
@@ -1222,6 +1224,7 @@ $languages = [
 
     .logo img {
         height: 32px;
+        width: auto;
     }
 
     .header-content {
