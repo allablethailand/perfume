@@ -19,18 +19,18 @@ if (isset($_GET['lang'])) {
 
 $texts = [
     'page_title' => [
-        'th' => 'เพิ่มสินค้า',
-        'en' => 'Add Product',
-        'cn' => '添加产品',
-        'jp' => '商品を追加',
-        'kr' => '상품 추가'
+        'th' => 'เพิ่มกลิ่นใหม่',
+        'en' => 'Add New Scent',
+        'cn' => '添加新香味',
+        'jp' => '新しい香りを追加',
+        'kr' => '새 향 추가'
     ],
-    'product_name' => [
-        'th' => 'ชื่อสินค้า',
-        'en' => 'Product Name',
-        'cn' => '产品名称',
-        'jp' => '商品名',
-        'kr' => '상품명'
+    'scent_name' => [
+        'th' => 'ชื่อกลิ่น',
+        'en' => 'Scent Name',
+        'cn' => '香味名称',
+        'jp' => '香り名',
+        'kr' => '향 이름'
     ],
     'description' => [
         'th' => 'รายละเอียด',
@@ -46,19 +46,19 @@ $texts = [
         'jp' => '価格',
         'kr' => '가격'
     ],
-    'vat' => [
-        'th' => 'VAT',
-        'en' => 'VAT',
-        'cn' => '增值税',
-        'jp' => 'VAT',
-        'kr' => '부가세'
+    'quantity' => [
+        'th' => 'จำนวนขวดที่ต้องการสร้าง',
+        'en' => 'Number of Bottles to Create',
+        'cn' => '要创建的瓶数',
+        'jp' => '作成するボトル数',
+        'kr' => '생성할 병 수'
     ],
-    'stock' => [
-        'th' => 'จำนวนสต็อก',
-        'en' => 'Stock Quantity',
-        'cn' => '库存数量',
-        'jp' => '在庫数',
-        'kr' => '재고 수량'
+    'serial_prefix' => [
+        'th' => 'Prefix รหัสขวด',
+        'en' => 'Serial Number Prefix',
+        'cn' => '序列号前缀',
+        'jp' => 'シリアル番号プレフィックス',
+        'kr' => '일련번호 접두사'
     ],
     'images' => [
         'th' => 'รูปภาพสินค้า',
@@ -68,11 +68,11 @@ $texts = [
         'kr' => '상품 이미지'
     ],
     'add_button' => [
-        'th' => 'เพิ่มสินค้า',
-        'en' => 'Add Product',
-        'cn' => '添加产品',
-        'jp' => '商品を追加',
-        'kr' => '상품 추가'
+        'th' => 'สร้างกลิ่นและขวด',
+        'en' => 'Create Scent & Bottles',
+        'cn' => '创建香味和瓶子',
+        'jp' => '香りとボトルを作成',
+        'kr' => '향과 병 생성'
     ],
     'back_button' => [
         'th' => 'กลับ',
@@ -81,40 +81,12 @@ $texts = [
         'jp' => '戻る',
         'kr' => '뒤로'
     ],
-    'status' => [
-        'th' => 'สถานะ',
-        'en' => 'Status',
-        'cn' => '状态',
-        'jp' => 'ステータス',
-        'kr' => '상태'
-    ],
-    'active' => [
-        'th' => 'เปิดใช้งาน',
-        'en' => 'Active',
-        'cn' => '启用',
-        'jp' => 'アクティブ',
-        'kr' => '활성'
-    ],
-    'inactive' => [
-        'th' => 'ปิดใช้งาน',
-        'en' => 'Inactive',
-        'cn' => '停用',
-        'jp' => '非アクティブ',
-        'kr' => '비활성'
-    ],
-    'upload_text' => [
-        'th' => 'คลิกหรือลากรูปมาวางที่นี่',
-        'en' => 'Click or drag images here',
-        'cn' => '点击或拖动图片到这里',
-        'jp' => 'クリックまたはドラッグ',
-        'kr' => '클릭하거나 드래그'
-    ],
-    'upload_hint' => [
-        'th' => 'รูปแรกจะเป็นรูปหลัก | เลือกได้หลายรูป | ไฟล์ละไม่เกิน 2MB',
-        'en' => 'First image will be primary | Multiple files | Max 2MB each',
-        'cn' => '第一张图片为主图 | 支持多选 | 每个最大2MB',
-        'jp' => '最初の画像がメイン | 複数選択可 | 最大2MB',
-        'kr' => '첫 이미지가 기본 | 다중 선택 | 최대 2MB'
+    'vat' => [
+        'th' => 'VAT',
+        'en' => 'VAT',
+        'cn' => '增值税',
+        'jp' => 'VAT',
+        'kr' => '부가세'
     ],
     'language' => [
         'th' => [
@@ -195,13 +167,13 @@ function getTextByLang($key) {
                         <i class="fas fa-plus-circle"></i>
                         <?= getTextByLang('page_title') ?>
                     </h4>
-                    <button type='button' id='backToProductList' class='btn btn-secondary'>
+                    <button type='button' id='backToList' class='btn btn-secondary'>
                         <i class='fas fa-arrow-left'></i>
                         <?= getTextByLang('back_button') ?>
                     </button>
                 </div>
 
-                <form id="formProduct" enctype="multipart/form-data">
+                <form id="formProductGroup" enctype="multipart/form-data">
                     <div class="row">
                         
                         <div class="col-lg-5">
@@ -213,16 +185,15 @@ function getTextByLang($key) {
                                         <?= getTextByLang('images') ?>
                                     </label>
                                     
-                                    <div class="image-upload-zone" onclick="document.getElementById('productImages').click()">
+                                    <div class="image-upload-zone" onclick="document.getElementById('groupImages').click()">
                                         <div class="upload-icon-wrapper">
                                             <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                                            <div class="upload-text"><?= getTextByLang('upload_text') ?></div>
-                                            <div class="upload-hint"><?= getTextByLang('upload_hint') ?></div>
+                                            <div class="upload-text">คลิกหรือลากรูปมาวางที่นี่</div>
+                                            <div class="upload-hint">รูปแรกจะเป็นรูปหลัก | เลือกได้หลายรูป</div>
                                         </div>
                                     </div>
                                     
-                                    <input type="file" id="productImages" name="product_images[]" multiple accept="image/*">
-                                    
+                                    <input type="file" id="groupImages" name="group_images[]" multiple accept="image/*">
                                     <div id="imagePreviewContainer" class="image-preview-container"></div>
                                 </div>
 
@@ -250,25 +221,23 @@ function getTextByLang($key) {
                                 <div class="form-section-compact">
                                     <label>
                                         <i class="fas fa-boxes"></i>
-                                        <?= getTextByLang('stock') ?>
+                                        <?= getTextByLang('quantity') ?>
                                     </label>
-                                    <input type="number" class="form-control form-control-compact" id="stock_quantity" name="stock_quantity" min="0" value="0" required>
-                                    <small class="text-muted">จำนวนสินค้าที่มีในสต็อกขณะนี้</small>
+                                    <input type="number" class="form-control form-control-compact" id="bottle_quantity" name="bottle_quantity" min="1" value="100" required>
+                                    <small class="text-muted">ระบบจะสร้างขวดให้ตามจำนวนนี้พร้อมรหัสเฉพาะ</small>
                                 </div>
 
                                 <div class="form-section-compact">
                                     <label>
-                                        <i class="fas fa-toggle-on"></i>
-                                        <?= getTextByLang('status') ?>
+                                        <i class="fas fa-barcode"></i>
+                                        <?= getTextByLang('serial_prefix') ?>
                                     </label>
-                                    <select class="form-control form-control-compact" id="status" name="status" required>
-                                        <option value="1"><?= getTextByLang('active') ?></option>
-                                        <option value="0"><?= getTextByLang('inactive') ?></option>
-                                    </select>
+                                    <input type="text" class="form-control form-control-compact" id="serial_prefix" name="serial_prefix" maxlength="10" placeholder="เช่น ROSE, LAVEN" required>
+                                    <small class="text-muted">รูปแบบ: ROSE-001, ROSE-002, ...</small>
                                 </div>
 
                                 <div class="form-section" style="margin-top: 25px;">
-                                    <button type="button" id="submitAddProduct" class="btn btn-primary w-100">
+                                    <button type="button" id="submitAddGroup" class="btn btn-primary w-100">
                                         <i class="fas fa-plus"></i>
                                         <?= getTextByLang('add_button') ?>
                                     </button>
@@ -321,7 +290,7 @@ function getTextByLang($key) {
                                             
                                             <div class="tab-pane fade show active" id="th">
                                                 <div class="form-section-compact">
-                                                    <label><?= getTextByLang('product_name') ?> (TH) *</label>
+                                                    <label><?= getTextByLang('scent_name') ?> (TH) *</label>
                                                     <input type="text" class="form-control" id="name_th" name="name_th" required>
                                                 </div>
                                                 <div class="form-section-compact">
@@ -332,7 +301,7 @@ function getTextByLang($key) {
 
                                             <div class="tab-pane fade" id="en">
                                                 <div class="form-section-compact">
-                                                    <label><?= getTextByLang('product_name') ?> (EN)</label>
+                                                    <label><?= getTextByLang('scent_name') ?> (EN)</label>
                                                     <input type="text" class="form-control" id="name_en" name="name_en">
                                                 </div>
                                                 <div class="form-section-compact">
@@ -343,7 +312,7 @@ function getTextByLang($key) {
 
                                             <div class="tab-pane fade" id="cn">
                                                 <div class="form-section-compact">
-                                                    <label><?= getTextByLang('product_name') ?> (CN)</label>
+                                                    <label><?= getTextByLang('scent_name') ?> (CN)</label>
                                                     <input type="text" class="form-control" id="name_cn" name="name_cn">
                                                 </div>
                                                 <div class="form-section-compact">
@@ -354,7 +323,7 @@ function getTextByLang($key) {
 
                                             <div class="tab-pane fade" id="jp">
                                                 <div class="form-section-compact">
-                                                    <label><?= getTextByLang('product_name') ?> (JP)</label>
+                                                    <label><?= getTextByLang('scent_name') ?> (JP)</label>
                                                     <input type="text" class="form-control" id="name_jp" name="name_jp">
                                                 </div>
                                                 <div class="form-section-compact">
@@ -365,7 +334,7 @@ function getTextByLang($key) {
 
                                             <div class="tab-pane fade" id="kr">
                                                 <div class="form-section-compact">
-                                                    <label><?= getTextByLang('product_name') ?> (KR)</label>
+                                                    <label><?= getTextByLang('scent_name') ?> (KR)</label>
                                                     <input type="text" class="form-control" id="name_kr" name="name_kr">
                                                 </div>
                                                 <div class="form-section-compact">
@@ -393,6 +362,6 @@ function getTextByLang($key) {
     </div>
 
     <script src='../js/index_.js?v=<?php echo time(); ?>'></script>
-    <script src='js/products.js?v=<?php echo time(); ?>'></script>
+    <script src='js/product_groups.js?v=<?php echo time(); ?>'></script>
 </body>
 </html>

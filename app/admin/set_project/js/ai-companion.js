@@ -70,9 +70,9 @@ $(document).ready(function() {
                     },
                     {
                         "target": 4,
-                        data: "product_name_th",
-                        render: function(data, type, row) {
-                            return data || row.product_name_en || "-";
+                        data: "serial_number",
+                        render: function(data) {
+                            return data ? `<code style="background: #e3f2fd; padding: 4px 8px; border-radius: 4px; font-size: 13px; color: #1976d2;">${data}</code>` : "-";
                         }
                     },
                     {
@@ -301,8 +301,8 @@ $(document).ready(function() {
     $('#submitAddAI').on('click', function(e) {
         e.preventDefault();
         
-        if (!$('#product_id').val()) {
-            alertError('Please select a product');
+        if (!$('#item_id').val()) {
+            alertError('Please select a bottle');
             return;
         }
         
@@ -520,8 +520,8 @@ $(document).ready(function() {
     $('#submitEditAI').on('click', function(e) {
         e.preventDefault();
         
-        if (!$('#product_id').val()) {
-            alertError('Please select a product');
+        if (!$('#item_id').val()) {
+            alertError('Please select a bottle');
             return;
         }
         

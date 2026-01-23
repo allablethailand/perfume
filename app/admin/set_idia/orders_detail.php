@@ -36,12 +36,29 @@ $stmt->close();
 // ดึงรายการสินค้า
 $stmt_items = $conn->prepare("SELECT 
                               oi.*, 
-                              p.name_th, p.name_en, p.stock_quantity,
-                              pi.api_path as product_image
+                              COALESCE(pg.name_th, p.name_th) as name_th,
+                              COALESCE(pg.name_en, p.name_en) as name_en,
+                              pi_item.serial_number,
+                              CASE 
+                                  WHEN pi_item.group_id IS NOT NULL THEN 'item'
+                                  ELSE 'product'
+                              END as product_type,
+                              COALESCE(
+                                  (SELECT pgi.api_path 
+                                   FROM product_group_images pgi
+                                   WHERE pgi.group_id = pi_item.group_id 
+                                   AND pgi.is_primary = 1 AND pgi.del = 0
+                                   LIMIT 1),
+                                  (SELECT pi_img.api_path 
+                                   FROM product_images pi_img
+                                   WHERE pi_img.product_id = oi.product_id 
+                                   AND pi_img.is_primary = 1 AND pi_img.del = 0
+                                   LIMIT 1)
+                              ) as product_image
                               FROM order_items oi
-                              LEFT JOIN products p ON oi.product_id = p.product_id
-                              LEFT JOIN product_images pi ON p.product_id = pi.product_id 
-                                  AND pi.is_primary = 1 AND pi.del = 0
+                              LEFT JOIN product_items pi_item ON oi.product_id = pi_item.item_id
+                              LEFT JOIN product_groups pg ON pi_item.group_id = pg.group_id AND pg.del = 0
+                              LEFT JOIN products p ON oi.product_id = p.product_id AND p.del = 0
                               WHERE oi.order_id = ?
                               ORDER BY oi.order_item_id");
 $stmt_items->bind_param("i", $order_id);
@@ -477,14 +494,14 @@ if ($order['address_id']) {
                         </div>
                         <div class="status-card" style="background: #f0fdf4; border: 2px solid #d1fae5;">
                             <div class="status-card-title">สถานะการชำระเงิน</div>
-                            <?php
-                            $payment_badges = [
-                                'pending' => '<span class="badge" style="background: #ffd93d; color: #333;">⏳ Pending</span>',
-                                'paid' => '<span class="badge" style="background: #6dd5b1; color: white;">✓ Paid</span>',
-                                'failed' => '<span class="badge" style="background: #f56565; color: white;">✗ Failed</span>',
-                                'refunded' => '<span class="badge" style="background: #6bcfff; color: white;">↩ Refunded</span>'
-                            ];
-                            echo $payment_badges[$order['payment_status']] ?? '<span class="badge" style="background: #cbd5e0;">? Unknown</span>';
+                            <?php                   
+                                $payment_badges = [
+                                    'pending' => '<span class="badge" style="background: #ffd93d; color: #333;">⏳ Pending</span>',
+                                    'paid' => '<span class="badge" style="background: #6dd5b1; color: white;">✓ Paid</span>',
+                                    'failed' => '<span class="badge" style="background: #f56565; color: white;">✗ Failed</span>',
+                                    'refunded' => '<span class="badge" style="background: #6bcfff; color: white;">↩ Refunded</span>'
+                                ];
+                                echo $payment_badges[$order['payment_status']] ?? '<span class="badge" style="background: #cbd5e0;">? Unknown</span>';
                             ?>
                         </div>
                     </div>

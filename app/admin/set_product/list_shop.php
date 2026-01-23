@@ -17,67 +17,60 @@ if (isset($_GET['lang'])) {
 
 $texts = [
     'page_title' => [
-        'th' => 'รายการสินค้า',
-        'en' => 'Product List',
-        'cn' => '产品列表',
-        'jp' => '商品リスト',
-        'kr' => '상품 목록'
+        'th' => 'จัดการกลุ่มสินค้า (กลิ่น)',
+        'en' => 'Manage Product Groups (Scents)',
+        'cn' => '管理产品组（香味）',
+        'jp' => '商品グループ管理（香り）',
+        'kr' => '상품 그룹 관리 (향)'
     ],
-    'add_product' => [
-        'th' => 'เพิ่มสินค้า',
-        'en' => 'Add Product',
-        'cn' => '添加产品',
-        'jp' => '商品を追加',
-        'kr' => '상품 추가'
+    'add_group' => [
+        'th' => 'เพิ่มกลิ่นใหม่',
+        'en' => 'Add New Scent',
+        'cn' => '添加新香味',
+        'jp' => '新しい香りを追加',
+        'kr' => '새 향 추가'
     ],
-    'product_name' => [
-        'th' => 'ชื่อสินค้า',
-        'en' => 'Product Name',
-        'cn' => '产品名称',
-        'jp' => '商品名',
-        'kr' => '상품명'
+    'scent_name' => [
+        'th' => 'ชื่อกลิ่น',
+        'en' => 'Scent Name',
+        'cn' => '香味名称',
+        'jp' => '香り名',
+        'kr' => '향 이름'
     ],
     'price' => [
-        'th' => 'ราคา (ไม่รวม VAT)',
-        'en' => 'Price (Excl. VAT)',
-        'cn' => '价格（不含税）',
-        'jp' => '価格（税抜）',
-        'kr' => '가격 (부가세 제외)'
+        'th' => 'ราคา/ขวด',
+        'en' => 'Price/Bottle',
+        'cn' => '价格/瓶',
+        'jp' => '価格/本',
+        'kr' => '가격/병'
     ],
-    'price_with_vat' => [
-        'th' => 'ราคา (รวม VAT)',
-        'en' => 'Price (Incl. VAT)',
-        'cn' => '价格（含税）',
-        'jp' => '価格（税込）',
-        'kr' => '가격 (부가세 포함)'
+    'total_bottles' => [
+        'th' => 'จำนวนขวดทั้งหมด',
+        'en' => 'Total Bottles',
+        'cn' => '总瓶数',
+        'jp' => '合計本数',
+        'kr' => '전체 병 수'
     ],
-    'stock' => [
-        'th' => 'สต็อก',
-        'en' => 'Stock',
-        'cn' => '库存',
+    'available' => [
+        'th' => 'พร้อมขาย',
+        'en' => 'Available',
+        'cn' => '可售',
         'jp' => '在庫',
-        'kr' => '재고'
+        'kr' => '판매 가능'
     ],
-    'status' => [
-        'th' => 'สถานะ',
-        'en' => 'Status',
-        'cn' => '状态',
-        'jp' => 'ステータス',
-        'kr' => '상태'
+    'sold' => [
+        'th' => 'ขายแล้ว',
+        'en' => 'Sold',
+        'cn' => '已售',
+        'jp' => '販売済',
+        'kr' => '판매됨'
     ],
-    'created_date' => [
-        'th' => 'วันที่สร้าง',
-        'en' => 'Created Date',
-        'cn' => '创建日期',
-        'jp' => '作成日',
-        'kr' => '생성일'
-    ],
-    'management' => [
-        'th' => 'จัดการ',
-        'en' => 'Management',
-        'cn' => '管理',
-        'jp' => '管理',
-        'kr' => '관리'
+    'manage_bottles' => [
+        'th' => 'จัดการขวด',
+        'en' => 'Manage Bottles',
+        'cn' => '管理瓶子',
+        'jp' => 'ボトル管理',
+        'kr' => '병 관리'
     ]
 ];
 
@@ -101,13 +94,9 @@ function getTextByLang($key) {
     <script src="../../../inc/bootstrap/js/bootstrap.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/fontawesome5-fullcss@1.1.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600&family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
     <link href="../../../inc/sweetalert2/css/sweetalert2.min.css" rel="stylesheet">
     <script src="../../../inc/sweetalert2/js/sweetalert2.all.min.js"></script>
-    <link href="../../../inc/select2/css/select2.min.css" rel="stylesheet">
-    <script src="../../../inc/select2/js/select2.min.js"></script>
     <link href="https://cdn.datatables.net/v/dt/dt-2.1.4/datatables.min.css" rel="stylesheet">
     <script src="https://cdn.datatables.net/v/dt/dt-2.1.4/datatables.min.js"></script>
     <link href='../css/index_.css?v=<?php echo time(); ?>' rel='stylesheet'>
@@ -120,53 +109,32 @@ function getTextByLang($key) {
             border-radius: 50%;
             font-size: 14px;
         }
-        .btn-edit {
-            background-color: #FFC107;
-            color: #ffffff;
-        }
-        .btn-del {
-            background-color: #ff4537;
-            color: #ffffff;
-        }
+        .btn-edit { background-color: #FFC107; color: #ffffff; }
+        .btn-del { background-color: #ff4537; color: #ffffff; }
+        .btn-bottles { background-color: #17a2b8; color: #ffffff; }
+        
         .product-image {
             width: 50px;
             height: 50px;
             object-fit: cover;
             border-radius: 4px;
         }
-        .badge-active {
-            background-color: #28a745;
+        
+        .stock-info {
+            font-size: 12px;
+            display: flex;
+            gap: 10px;
         }
-        .badge-inactive {
-            background-color: #dc3545;
-        }
-        .badge-stock {
-            font-size: 13px;
-            padding: 5px 10px;
-            border-radius: 4px;
+        
+        .stock-badge {
+            padding: 3px 8px;
+            border-radius: 3px;
             font-weight: 600;
         }
-        .badge-stock-high {
-            background-color: #28a745;
-            color: white;
-        }
-        .badge-stock-medium {
-            background-color: #ffc107;
-            color: #212529;
-        }
-        .badge-stock-low {
-            background-color: #fd7e14;
-            color: white;
-        }
-        .badge-stock-out {
-            background-color: #dc3545;
-            color: white;
-        }
-        .box-content img {
-            width: 4em;
-            height: auto;
-            border-radius: 8px;
-        }
+        
+        .stock-available { background-color: #28a745; color: white; }
+        .stock-sold { background-color: #6c757d; color: white; }
+        .stock-reserved { background-color: #ffc107; color: #212529; }
     </style>
 </head>
 
@@ -181,28 +149,29 @@ function getTextByLang($key) {
                         <div style="margin: 10px;">
                             <div style="display: flex; justify-content: space-between; align-items: center;">
                                 <h4 class="line-ref mb-3"> 
-                                    <i class="fas fa-box"></i>   
+                                    <i class="fas fa-layer-group"></i>   
                                     <?= getTextByLang('page_title') ?>
                                 </h4>
                                 <div>
-                                    <a type="button" class="btn btn-primary" href="<?php echo $base_path_admin.'set_product/add_product.php'?>">
+                                    <a type="button" class="btn btn-primary" href="<?php echo $base_path_admin.'set_product/add_product_group.php'?>">
                                         <i class="fa-solid fa-plus"></i>
-                                        <?= getTextByLang('add_product') ?>
+                                        <?= getTextByLang('add_group') ?>
                                     </a>
                                 </div>
                             </div>
-                            <table id="td_list_products" class="table table-hover" style="width:100%;">
+                            
+                            <table id="td_list_product_groups" class="table table-hover" style="width:100%;">
                                 <thead>
                                     <tr>
                                         <th>#</th>
                                         <th>Image</th>
-                                        <th><?= getTextByLang('product_name') ?></th>
+                                        <th><?= getTextByLang('scent_name') ?></th>
                                         <th><?= getTextByLang('price') ?></th>
-                                        <th><?= getTextByLang('price_with_vat') ?></th>
-                                        <th><?= getTextByLang('stock') ?></th>
-                                        <th><?= getTextByLang('status') ?></th>
-                                        <th><?= getTextByLang('created_date') ?></th>
-                                        <th><?= getTextByLang('management') ?></th>
+                                        <th><?= getTextByLang('total_bottles') ?></th>
+                                        <th><?= getTextByLang('available') ?></th>
+                                        <th><?= getTextByLang('sold') ?></th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -216,6 +185,6 @@ function getTextByLang($key) {
     </div>
     
     <script src='../js/index_.js?v=<?php echo time(); ?>'></script>
-    <script src='js/products.js?v=<?php echo time(); ?>'></script>
+    <script src='js/product_groups.js?v=<?php echo time(); ?>'></script>
 </body>
 </html>

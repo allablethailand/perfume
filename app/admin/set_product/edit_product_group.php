@@ -1,7 +1,6 @@
 <?php
-include '../../../lib/connect.php';
-include '../../../lib/base_directory.php';
 include '../check_permission.php';
+require_once('../../../lib/connect.php');
 global $conn;
 
 $lang = 'th';
@@ -18,28 +17,30 @@ if (isset($_GET['lang'])) {
     }
 }
 
-if (!isset($_POST['product_id']) && !isset($_GET['product_id'])) {
-    echo "<script>alert('Product ID is missing'); window.location.href='list_products.php';</script>";
+if (!isset($_POST['group_id']) && !isset($_GET['group_id'])) {
+    echo "<script>alert('Group ID is missing'); window.location.href='list_shop.php';</script>";
     exit;
 }
 
-$product_id = $_POST['product_id'] ?? $_GET['product_id'];
+$group_id = $_POST['group_id'] ?? $_GET['group_id'];
 
-$stmt = $conn->prepare("SELECT * FROM products WHERE product_id = ? AND del = 0");
-$stmt->bind_param("i", $product_id);
+// ดึงข้อมูลกลุ่มสินค้า
+$stmt = $conn->prepare("SELECT * FROM product_groups WHERE group_id = ? AND del = 0");
+$stmt->bind_param("i", $group_id);
 $stmt->execute();
 $result = $stmt->get_result();
 
 if ($result->num_rows === 0) {
-    echo "<script>alert('Product not found'); window.location.href='list_products.php';</script>";
+    echo "<script>alert('Product group not found'); window.location.href='list_shop.php';</script>";
     exit;
 }
 
-$product = $result->fetch_assoc();
+$group = $result->fetch_assoc();
 $stmt->close();
 
-$stmt_images = $conn->prepare("SELECT * FROM product_images WHERE product_id = ? AND del = 0 ORDER BY is_primary DESC, display_order ASC");
-$stmt_images->bind_param("i", $product_id);
+// ดึงรูปภาพ
+$stmt_images = $conn->prepare("SELECT * FROM product_group_images WHERE group_id = ? AND del = 0 ORDER BY is_primary DESC, display_order ASC");
+$stmt_images->bind_param("i", $group_id);
 $stmt_images->execute();
 $result_images = $stmt_images->get_result();
 $images = [];
@@ -48,20 +49,33 @@ while ($row = $result_images->fetch_assoc()) {
 }
 $stmt_images->close();
 
+// นับจำนวนขวด
+$stmt_count = $conn->prepare("SELECT 
+    COUNT(*) as total,
+    SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available,
+    SUM(CASE WHEN status = 'reserved' THEN 1 ELSE 0 END) as reserved,
+    SUM(CASE WHEN status = 'sold' THEN 1 ELSE 0 END) as sold
+    FROM product_items 
+    WHERE group_id = ? AND del = 0");
+$stmt_count->bind_param("i", $group_id);
+$stmt_count->execute();
+$bottle_stats = $stmt_count->get_result()->fetch_assoc();
+$stmt_count->close();
+
 $texts = [
     'page_title' => [
-        'th' => 'แก้ไขสินค้า',
-        'en' => 'Edit Product',
-        'cn' => '编辑产品',
-        'jp' => '商品を編集',
-        'kr' => '상품 수정'
+        'th' => 'แก้ไขกลิ่น',
+        'en' => 'Edit Scent',
+        'cn' => '编辑香味',
+        'jp' => '香りを編集',
+        'kr' => '향 수정'
     ],
-    'product_name' => [
-        'th' => 'ชื่อสินค้า',
-        'en' => 'Product Name',
-        'cn' => '产品名称',
-        'jp' => '商品名',
-        'kr' => '상품명'
+    'scent_name' => [
+        'th' => 'ชื่อกลิ่น',
+        'en' => 'Scent Name',
+        'cn' => '香味名称',
+        'jp' => '香り名',
+        'kr' => '향 이름'
     ],
     'description' => [
         'th' => 'รายละเอียด',
@@ -83,13 +97,6 @@ $texts = [
         'cn' => '增值税',
         'jp' => 'VAT',
         'kr' => '부가세'
-    ],
-    'stock' => [
-        'th' => 'จำนวนสต็อก',
-        'en' => 'Stock Quantity',
-        'cn' => '库存数量',
-        'jp' => '在庫数',
-        'kr' => '재고 수량'
     ],
     'images' => [
         'th' => 'รูปภาพสินค้า',
@@ -133,20 +140,6 @@ $texts = [
         'jp' => '非アクティブ',
         'kr' => '비활성'
     ],
-    'upload_text' => [
-        'th' => 'เพิ่มรูปใหม่',
-        'en' => 'Add More Images',
-        'cn' => '添加更多图片',
-        'jp' => '画像を追加',
-        'kr' => '이미지 추가'
-    ],
-    'upload_hint' => [
-        'th' => 'ลากเรียงลำดับรูป | รูปแรกเป็นรูปหลัก | เพิ่มรูปใหม่ได้',
-        'en' => 'Drag to reorder | First is primary | Add more anytime',
-        'cn' => '拖动排序 | 第一张为主图 | 可添加更多',
-        'jp' => 'ドラッグで並べ替え | 最初がメイン | 追加可能',
-        'kr' => '드래그하여 정렬 | 첫 번째가 기본 | 추가 가능'
-    ],
     'language' => [
         'th' => [
             'th' => 'ไทย',
@@ -162,9 +155,8 @@ $texts = [
             'jp' => 'Japanese',
             'kr' => 'Korean'
         ],
-        // เพิ่มส่วนที่ขาดหายไปตรงนี้:
         'cn' => [
-            'th' => '泰国',
+            'th' => '泰语',
             'en' => '英语',
             'cn' => '中文',
             'jp' => '日语',
@@ -227,14 +219,36 @@ function getTextByLang($key) {
                         <i class="fas fa-edit"></i>
                         <?= getTextByLang('page_title') ?>
                     </h4>
-                    <button type='button' id='backToProductList' class='btn btn-secondary'>
+                    <button type='button' id='backToList' class='btn btn-secondary'>
                         <i class='fas fa-arrow-left'></i>
                         <?= getTextByLang('back_button') ?>
                     </button>
                 </div>
 
-                <form id="formProductEdit" enctype="multipart/form-data">
-                    <input type="hidden" id="product_id" name="product_id" value="<?= htmlspecialchars($product['product_id']) ?>">
+                <!-- Bottle Statistics -->
+                <div class="alert alert-info mb-4">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <h5 class="mb-0"><?= $bottle_stats['total'] ?></h5>
+                            <small>ทั้งหมด</small>
+                        </div>
+                        <div class="col-md-3">
+                            <h5 class="mb-0 text-success"><?= $bottle_stats['available'] ?></h5>
+                            <small>พร้อมขาย</small>
+                        </div>
+                        <div class="col-md-3">
+                            <h5 class="mb-0 text-warning"><?= $bottle_stats['reserved'] ?></h5>
+                            <small>จองแล้ว</small>
+                        </div>
+                        <div class="col-md-3">
+                            <h5 class="mb-0 text-secondary"><?= $bottle_stats['sold'] ?></h5>
+                            <small>ขายแล้ว</small>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="formGroupEdit" enctype="multipart/form-data">
+                    <input type="hidden" id="group_id" name="group_id" value="<?= htmlspecialchars($group['group_id']) ?>">
                     <input type="hidden" id="existing_images" name="existing_images" value="">
                     
                     <div class="row">
@@ -246,7 +260,7 @@ function getTextByLang($key) {
                                     <label>
                                         <i class="fas fa-images"></i>
                                         <?= getTextByLang('images') ?>
-                                        <small><?= getTextByLang('upload_hint') ?></small>
+                                        <small>ลากเรียงลำดับรูป | รูปแรกเป็นรูปหลัก | เพิ่มรูปใหม่ได้</small>
                                     </label>
                                     
                                     <div id="imagePreviewContainer" class="image-preview-container">
@@ -262,14 +276,14 @@ function getTextByLang($key) {
                                         <?php endforeach; ?>
                                     </div>
                                     
-                                    <div class="image-upload-zone" onclick="document.getElementById('productImages').click()" style="margin-top: 20px; padding: 25px 20px;">
+                                    <div class="image-upload-zone" onclick="document.getElementById('groupImages').click()" style="margin-top: 20px; padding: 25px 20px;">
                                         <div class="upload-icon-wrapper">
                                             <i class="fas fa-plus-circle upload-icon" style="font-size: 40px;"></i>
-                                            <div class="upload-text" style="font-size: 15px;"><?= getTextByLang('upload_text') ?></div>
+                                            <div class="upload-text" style="font-size: 15px;">เพิ่มรูปใหม่</div>
                                         </div>
                                     </div>
                                     
-                                    <input type="file" id="productImages" name="product_images[]" multiple accept="image/*">
+                                    <input type="file" id="groupImages" name="group_images[]" multiple accept="image/*">
                                 </div>
 
                                 <div class="row">
@@ -279,7 +293,7 @@ function getTextByLang($key) {
                                                 <i class="fas fa-tag"></i>
                                                 <?= getTextByLang('price') ?> (฿)
                                             </label>
-                                            <input type="number" class="form-control form-control-compact" id="price" name="price" step="0.01" min="0" value="<?= htmlspecialchars($product['price']) ?>" required>
+                                            <input type="number" class="form-control form-control-compact" id="price" name="price" step="0.01" min="0" value="<?= htmlspecialchars($group['price']) ?>" required>
                                         </div>
                                     </div>
                                     <div class="col-md-6">
@@ -288,18 +302,9 @@ function getTextByLang($key) {
                                                 <i class="fas fa-percent"></i>
                                                 <?= getTextByLang('vat') ?> (%)
                                             </label>
-                                            <input type="number" class="form-control form-control-compact" id="vat_percentage" name="vat_percentage" step="0.01" min="0" max="100" value="<?= htmlspecialchars($product['vat_percentage']) ?>" required>
+                                            <input type="number" class="form-control form-control-compact" id="vat_percentage" name="vat_percentage" step="0.01" min="0" max="100" value="<?= htmlspecialchars($group['vat_percentage']) ?>" required>
                                         </div>
                                     </div>
-                                </div>
-
-                                <div class="form-section-compact">
-                                    <label>
-                                        <i class="fas fa-boxes"></i>
-                                        <?= getTextByLang('stock') ?>
-                                    </label>
-                                    <input type="number" class="form-control form-control-compact" id="stock_quantity" name="stock_quantity" min="0" value="<?= htmlspecialchars($product['stock_quantity']) ?>" required>
-                                    <small class="text-muted">จำนวนสินค้าที่มีในสต็อกขณะนี้</small>
                                 </div>
 
                                 <div class="form-section-compact">
@@ -308,13 +313,13 @@ function getTextByLang($key) {
                                         <?= getTextByLang('status') ?>
                                     </label>
                                     <select class="form-control form-control-compact" id="status" name="status" required>
-                                        <option value="1" <?= $product['status'] == 1 ? 'selected' : '' ?>><?= getTextByLang('active') ?></option>
-                                        <option value="0" <?= $product['status'] == 0 ? 'selected' : '' ?>><?= getTextByLang('inactive') ?></option>
+                                        <option value="1" <?= $group['status'] == 1 ? 'selected' : '' ?>><?= getTextByLang('active') ?></option>
+                                        <option value="0" <?= $group['status'] == 0 ? 'selected' : '' ?>><?= getTextByLang('inactive') ?></option>
                                     </select>
                                 </div>
 
                                 <div class="form-section" style="margin-top: 25px;">
-                                    <button type="button" id="submitEditProduct" class="btn btn-success w-100">
+                                    <button type="button" id="submitEditGroup" class="btn btn-success w-100">
                                         <i class="fas fa-save"></i>
                                         <?= getTextByLang('save_button') ?>
                                     </button>
@@ -367,56 +372,56 @@ function getTextByLang($key) {
                                             
                                             <div class="tab-pane fade show active" id="th">
                                                 <div class="form-section-compact">
-                                                    <label><?= getTextByLang('product_name') ?> (TH) *</label>
-                                                    <input type="text" class="form-control" id="name_th" name="name_th" value="<?= htmlspecialchars($product['name_th']) ?>" required>
+                                                    <label><?= getTextByLang('scent_name') ?> (TH) *</label>
+                                                    <input type="text" class="form-control" id="name_th" name="name_th" value="<?= htmlspecialchars($group['name_th']) ?>" required>
                                                 </div>
                                                 <div class="form-section-compact">
                                                     <label><?= getTextByLang('description') ?> (TH)</label>
-                                                    <textarea class="form-control" id="description_th" name="description_th" rows="4"><?= htmlspecialchars($product['description_th']) ?></textarea>
+                                                    <textarea class="form-control" id="description_th" name="description_th" rows="4"><?= htmlspecialchars($group['description_th']) ?></textarea>
                                                 </div>
                                             </div>
 
                                             <div class="tab-pane fade" id="en">
                                                 <div class="form-section-compact">
-                                                    <label><?= getTextByLang('product_name') ?> (EN)</label>
-                                                    <input type="text" class="form-control" id="name_en" name="name_en" value="<?= htmlspecialchars($product['name_en']) ?>">
+                                                    <label><?= getTextByLang('scent_name') ?> (EN)</label>
+                                                    <input type="text" class="form-control" id="name_en" name="name_en" value="<?= htmlspecialchars($group['name_en']) ?>">
                                                 </div>
                                                 <div class="form-section-compact">
                                                     <label><?= getTextByLang('description') ?> (EN)</label>
-                                                    <textarea class="form-control" id="description_en" name="description_en" rows="4"><?= htmlspecialchars($product['description_en']) ?></textarea>
+                                                    <textarea class="form-control" id="description_en" name="description_en" rows="4"><?= htmlspecialchars($group['description_en']) ?></textarea>
                                                 </div>
                                             </div>
 
                                             <div class="tab-pane fade" id="cn">
                                                 <div class="form-section-compact">
-                                                    <label><?= getTextByLang('product_name') ?> (CN)</label>
-                                                    <input type="text" class="form-control" id="name_cn" name="name_cn" value="<?= htmlspecialchars($product['name_cn']) ?>">
+                                                    <label><?= getTextByLang('scent_name') ?> (CN)</label>
+                                                    <input type="text" class="form-control" id="name_cn" name="name_cn" value="<?= htmlspecialchars($group['name_cn']) ?>">
                                                 </div>
                                                 <div class="form-section-compact">
                                                     <label><?= getTextByLang('description') ?> (CN)</label>
-                                                    <textarea class="form-control" id="description_cn" name="description_cn" rows="4"><?= htmlspecialchars($product['description_cn']) ?></textarea>
+                                                    <textarea class="form-control" id="description_cn" name="description_cn" rows="4"><?= htmlspecialchars($group['description_cn']) ?></textarea>
                                                 </div>
                                             </div>
 
                                             <div class="tab-pane fade" id="jp">
                                                 <div class="form-section-compact">
-                                                    <label><?= getTextByLang('product_name') ?> (JP)</label>
-                                                    <input type="text" class="form-control" id="name_jp" name="name_jp" value="<?= htmlspecialchars($product['name_jp']) ?>">
+                                                    <label><?= getTextByLang('scent_name') ?> (JP)</label>
+                                                    <input type="text" class="form-control" id="name_jp" name="name_jp" value="<?= htmlspecialchars($group['name_jp']) ?>">
                                                 </div>
                                                 <div class="form-section-compact">
                                                     <label><?= getTextByLang('description') ?> (JP)</label>
-                                                    <textarea class="form-control" id="description_jp" name="description_jp" rows="4"><?= htmlspecialchars($product['description_jp']) ?></textarea>
+                                                    <textarea class="form-control" id="description_jp" name="description_jp" rows="4"><?= htmlspecialchars($group['description_jp']) ?></textarea>
                                                 </div>
                                             </div>
 
                                             <div class="tab-pane fade" id="kr">
                                                 <div class="form-section-compact">
-                                                    <label><?= getTextByLang('product_name') ?> (KR)</label>
-                                                    <input type="text" class="form-control" id="name_kr" name="name_kr" value="<?= htmlspecialchars($product['name_kr']) ?>">
+                                                    <label><?= getTextByLang('scent_name') ?> (KR)</label>
+                                                    <input type="text" class="form-control" id="name_kr" name="name_kr" value="<?= htmlspecialchars($group['name_kr']) ?>">
                                                 </div>
                                                 <div class="form-section-compact">
                                                     <label><?= getTextByLang('description') ?> (KR)</label>
-                                                    <textarea class="form-control" id="description_kr" name="description_kr" rows="4"><?= htmlspecialchars($product['description_kr']) ?></textarea>
+                                                    <textarea class="form-control" id="description_kr" name="description_kr" rows="4"><?= htmlspecialchars($group['description_kr']) ?></textarea>
                                                 </div>
                                             </div>
                                             
@@ -439,6 +444,6 @@ function getTextByLang($key) {
     </div>
 
     <script src='../js/index_.js?v=<?php echo time(); ?>'></script>
-    <script src='js/products.js?v=<?php echo time(); ?>'></script>
+    <script src='js/product_groups.js?v=<?php echo time(); ?>'></script>
 </body>
 </html>

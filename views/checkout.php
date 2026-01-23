@@ -175,7 +175,7 @@ if (!isset($_SESSION['guest_session_id'])) {
 
         .order-item {
             display: grid;
-            grid-template-columns: 60px 1fr auto;
+            grid-template-columns: 80px 1fr auto;
             gap: 15px;
             padding: 15px 0;
             border-bottom: 1px solid #f0f0f0;
@@ -186,8 +186,8 @@ if (!isset($_SESSION['guest_session_id'])) {
         }
 
         .item-image {
-            width: 60px;
-            height: 60px;
+            width: 80px;
+            height: 80px;
             object-fit: cover;
             border-radius: 6px;
             background: #f5f5f5;
@@ -197,13 +197,13 @@ if (!isset($_SESSION['guest_session_id'])) {
             display: flex;
             flex-direction: column;
             justify-content: center;
+            gap: 5px;
         }
 
         .item-name {
-            font-size: 14px;
-            font-weight: 500;
+            font-size: 15px;
+            font-weight: 600;
             color: #000;
-            margin-bottom: 5px;
         }
 
         .item-quantity {
@@ -211,11 +211,21 @@ if (!isset($_SESSION['guest_session_id'])) {
             color: #666;
         }
 
+        /* ✅ แสดง Serial Number */
+        .item-serial {
+            font-size: 12px;
+            color: #999;
+            font-family: 'Courier New', monospace;
+        }
+
         .item-price {
             font-size: 16px;
             font-weight: 600;
             color: #000;
             text-align: right;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
 
         .checkout-summary {
@@ -341,6 +351,24 @@ if (!isset($_SESSION['guest_session_id'])) {
             margin-bottom: 20px;
         }
 
+        /* ✅ Stock Warning */
+        .stock-warning {
+            background: #fff3cd;
+            border: 1px solid #ffc107;
+            border-radius: 6px;
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 13px;
+            color: #856404;
+        }
+
+        .stock-warning i {
+            font-size: 16px;
+        }
+
         @media (max-width: 968px) {
             .checkout-content {
                 grid-template-columns: 1fr;
@@ -349,13 +377,22 @@ if (!isset($_SESSION['guest_session_id'])) {
             .checkout-summary {
                 position: static;
             }
+
+            .order-item {
+                grid-template-columns: 60px 1fr;
+            }
+
+            .item-price {
+                grid-column: 2;
+                text-align: left;
+                margin-top: 10px;
+            }
         }
     </style>
-     <?php include 'template/header.php' ?>
+    <?php include 'template/header.php' ?>
 </head>
 
 <body>
-   
 
     <div class="checkout-container">
         <div class="checkout-header">
@@ -420,6 +457,7 @@ if (!isset($_SESSION['guest_session_id'])) {
                 },
                 dataType: 'json',
                 success: function(response) {
+                    console.log('Cart Response:', response);
                     if (response.status === 'success' && response.data.items.length > 0) {
                         cartData = response.data;
                         loadAddresses();
@@ -427,7 +465,8 @@ if (!isset($_SESSION['guest_session_id'])) {
                         showEmptyCart();
                     }
                 },
-                error: function() {
+                error: function(xhr, status, error) {
+                    console.error('Cart Error:', error);
                     Swal.fire('Error!', 'Failed to load cart', 'error');
                 }
             });
@@ -462,145 +501,162 @@ if (!isset($_SESSION['guest_session_id'])) {
         }
 
         // แสดงหน้า Checkout
-        // แสดงหน้า Checkout
-function displayCheckout() {
-    let addressesHtml = '';
-    
-    if (addresses.length === 0) {
-        addressesHtml = `
-            <div class="empty-state">
-                <i class="fas fa-map-marker-alt"></i>
-                <p>No delivery address found</p>
-                <button class="btn btn-primary" onclick="window.location.href='?profile'">
-                    Add Address
-                </button>
-            </div>
-        `;
-    } else {
-        addresses.forEach(function(addr) {
-            addressesHtml += `
-                <div class="address-card ${addr.address_id == selectedAddressId ? 'selected' : ''}" 
-                     onclick="selectAddress(${addr.address_id})">
-                    <div class="address-label">${addr.address_label || 'Address'}</div>
-                    <div class="address-details">
-                        <strong>${addr.recipient_name}</strong> - ${addr.recipient_phone}<br>
-                        ${addr.address_line1}${addr.address_line2 ? ', ' + addr.address_line2 : ''}<br>
-                        ${addr.subdistrict}, ${addr.district}, ${addr.province}, ${addr.country}<br>
-                        ${addr.postal_code}
+        function displayCheckout() {
+            let addressesHtml = '';
+            
+            if (addresses.length === 0) {
+                addressesHtml = `
+                    <div class="empty-state">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <p>No delivery address found</p>
+                        <button class="btn btn-primary" onclick="window.location.href='?profile'">
+                            Add Address
+                        </button>
+                    </div>
+                `;
+            } else {
+                addresses.forEach(function(addr) {
+                    addressesHtml += `
+                        <div class="address-card ${addr.address_id == selectedAddressId ? 'selected' : ''}" 
+                             onclick="selectAddress(${addr.address_id})">
+                            <div class="address-label">${addr.address_label || 'Address'}</div>
+                            <div class="address-details">
+                                <strong>${addr.recipient_name}</strong> - ${addr.recipient_phone}<br>
+                                ${addr.address_line1}${addr.address_line2 ? ', ' + addr.address_line2 : ''}<br>
+                                ${addr.subdistrict}, ${addr.district}, ${addr.province}, ${addr.country || ''}<br>
+                                ${addr.postal_code}
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                addressesHtml += `
+                    <button class="add-address-btn" onclick="window.location.href='?profile'">
+                        <i class="fas fa-plus"></i> Add New Address
+                    </button>
+                `;
+            }
+
+            // ✅ สร้าง HTML สำหรับรายการสินค้า (รองรับ serial_number ถ้ามี)
+            let itemsHtml = '';
+            let hasStockIssue = cartData.summary.has_stock_issue || false;
+            
+            cartData.items.forEach(function(item) {
+                const itemTotal = item.price * item.quantity; // ใช้ราคาไม่รวม VAT
+                const itemTotalWithVat = item.price_with_vat * item.quantity;
+                
+                itemsHtml += `
+                    <div class="order-item">
+                        <img src="${item.product_image || 'public/img/no-image.png'}" 
+                             alt="${item.product_name}" 
+                             class="item-image">
+                        <div class="item-info">
+                            <div class="item-name">${item.product_name}</div>
+                            <div class="item-quantity">Quantity: ${item.quantity}</div>
+                            <div class="item-quantity">Unit Price: ฿${Math.round(item.price).toLocaleString('en-US')}</div>
+                        </div>
+                        <div class="item-price">
+                            <div>฿${Math.round(itemTotal).toLocaleString('en-US')}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const html = `
+                <div class="checkout-content">
+                    <div class="checkout-main">
+                        <!-- Stock Warning -->
+                        ${hasStockIssue ? `
+                        <div class="stock-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <span>Some items in your cart have stock issues. Please review your cart before checkout.</span>
+                        </div>
+                        ` : ''}
+
+                        <!-- Shipping Address -->
+                        <div class="section-card">
+                            <div class="section-title">
+                                <i class="fas fa-map-marker-alt"></i> Shipping Address
+                            </div>
+                            ${addressesHtml}
+                        </div>
+
+                        <!-- Payment Method -->
+                        <div class="section-card">
+                            <div class="section-title">
+                                <i class="fas fa-credit-card"></i> Payment Method
+                            </div>
+                            <div class="payment-methods">
+                                <label class="payment-method selected">
+                                    <input type="radio" name="payment_method" value="bank_transfer" checked onchange="selectPayment('bank_transfer')">
+                                    <div class="payment-icon">
+                                        <i class="fas fa-university"></i>
+                                    </div>
+                                    <div class="payment-info">
+                                        <div class="payment-name">Bank Transfer</div>
+                                        <div class="payment-desc">Transfer to our bank account</div>
+                                    </div>
+                                </label>
+                                <label class="payment-method">
+                                    <input type="radio" name="payment_method" value="qr_code" onchange="selectPayment('qr_code')">
+                                    <div class="payment-icon">
+                                        <i class="fas fa-qrcode"></i>
+                                    </div>
+                                    <div class="payment-info">
+                                        <div class="payment-name">QR Code</div>
+                                        <div class="payment-desc">Scan QR code to pay</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Order Items -->
+                        <div class="section-card">
+                            <div class="section-title">
+                                <i class="fas fa-box"></i> Order Items (${cartData.summary.total_items} ${cartData.summary.total_items > 1 ? 'items' : 'item'})
+                            </div>
+                            ${itemsHtml}
+                        </div>
+                    </div>
+
+                    <!-- Summary -->
+                    <div class="checkout-summary">
+                        <div class="summary-title">Order Summary</div>
+                        <div class="summary-row">
+                            <span>Subtotal</span>
+                            <span>฿${Math.round(cartData.summary.subtotal).toLocaleString('en-US')}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>VAT (${cartData.summary.vat_percentage.toFixed(2)}%)</span>
+                            <span>฿${Math.round(cartData.summary.vat_amount).toLocaleString('en-US')}</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>Shipping Fee</span>
+                            <span>฿0</span>
+                        </div>
+                        <div class="summary-row total">
+                            <span>Total</span>
+                            <span>฿${Math.round(cartData.summary.total).toLocaleString('en-US')}</span>
+                        </div>
+                        <button class="place-order-btn" onclick="placeOrder()" ${!selectedAddressId || hasStockIssue ? 'disabled' : ''}>
+                            <i class="fas fa-check"></i> ${hasStockIssue ? 'Fix Stock Issues' : 'Place Order'}
+                        </button>
+                        ${hasStockIssue ? '<p style="text-align: center; margin-top: 10px; font-size: 12px; color: #dc3545;">Please fix stock issues before checkout</p>' : ''}
                     </div>
                 </div>
             `;
-        });
-        
-        addressesHtml += `
-            <button class="add-address-btn" onclick="window.location.href='?profile'">
-                <i class="fas fa-plus"></i> Add New Address
-            </button>
-        `;
-    }
 
-    // สร้าง HTML สำหรับรายการสินค้า
-    let itemsHtml = '';
-    cartData.items.forEach(function(item) {
-        const itemTotal = item.price_with_vat * item.quantity;
-        itemsHtml += `
-            <div class="order-item">
-                <img src="${item.product_image || 'public/img/no-image.png'}" 
-                     alt="${item.product_name}" 
-                     class="item-image">
-                <div class="item-info">
-                    <div class="item-name">${item.product_name}</div>
-                    <div class="item-quantity">Qty: ${item.quantity} × ฿${Math.round(item.price_with_vat).toLocaleString('en-US')}</div>
-                </div>
-                <div class="item-price">฿${Math.round(itemTotal).toLocaleString('en-US')}</div>
-            </div>
-        `;
-    });
-
-    const html = `
-        <div class="checkout-content">
-            <div class="checkout-main">
-                <!-- Shipping Address -->
-                <div class="section-card">
-                    <div class="section-title">
-                        <i class="fas fa-map-marker-alt"></i> Shipping Address
-                    </div>
-                    ${addressesHtml}
-                </div>
-
-                <!-- Payment Method -->
-                <div class="section-card">
-                    <div class="section-title">
-                        <i class="fas fa-credit-card"></i> Payment Method
-                    </div>
-                    <div class="payment-methods">
-                        <label class="payment-method selected">
-                            <input type="radio" name="payment_method" value="bank_transfer" checked onchange="selectPayment('bank_transfer')">
-                            <div class="payment-icon">
-                                <i class="fas fa-university"></i>
-                            </div>
-                            <div class="payment-info">
-                                <div class="payment-name">Bank Transfer</div>
-                                <div class="payment-desc">Transfer to our bank account</div>
-                            </div>
-                        </label>
-                        <label class="payment-method">
-                            <input type="radio" name="payment_method" value="qr_code" onchange="selectPayment('qr_code')">
-                            <div class="payment-icon">
-                                <i class="fas fa-qrcode"></i>
-                            </div>
-                            <div class="payment-info">
-                                <div class="payment-name">QR Code</div>
-                                <div class="payment-desc">Scan QR code to pay</div>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-
-                <!-- Order Items -->
-                <div class="section-card">
-                    <div class="section-title">
-                        <i class="fas fa-box"></i> Order Items (${cartData.summary.total_items})
-                    </div>
-                    ${itemsHtml}
-                </div>
-            </div>
-
-            <!-- Summary -->
-            <div class="checkout-summary">
-                <div class="summary-title">Order Summary</div>
-                <div class="summary-row">
-                    <span>Subtotal</span>
-                    <span>฿${Math.round(cartData.summary.subtotal).toLocaleString('en-US')}</span>
-                </div>
-                <div class="summary-row">
-                    <span>VAT (${cartData.summary.vat_percentage}%)</span>
-                    <span>฿${Math.round(cartData.summary.vat_amount).toLocaleString('en-US')}</span>
-                </div>
-                <div class="summary-row">
-                    <span>Shipping Fee</span>
-                    <span>฿0</span>
-                </div>
-                <div class="summary-row total">
-                    <span>Total</span>
-                    <span>฿${Math.round(cartData.summary.total).toLocaleString('en-US')}</span>
-                </div>
-                <button class="place-order-btn" onclick="placeOrder()" ${!selectedAddressId ? 'disabled' : ''}>
-                    <i class="fas fa-check"></i> Place Order
-                </button>
-            </div>
-        </div>
-    `;
-
-    $('#checkoutContent').html(html);
-}
+            $('#checkoutContent').html(html);
+        }
 
         // เลือกที่อยู่
         function selectAddress(addressId) {
             selectedAddressId = addressId;
             $('.address-card').removeClass('selected');
             $(`.address-card[onclick*="${addressId}"]`).addClass('selected');
-            $('.place-order-btn').prop('disabled', false);
+            
+            const hasStockIssue = cartData.summary.has_stock_issue || false;
+            $('.place-order-btn').prop('disabled', hasStockIssue);
         }
 
         // เลือก Payment Method
@@ -614,6 +670,11 @@ function displayCheckout() {
         function placeOrder() {
             if (!selectedAddressId) {
                 Swal.fire('Error!', 'Please select a delivery address', 'error');
+                return;
+            }
+
+            if (cartData.summary.has_stock_issue) {
+                Swal.fire('Error!', 'Please fix stock issues in your cart before checkout', 'error');
                 return;
             }
 
@@ -639,6 +700,7 @@ function displayCheckout() {
                         },
                         dataType: 'json',
                         success: function(response) {
+                            console.log('Order Response:', response);
                             if (response.status === 'success') {
                                 Swal.fire({
                                     title: 'Order Created!',
@@ -652,8 +714,9 @@ function displayCheckout() {
                                 Swal.fire('Error!', response.message, 'error');
                             }
                         },
-                        error: function() {
-                            Swal.fire('Error!', 'Failed to create order', 'error');
+                        error: function(xhr, status, error) {
+                            console.error('Order Error:', error);
+                            Swal.fire('Error!', 'Failed to create order: ' + error, 'error');
                         }
                     });
                 }
@@ -668,7 +731,7 @@ function displayCheckout() {
                         <i class="fas fa-shopping-cart"></i>
                         <h3>Your cart is empty</h3>
                         <p>Add some products to proceed to checkout</p>
-                        <button class="btn btn-primary" onclick="window.location.href='?product'">
+                        <button class="btn btn-primary" onclick="window.location.href='?product'" style="background: #000; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; margin-top: 20px;">
                             Continue Shopping
                         </button>
                     </div>

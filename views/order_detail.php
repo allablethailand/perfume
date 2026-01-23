@@ -392,14 +392,20 @@ if ($order_id <= 0) {
     let itemsHtml = '';
     if (order.items && order.items.length > 0) {
         order.items.forEach(function(item) {
+            // ✅ แสดงชื่อที่ดึงมาจาก product_groups หรือ products
+            const displayName = item.name_th || item.name_en || item.product_name;
+            
+            // ✅ แสดง Serial Number ถ้ามี
+            const serialInfo = item.serial_number ? ` (S/N: ${item.serial_number})` : '';
+            
             itemsHtml += `
                 <div class="product-item">
                     <img src="${item.product_image || 'public/img/no-image.png'}" 
-                         alt="${item.product_name}" 
+                         alt="${displayName}" 
                          class="products-image"
                          onerror="this.src='public/img/no-image.png'">
                     <div class="product-info">
-                        <div class="product-name">${item.product_name}</div>
+                        <div class="product-name">${displayName}${serialInfo}</div>
                         <div class="product-quantity">Quantity: ${item.quantity}</div>
                         <div class="product-unit-price">฿${Math.round(item.unit_price_with_vat).toLocaleString('en-US')} per unit</div>
                     </div>
@@ -509,7 +515,7 @@ if ($order_id <= 0) {
                     <div class="meta-label">Payment Status</div>
                     <div class="meta-value">
                         <span class="status-badge ${order.payment_status}">${order.payment_status_label || order.payment_status}</span>
-                        ${order.payment_status === 'pending' ? `
+                        ${order.payment_status === 'pending' && !order.payment_slip ? `
                             <button class="btn btn-primary" onclick="payOrder(${order.order_id})">
                                 <i class="fas fa-credit-card"></i> Pay Now
                             </button>
@@ -579,7 +585,7 @@ if ($order_id <= 0) {
 
             <!-- Actions -->
             <div class="order-actions">
-                ${(order.order_status === 'pending' || order.order_status === 'processing') && order.payment_status === 'unpaid' ? `
+                ${(order.order_status === 'pending' || order.order_status === 'processing') && order.payment_status === 'pending' && !order.payment_slip ? `
                     <button class="btn btn-primary" onclick="payOrder(${order.order_id})">
                         <i class="fas fa-credit-card"></i> Pay Now
                     </button>

@@ -5,7 +5,7 @@ require_once('../../lib/jwt_helper.php');
 
 global $conn;
 
-// ✅ แก้ไข: ใช้ requireAuth() อย่างเดียวเพียงพอ
+// ✅ ใช้ requireAuth()
 $user_id = requireAuth();
 
 // รับค่า filter
@@ -60,7 +60,7 @@ try {
     $orders = [];
     
     while ($order = $result->fetch_assoc()) {
-        // ดึงรายการสินค้าในออเดอร์
+        // ✅ แก้ไข: ดึงรายการสินค้ารองรับทั้ง product_groups และ products
         $items_sql = "SELECT 
                         oi.order_item_id,
                         oi.product_id,
@@ -72,10 +72,16 @@ try {
                         oi.subtotal,
                         oi.vat_amount,
                         oi.total,
-                        p.name_th,
-                        p.name_en
+                        COALESCE(pg.name_th, p.name_th) as name_th,
+                        COALESCE(pg.name_en, p.name_en) as name_en,
+                        COALESCE(pg.name_cn, p.name_cn) as name_cn,
+                        COALESCE(pg.name_jp, p.name_jp) as name_jp,
+                        COALESCE(pg.name_kr, p.name_kr) as name_kr,
+                        pi.serial_number
                       FROM order_items oi
-                      LEFT JOIN products p ON oi.product_id = p.product_id
+                      LEFT JOIN product_items pi ON oi.product_id = pi.item_id
+                      LEFT JOIN product_groups pg ON pi.group_id = pg.group_id AND pg.del = 0
+                      LEFT JOIN products p ON oi.product_id = p.product_id AND p.del = 0
                       WHERE oi.order_id = ?
                       ORDER BY oi.order_item_id";
         
@@ -86,13 +92,22 @@ try {
         
         $items = [];
         while ($item = $items_result->fetch_assoc()) {
-            // ดึงรูปภาพสินค้า
-            $image_sql = "SELECT file_path, api_path 
-                         FROM product_images 
-                         WHERE product_id = ? AND is_primary = 1 AND del = 0 
-                         LIMIT 1";
+            // ✅ ดึงรูปภาพ (รองรับทั้ง 2 ระบบ)
+            $image_sql = "SELECT COALESCE(
+                            (SELECT pgi.api_path 
+                             FROM product_items pi2
+                             INNER JOIN product_groups pg2 ON pi2.group_id = pg2.group_id
+                             INNER JOIN product_group_images pgi ON pg2.group_id = pgi.group_id
+                             WHERE pi2.item_id = ? AND pgi.is_primary = 1 AND pgi.del = 0
+                             LIMIT 1),
+                            (SELECT pi_img.api_path 
+                             FROM product_images pi_img
+                             WHERE pi_img.product_id = ? AND pi_img.is_primary = 1 AND pi_img.del = 0
+                             LIMIT 1)
+                          ) as api_path";
+            
             $image_stmt = $conn->prepare($image_sql);
-            $image_stmt->bind_param("i", $item['product_id']);
+            $image_stmt->bind_param("ii", $item['product_id'], $item['product_id']);
             $image_stmt->execute();
             $image_result = $image_stmt->get_result();
             $image = $image_result->fetch_assoc();
@@ -105,7 +120,7 @@ try {
         $items_stmt->close();
         $order['items'] = $items;
         
-        // ดึงที่อยู่จัดส่ง
+        // ดึงที่อยู่จัดส่ง (เพิ่ม country)
         if ($order['address_id']) {
             $address_sql = "SELECT 
                               address_id,
@@ -117,6 +132,7 @@ try {
                               subdistrict,
                               district,
                               province,
+                              country,
                               postal_code
                           FROM user_addresses
                           WHERE address_id = ? AND del = 0";
@@ -131,7 +147,7 @@ try {
             $order['shipping_address'] = null;
         }
         
-        // แปลง status เป็นภาษาไทย (optional)
+        // แปลง status
         $order['order_status_label'] = getOrderStatusLabel($order['order_status']);
         $order['payment_status_label'] = getPaymentStatusLabel($order['payment_status']);
         
@@ -152,7 +168,7 @@ try {
     ]);
 }
 
-// ฟังก์ชันแปลง status
+// ✅ แก้ไข: ฟังก์ชันแปลง status ให้ตรงกับ enum
 function getOrderStatusLabel($status) {
     $labels = [
         'pending' => 'Pending',
@@ -166,8 +182,9 @@ function getOrderStatusLabel($status) {
 
 function getPaymentStatusLabel($status) {
     $labels = [
+        'pending' => 'Pending Payment',  // ✅ แก้จาก unpaid
         'paid' => 'Paid',
-        'unpaid' => 'Unpaid',
+        'failed' => 'Payment Failed',    // ✅ เพิ่ม
         'refunded' => 'Refunded'
     ];
     return isset($labels[$status]) ? $labels[$status] : ucfirst($status);
