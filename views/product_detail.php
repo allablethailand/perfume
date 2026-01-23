@@ -288,7 +288,7 @@ $page_title = $product['product_name'];
         .product-info {
             position: sticky;
             top: 70px;
-            height: calc(100vh - 70px);
+            height: 100vh;
             padding: 60px 40px;
             display: flex;
             flex-direction: column;
