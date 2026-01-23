@@ -135,8 +135,7 @@ try {
             $whereClause .= " AND (ai.ai_code LIKE '%$searchValue%' 
                             OR ai.ai_name_th LIKE '%$searchValue%' 
                             OR ai.ai_name_en LIKE '%$searchValue%' 
-                            OR p.name_th LIKE '%$searchValue%' 
-                            OR p.name_en LIKE '%$searchValue%')";
+                            OR pi.serial_number LIKE '%$searchValue%')";
         }
         
         $totalRecordsQuery = "SELECT COUNT(ai_id) FROM ai_companions WHERE del = 0";
@@ -144,17 +143,16 @@ try {
         
         $totalFilteredQuery = "SELECT COUNT(ai.ai_id) 
                               FROM ai_companions ai
-                              LEFT JOIN products p ON ai.product_id = p.product_id
+                              LEFT JOIN product_items pi ON ai.item_id = pi.item_id
                               WHERE $whereClause";
         $totalFiltered = $conn->query($totalFilteredQuery)->fetch_row()[0];
         
         $dataQuery = "SELECT 
                         ai.*,
-                        p.name_th as product_name_th,
-                        p.name_en as product_name_en,
+                        pi.serial_number,
                         (SELECT COUNT(*) FROM user_ai_companions WHERE ai_id = ai.ai_id AND del = 0) as user_count
                       FROM ai_companions ai
-                      LEFT JOIN products p ON ai.product_id = p.product_id
+                      LEFT JOIN product_items pi ON ai.item_id = pi.item_id
                       WHERE $whereClause
                       ORDER BY ai.created_at DESC
                       LIMIT $start, $length";
@@ -183,7 +181,7 @@ try {
         
         logDebug("=== ADD AI COMPANION START ===");
         
-        $product_id = $_POST['product_id'] ?? 0;
+        $item_id = $_POST['item_id'] ?? 0;
         $ai_code = $_POST['ai_code'] ?? '';
         
         $ai_name_th = $_POST['ai_name_th'] ?? '';
@@ -212,8 +210,8 @@ try {
         
         $status = $_POST['status'] ?? 1;
         
-        if (empty($product_id)) {
-            throw new Exception("Product is required.");
+        if (empty($item_id)) {
+            throw new Exception("Bottle item is required.");
         }
         
         if (empty($ai_code)) {
@@ -304,7 +302,7 @@ try {
             }
             
             logDebug("Preparing to insert into database", [
-                'product_id' => $product_id,
+                'item_id' => $item_id,
                 'ai_code' => $ai_code,
                 'ai_avatar_path' => $ai_avatar_path,
                 'ai_avatar_url' => $ai_avatar_url,
@@ -317,7 +315,7 @@ try {
             ]);
             
             $stmt = $conn->prepare("INSERT INTO ai_companions 
-                (product_id, ai_code, 
+                (item_id, ai_code, 
                  ai_name_th, ai_name_en, ai_name_cn, ai_name_jp, ai_name_kr,
                  ai_avatar_path, ai_avatar_url, 
                  ai_video_path, ai_video_url,
@@ -334,7 +332,7 @@ try {
             }
             
             $stmt->bind_param("isssssssssssssssssssssssssssssi", 
-                $product_id, 
+                $item_id, 
                 $ai_code,
                 $ai_name_th, $ai_name_en, $ai_name_cn, $ai_name_jp, $ai_name_kr,
                 $ai_avatar_path, $ai_avatar_url, 
@@ -394,7 +392,7 @@ try {
             throw new Exception("AI ID is missing.");
         }
         
-        $product_id = $_POST['product_id'] ?? 0;
+        $item_id = $_POST['item_id'] ?? 0;
         $ai_code = $_POST['ai_code'] ?? '';
         
         $ai_name_th = $_POST['ai_name_th'] ?? '';
@@ -605,7 +603,7 @@ try {
             ]);
             
             $update_query = "UPDATE ai_companions SET 
-                product_id = ?, 
+                item_id = ?, 
                 ai_code = ?,
                 ai_name_th = ?, 
                 ai_name_en = ?, 
@@ -645,7 +643,7 @@ try {
             }
             
             $stmt->bind_param("isssssssssssssssssssssssssssssii",
-                $product_id, 
+                $item_id, 
                 $ai_code,
                 $ai_name_th, 
                 $ai_name_en, 

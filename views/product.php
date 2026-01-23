@@ -180,41 +180,51 @@ $searchQuery = isset($_GET['s']) ? trim($_GET['s']) : '';
             if ($searchQuery !== '') {
                 $searchTerm = $conn->real_escape_string($searchQuery);
                 $search_where = " AND (
-                    p.name_th LIKE '%{$searchTerm}%' OR
-                    p.name_en LIKE '%{$searchTerm}%' OR
-                    p.name_cn LIKE '%{$searchTerm}%' OR
-                    p.name_jp LIKE '%{$searchTerm}%' OR
-                    p.name_kr LIKE '%{$searchTerm}%' OR
-                    p.description_th LIKE '%{$searchTerm}%' OR
-                    p.description_en LIKE '%{$searchTerm}%' OR
-                    p.description_cn LIKE '%{$searchTerm}%' OR
-                    p.description_jp LIKE '%{$searchTerm}%' OR
-                    p.description_kr LIKE '%{$searchTerm}%'
+                    pg.name_th LIKE '%{$searchTerm}%' OR
+                    pg.name_en LIKE '%{$searchTerm}%' OR
+                    pg.name_cn LIKE '%{$searchTerm}%' OR
+                    pg.name_jp LIKE '%{$searchTerm}%' OR
+                    pg.name_kr LIKE '%{$searchTerm}%' OR
+                    pg.description_th LIKE '%{$searchTerm}%' OR
+                    pg.description_en LIKE '%{$searchTerm}%' OR
+                    pg.description_cn LIKE '%{$searchTerm}%' OR
+                    pg.description_jp LIKE '%{$searchTerm}%' OR
+                    pg.description_kr LIKE '%{$searchTerm}%'
                 )";
             }
             
-            // ดึงสินค้าทั้งหมด - แสดงราคาที่ยังไม่รวม VAT
+            // ✅ แก้ไข: ดึงจาก product_groups แทน products
             $products_query = "
                 SELECT 
-                    p.product_id,
-                    p.{$name_col} as product_name,
-                    p.price,
-                    p.vat_percentage,
-                    pi.api_path as image_path
-                FROM products p
-                LEFT JOIN product_images pi ON p.product_id = pi.product_id AND pi.is_primary = 1 AND pi.del = 0
-                WHERE p.status = 1 
-                    AND p.del = 0 
-                    AND p.stock_quantity > 0
+                    pg.group_id,
+                    pg.{$name_col} as product_name,
+                    pg.price,
+                    pg.vat_percentage,
+                    (SELECT pgi.api_path 
+                     FROM product_group_images pgi 
+                     WHERE pgi.group_id = pg.group_id 
+                     AND pgi.del = 0 
+                     ORDER BY pgi.is_primary DESC, pgi.display_order ASC 
+                     LIMIT 1) as image_path,
+                    (SELECT COUNT(*) 
+                     FROM product_items pi 
+                     WHERE pi.group_id = pg.group_id 
+                     AND pi.status = 'available' 
+                     AND pi.del = 0) as available_stock
+                FROM product_groups pg
+                WHERE pg.status = 1 
+                    AND pg.del = 0
                     {$search_where}
-                ORDER BY p.created_at DESC
+                HAVING available_stock > 0
+                ORDER BY pg.created_at DESC
             ";
             
             $products_result = $conn->query($products_query);
             
             if ($products_result && $products_result->num_rows > 0) {
                 while ($product = $products_result->fetch_assoc()) {
-                    $product_id_encoded = urlencode(base64_encode($product['product_id']));
+                    // ✅ ใช้ group_id แทน product_id
+                    $product_id_encoded = urlencode(base64_encode($product['group_id']));
                     $product_link = "?product_detail&id=" . $product_id_encoded . "&lang=" . $lang;
                     $image = $product['image_path'] ?? 'path/to/default-image.jpg';
                     ?>

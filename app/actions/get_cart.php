@@ -42,7 +42,7 @@ if (!in_array($lang, ['th', 'en', 'cn', 'jp', 'kr'])) {
 $name_col = "name_" . $lang;
 
 try {
-    // ✅ แก้ไข: ดึงเฉพาะรายการที่ status=1 (ยังไม่ถูกลบ) และเพิ่ม stock_quantity
+    // ✅ แก้ไข: ดึงข้อมูลจาก product_groups แทน products
     if ($user_id) {
         $query = "
             SELECT 
@@ -52,20 +52,36 @@ try {
                 c.price,
                 c.vat_percentage,
                 ROUND(c.price * (1 + c.vat_percentage / 100), 2) as price_with_vat,
-                p.{$name_col} as product_name,
-                p.status,
-                p.stock_quantity,
-                (SELECT pi.api_path 
-                 FROM product_images pi 
-                 WHERE pi.product_id = p.product_id 
-                 AND pi.del = 0 
-                 ORDER BY pi.is_primary DESC, pi.display_order ASC 
-                 LIMIT 1) as product_image
+                COALESCE(pg.{$name_col}, p.{$name_col}) as product_name,
+                COALESCE(pg.status, p.status) as status,
+                COALESCE(
+                    (SELECT COUNT(*) FROM product_items pi2 
+                     WHERE pi2.group_id = pi.group_id 
+                     AND pi2.status = 'available' 
+                     AND pi2.del = 0),
+                    p.stock_quantity
+                ) as stock_quantity,
+                COALESCE(
+                    (SELECT pgi.api_path 
+                     FROM product_group_images pgi 
+                     WHERE pgi.group_id = pg.group_id 
+                     AND pgi.del = 0 
+                     ORDER BY pgi.is_primary DESC, pgi.display_order ASC 
+                     LIMIT 1),
+                    (SELECT pi_img.api_path 
+                     FROM product_images pi_img 
+                     WHERE pi_img.product_id = p.product_id 
+                     AND pi_img.del = 0 
+                     ORDER BY pi_img.is_primary DESC, pi_img.display_order ASC 
+                     LIMIT 1)
+                ) as product_image
             FROM cart c
-            INNER JOIN products p ON c.product_id = p.product_id
+            LEFT JOIN product_items pi ON c.product_id = pi.item_id AND pi.del = 0
+            LEFT JOIN product_groups pg ON pi.group_id = pg.group_id AND pg.del = 0
+            LEFT JOIN products p ON c.product_id = p.product_id AND p.del = 0
             WHERE c.user_id = ? 
             AND c.status = 1
-            AND p.del = 0
+            AND (pg.del = 0 OR p.del = 0)
             ORDER BY c.date_created DESC
         ";
         $stmt = $conn->prepare($query);
@@ -79,21 +95,37 @@ try {
                 c.price,
                 c.vat_percentage,
                 ROUND(c.price * (1 + c.vat_percentage / 100), 2) as price_with_vat,
-                p.{$name_col} as product_name,
-                p.status,
-                p.stock_quantity,
-                (SELECT pi.api_path 
-                 FROM product_images pi 
-                 WHERE pi.product_id = p.product_id 
-                 AND pi.del = 0 
-                 ORDER BY pi.is_primary DESC, pi.display_order ASC 
-                 LIMIT 1) as product_image
+                COALESCE(pg.{$name_col}, p.{$name_col}) as product_name,
+                COALESCE(pg.status, p.status) as status,
+                COALESCE(
+                    (SELECT COUNT(*) FROM product_items pi2 
+                     WHERE pi2.group_id = pi.group_id 
+                     AND pi2.status = 'available' 
+                     AND pi2.del = 0),
+                    p.stock_quantity
+                ) as stock_quantity,
+                COALESCE(
+                    (SELECT pgi.api_path 
+                     FROM product_group_images pgi 
+                     WHERE pgi.group_id = pg.group_id 
+                     AND pgi.del = 0 
+                     ORDER BY pgi.is_primary DESC, pgi.display_order ASC 
+                     LIMIT 1),
+                    (SELECT pi_img.api_path 
+                     FROM product_images pi_img 
+                     WHERE pi_img.product_id = p.product_id 
+                     AND pi_img.del = 0 
+                     ORDER BY pi_img.is_primary DESC, pi_img.display_order ASC 
+                     LIMIT 1)
+                ) as product_image
             FROM cart c
-            INNER JOIN products p ON c.product_id = p.product_id
+            LEFT JOIN product_items pi ON c.product_id = pi.item_id AND pi.del = 0
+            LEFT JOIN product_groups pg ON pi.group_id = pg.group_id AND pg.del = 0
+            LEFT JOIN products p ON c.product_id = p.product_id AND p.del = 0
             WHERE c.session_id = ? 
             AND (c.user_id IS NULL OR c.user_id = 0)
             AND c.status = 1
-            AND p.del = 0
+            AND (pg.del = 0 OR p.del = 0)
             ORDER BY c.date_created DESC
         ";
         $stmt = $conn->prepare($query);

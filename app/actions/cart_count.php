@@ -52,24 +52,38 @@ if (!isset($_SESSION['guest_session_id'])) {
 $session_id = $_SESSION['guest_session_id'];
 
 try {
-    // ✅ แก้ไข: นับเฉพาะรายการที่ status=1
+    // ✅ แก้ไข: รองรับทั้ง product_groups และ products (backward compatible)
     if ($user_id) {
         $count_stmt = $conn->prepare("
             SELECT SUM(c.quantity) as count 
             FROM cart c
-            INNER JOIN products p ON c.product_id = p.product_id
-            WHERE c.user_id = ? AND c.status = 1 AND p.del = 0
+            LEFT JOIN product_items pi ON c.product_id = pi.item_id
+            LEFT JOIN product_groups pg ON pi.group_id = pg.group_id
+            LEFT JOIN products p ON c.product_id = p.product_id
+            WHERE c.user_id = ? 
+            AND c.status = 1 
+            AND (
+                (pg.group_id IS NOT NULL AND pg.del = 0 AND pg.status = 1) 
+                OR 
+                (p.product_id IS NOT NULL AND p.del = 0 AND p.status = 1)
+            )
         ");
         $count_stmt->bind_param('i', $user_id);
     } else {
         $count_stmt = $conn->prepare("
             SELECT SUM(c.quantity) as count 
             FROM cart c
-            INNER JOIN products p ON c.product_id = p.product_id
+            LEFT JOIN product_items pi ON c.product_id = pi.item_id
+            LEFT JOIN product_groups pg ON pi.group_id = pg.group_id
+            LEFT JOIN products p ON c.product_id = p.product_id
             WHERE c.session_id = ? 
             AND (c.user_id IS NULL OR c.user_id = 0)
             AND c.status = 1
-            AND p.del = 0
+            AND (
+                (pg.group_id IS NOT NULL AND pg.del = 0 AND pg.status = 1) 
+                OR 
+                (p.product_id IS NOT NULL AND p.del = 0 AND p.status = 1)
+            )
         ");
         $count_stmt->bind_param('s', $session_id);
     }

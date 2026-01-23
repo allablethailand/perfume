@@ -39,19 +39,21 @@ if (isset($_GET['lang'])) {
     }
 }
 
-// Get products for dropdown
-$products_query = "
-    SELECT p.product_id, p.name_th, p.name_en 
-    FROM products p
-    LEFT JOIN ai_companions ai ON p.product_id = ai.product_id AND ai.del = 0
-    WHERE p.del = 0 
+// Get available items (ขวดที่ยังไม่มี AI) for dropdown
+$items_query = "
+    SELECT 
+        pi.item_id, 
+        pi.serial_number
+    FROM product_items pi
+    LEFT JOIN ai_companions ai ON pi.item_id = ai.item_id AND ai.del = 0
+    WHERE pi.del = 0 
     AND ai.ai_id IS NULL
-    ORDER BY p.name_th
+    ORDER BY pi.serial_number
 ";
-$products_result = $conn->query($products_query);
-$products = [];
-while ($row = $products_result->fetch_assoc()) {
-    $products[] = $row;
+$items_result = $conn->query($items_query);
+$items = [];
+while ($row = $items_result->fetch_assoc()) {
+    $items[] = $row;
 }
 
 include '../template/header.php';
@@ -82,17 +84,21 @@ include '../template/header.php';
                             </div>
                             <div class="card-body">
                                 
-                                <!-- Product Selection -->
+                                <!-- Item Selection (ขวดน้ำหอม) -->
                                 <div class="form-group mb-4">
-                                    <label><i class="fas fa-box"></i> Select Product (Perfume) *</label>
-                                    <select class="form-control" id="product_id" name="product_id" required>
-                                        <option value="">-- Select Product --</option>
-                                        <?php foreach ($products as $prod): ?>
-                                            <option value="<?= $prod['product_id'] ?>">
-                                                <?= htmlspecialchars($prod['name_th']) ?> (<?= htmlspecialchars($prod['name_en']) ?>)
+                                    <label><i class="fas fa-bottle-droplet"></i> Select Perfume Bottle (ขวด) *</label>
+                                    <select class="form-control" id="item_id" name="item_id" required>
+                                        <option value="">-- Select Bottle --</option>
+                                        <?php foreach ($items as $item): ?>
+                                            <option value="<?= $item['item_id'] ?>">
+                                                Serial Number: <?= htmlspecialchars($item['serial_number']) ?>
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle"></i> 
+                                        Each bottle can only have one AI Companion
+                                    </small>
                                 </div>
 
                                 <!-- AI Code -->
