@@ -37,62 +37,90 @@ try {
     // ========================================
     // GET PRODUCT GROUPS LIST (DataTables)
     // ========================================
-    if ($action == 'getData_groups') {
-        $draw = isset($_POST['draw']) ? intval($_POST['draw']) : 1;
-        $start = isset($_POST['start']) ? intval($_POST['start']) : 0;
-        $length = isset($_POST['length']) ? intval($_POST['length']) : 10;
-        $searchValue = isset($_POST['search']['value']) ? $conn->real_escape_string($_POST['search']['value']) : '';
-        $lang = isset($_POST['lang']) ? $_POST['lang'] : 'th';
-        
+        if ($action === 'getData_groups') {
+
+        $draw   = intval($_POST['draw'] ?? 1);
+        $start  = intval($_POST['start'] ?? 0);
+        $length = intval($_POST['length'] ?? 10);
+        $lang   = $_POST['lang'] ?? 'th';
+        $search = $conn->real_escape_string($_POST['search']['value'] ?? '');
+
         $name_col = "name_" . $lang;
-        
-        $whereClause = "pg.del = 0";
-        
-        if (!empty($searchValue)) {
-            $whereClause .= " AND (pg.name_th LIKE '%$searchValue%' 
-                            OR pg.name_en LIKE '%$searchValue%' 
-                            OR pg.name_cn LIKE '%$searchValue%' 
-                            OR pg.name_jp LIKE '%$searchValue%' 
-                            OR pg.name_kr LIKE '%$searchValue%')";
+
+        $where = "pg.del = 0";
+        if ($search !== '') {
+            $where .= " AND (
+                pg.name_th LIKE '%$search%' OR
+                pg.name_en LIKE '%$search%' OR
+                pg.name_cn LIKE '%$search%' OR
+                pg.name_jp LIKE '%$search%' OR
+                pg.name_kr LIKE '%$search%'
+            )";
         }
-        
-        $totalRecordsQuery = "SELECT COUNT(group_id) FROM product_groups WHERE del = 0";
-        $totalRecords = $conn->query($totalRecordsQuery)->fetch_row()[0];
-        
-        $totalFilteredQuery = "SELECT COUNT(pg.group_id) FROM product_groups pg WHERE $whereClause";
-        $totalFiltered = $conn->query($totalFilteredQuery)->fetch_row()[0];
-        
-        $dataQuery = "SELECT 
-                        pg.*,
-                        pgi.api_path as primary_image,
-                        COUNT(DISTINCT pi.item_id) as total_bottles,
-                        SUM(CASE WHEN pi.status = 'available' THEN 1 ELSE 0 END) as available_bottles,
-                        SUM(CASE WHEN pi.status = 'sold' THEN 1 ELSE 0 END) as sold_bottles,
-                        SUM(CASE WHEN pi.status = 'reserved' THEN 1 ELSE 0 END) as reserved_bottles
-                      FROM product_groups pg
-                      LEFT JOIN product_group_images pgi ON pg.group_id = pgi.group_id AND pgi.is_primary = 1 AND pgi.del = 0
-                      LEFT JOIN product_items pi ON pg.group_id = pi.group_id AND pi.del = 0
-                      WHERE $whereClause
-                      GROUP BY pg.group_id
-                      ORDER BY pg.created_at DESC
-                      LIMIT $start, $length";
-        
-        $dataResult = $conn->query($dataQuery);
+
+        // total
+        $total = $conn->query("SELECT COUNT(*) FROM product_groups WHERE del = 0")->fetch_row()[0];
+
+        // filtered
+        $filtered = $conn->query("
+            SELECT COUNT(DISTINCT pg.group_id)
+            FROM product_groups pg
+            WHERE $where
+        ")->fetch_row()[0];
+
+        // 🔥 FIX: NO pg.*
+        $sql = "
+            SELECT
+                pg.group_id,
+                pg.name_th,
+                pg.name_en,
+                pg.name_cn,
+                pg.name_jp,
+                pg.name_kr,
+                pg.price,
+                pg.status,
+                pg.created_at,
+
+                pgi.api_path AS primary_image,
+
+                COUNT(DISTINCT pi.item_id) AS total_bottles,
+                SUM(pi.status = 'available') AS available_bottles,
+                SUM(pi.status = 'sold') AS sold_bottles,
+                SUM(pi.status = 'reserved') AS reserved_bottles
+
+            FROM product_groups pg
+            LEFT JOIN product_group_images pgi
+                ON pg.group_id = pgi.group_id
+               AND pgi.is_primary = 1
+               AND pgi.del = 0
+            LEFT JOIN product_items pi
+                ON pg.group_id = pi.group_id
+               AND pi.del = 0
+            WHERE $where
+            GROUP BY pg.group_id
+            ORDER BY pg.created_at DESC
+            LIMIT $start, $length
+        ";
+
+        $result = $conn->query($sql);
+        if (!$result) {
+            throw new Exception("SQL ERROR: " . $conn->error);
+        }
+
         $data = [];
-        
-        if ($dataResult) {
-            while ($row = $dataResult->fetch_assoc()) {
-                $row['name_display'] = $row[$name_col];
-                $data[] = $row;
-            }
+        while ($row = $result->fetch_assoc()) {
+            $row['name_display'] = $row[$name_col] ?? '-';
+            $data[] = $row;
         }
-        
-        $response = [
-            "draw" => intval($draw),
-            "recordsTotal" => intval($totalRecords),
-            "recordsFiltered" => intval($totalFiltered),
-            "data" => $data
-        ];
+
+        echo json_encode([
+            'draw' => $draw,
+            'recordsTotal' => intval($total),
+            'recordsFiltered' => intval($filtered),
+            'data' => $data
+        ]);
+        exit;
+    
         
     // ========================================
     // ADD PRODUCT GROUP (WITH AUTO BOTTLE CREATION)
