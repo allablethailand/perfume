@@ -184,183 +184,220 @@ try {
     // ========================================
     // UPDATE ORDER STATUS (WITH AUTO STOCK DEDUCTION)
     // ========================================
-    } elseif ($action == 'updateOrderStatus') {
-        
-        $order_id = $_POST['order_id'] ?? 0;
-        $new_status = $_POST['order_status'] ?? '';
-        
-        if (empty($order_id) || empty($new_status)) {
-            throw new Exception("Order ID and status are required.");
+   } elseif ($action == 'updateOrderStatus') {
+
+    $order_id   = $_POST['order_id'] ?? 0;
+    $new_status = $_POST['order_status'] ?? '';
+
+    if (empty($order_id) || empty($new_status)) {
+        throw new Exception("Order ID and status are required.");
+    }
+
+    $conn->begin_transaction();
+
+    try {
+
+        // ===============================
+        // 1. CHECK CURRENT ORDER
+        // ===============================
+        $check_stmt = $conn->prepare("
+            SELECT order_status, payment_status, user_id 
+            FROM orders 
+            WHERE order_id = ? AND del = 0
+        ");
+        $check_stmt->bind_param("i", $order_id);
+        $check_stmt->execute();
+        $check_result = $check_stmt->get_result();
+
+        if ($check_result->num_rows === 0) {
+            throw new Exception("Order not found.");
         }
-        
-        $conn->begin_transaction();
-        
-        try {
-            $check_stmt = $conn->prepare("SELECT order_status, payment_status FROM orders WHERE order_id = ? AND del = 0");
-            $check_stmt->bind_param("i", $order_id);
-            $check_stmt->execute();
-            $check_result = $check_stmt->get_result();
-            
-            if ($check_result->num_rows === 0) {
-                throw new Exception("Order not found.");
-            }
-            
-            $current_order = $check_result->fetch_assoc();
-            $old_status = $current_order['order_status'];
-            $payment_status = $current_order['payment_status'];
-            $check_stmt->close();
-            
-            // ✅ Update order status
-            $stmt = $conn->prepare("UPDATE orders SET order_status = ? WHERE order_id = ?");
-            $stmt->bind_param("si", $new_status, $order_id);
-            
-            if (!$stmt->execute()) {
-                throw new Exception("Failed to update order status: " . $stmt->error);
-            }
-            $stmt->close();
-            
-            $processed_items = [];
-            $created_by = $_SESSION['user_id'] ?? null;
-            
-            // ✅ เปลี่ยนสถานะเป็น 'sold' เมื่อ order เป็น 'completed' หรือ 'paid'
-            if (($new_status === 'completed' || $new_status === 'paid') && $old_status !== 'completed' && $old_status !== 'paid') {
-                
-                // ✅ ดึงรายการสินค้า
-                $stmt_items = $conn->prepare("SELECT 
-                                              oi.product_id, 
-                                              oi.product_name,
-                                              oi.quantity,
-                                              pi.group_id,
-                                              pi.serial_number,
-                                              pi.status as item_status
-                                              FROM order_items oi
-                                              LEFT JOIN product_items pi ON oi.product_id = pi.item_id
-                                              WHERE oi.order_id = ?");
-                $stmt_items->bind_param("i", $order_id);
-                $stmt_items->execute();
-                $items_result = $stmt_items->get_result();
-                
-                while ($item = $items_result->fetch_assoc()) {
-                    $product_id = $item['product_id'];
-                    $quantity = $item['quantity'];
-                    $group_id = $item['group_id'];
-                    $serial_number = $item['serial_number'];
-                    $product_name = $item['product_name'];
-                    
-                    if ($group_id) {
-                        // ✅ กรณีสินค้ามาจาก product_groups (ระบบใหม่)
-                        if ($item['item_status'] === 'reserved' || $item['item_status'] === 'available') {
-                            // เปลี่ยน status เป็น sold
-                            $update_stmt = $conn->prepare("UPDATE product_items 
-                                                          SET status = 'sold', 
-                                                              sold_at = NOW() 
-                                                          WHERE item_id = ?");
-                            $update_stmt->bind_param("i", $product_id);
-                            
-                            if (!$update_stmt->execute()) {
-                                throw new Exception("Failed to mark item as sold: item_id $product_id");
-                            }
-                            $update_stmt->close();
-                            
-                            // ✅ Log การเปลี่ยนสถานะ
-                            $log_note = "Item marked as sold - Order #{$order_id} status changed: {$old_status} → {$new_status}";
-                            if ($serial_number) {
-                                $log_note .= " (S/N: {$serial_number})";
-                            }
-                            
-                            logStockChange(
-                                $conn, 
-                                $product_id, 
-                                'sold', 
-                                1,  // quantity_before
-                                1,  // quantity_change
-                                0,  // quantity_after
-                                'order_status_change', 
-                                $order_id, 
-                                $order_id, 
-                                $log_note,
-                                $created_by
-                            );
-                            
-                            $processed_items[] = [
-                                'product_id' => $product_id,
-                                'product_name' => $product_name,
-                                'serial_number' => $serial_number,
-                                'quantity' => $quantity,
-                                'status_changed' => $item['item_status'] . ' → sold'
-                            ];
-                        }
-                    } else {
-                        // ✅ กรณีสินค้าจากระบบเก่า (products table)
-                        $stock_query = "SELECT stock_quantity, name_th FROM products WHERE product_id = $product_id AND del = 0 FOR UPDATE";
-                        $stock_result = $conn->query($stock_query);
-                        
-                        if ($stock_result && $stock_result->num_rows > 0) {
-                            $product_data = $stock_result->fetch_assoc();
-                            $current_stock = $product_data['stock_quantity'];
-                            $product_name_db = $product_data['name_th'];
-                            
-                            if ($current_stock < $quantity) {
-                                throw new Exception("Insufficient stock for product: $product_name_db. Available: $current_stock, Required: $quantity");
-                            }
-                            
-                            $new_stock = $current_stock - $quantity;
-                            $update_stmt = $conn->prepare("UPDATE products SET stock_quantity = ? WHERE product_id = ?");
-                            $update_stmt->bind_param("ii", $new_stock, $product_id);
-                            
-                            if (!$update_stmt->execute()) {
-                                throw new Exception("Failed to update stock for product ID $product_id");
-                            }
-                            $update_stmt->close();
-                            
-                            // ✅ Log การตัดสต็อก
-                            logStockChange(
-                                $conn, 
-                                $product_id, 
-                                'deduct', 
-                                $current_stock, 
-                                $quantity, 
-                                $new_stock, 
-                                'order_status_change', 
-                                $order_id, 
-                                $order_id, 
-                                "Stock deducted - Order #{$order_id} status changed: {$old_status} → {$new_status}",
-                                $created_by
-                            );
-                            
-                            $processed_items[] = [
-                                'product_id' => $product_id,
-                                'product_name' => $product_name_db,
-                                'quantity' => $quantity,
-                                'old_stock' => $current_stock,
-                                'new_stock' => $new_stock
-                            ];
-                        }
+
+        $current_order = $check_result->fetch_assoc();
+        $old_status    = $current_order['order_status'];
+        $payment_status = $current_order['payment_status'];
+        $user_id       = $current_order['user_id'];
+        $check_stmt->close();
+
+        // ===============================
+        // 2. UPDATE ORDER STATUS
+        // ===============================
+        $stmt = $conn->prepare("UPDATE orders SET order_status = ? WHERE order_id = ?");
+        $stmt->bind_param("si", $new_status, $order_id);
+
+        if (!$stmt->execute()) {
+            throw new Exception("Failed to update order status");
+        }
+        $stmt->close();
+
+        $processed_items = [];
+        $created_by = $_SESSION['user_id'] ?? null;
+
+        // ==========================================================
+        // 3. WHEN ORDER COMPLETED / PAID (FIRST TIME ONLY)
+        // ==========================================================
+        if (
+            ($new_status === 'completed' || $new_status === 'paid') &&
+            ($old_status !== 'completed' && $old_status !== 'paid')
+        ) {
+
+            // ===============================
+            // 3.1 UPDATE STOCK / ITEMS
+            // ===============================
+            $stmt_items = $conn->prepare("
+                SELECT 
+                    oi.product_id,
+                    oi.product_name,
+                    oi.quantity,
+                    pi.group_id,
+                    pi.serial_number,
+                    pi.status AS item_status
+                FROM order_items oi
+                LEFT JOIN product_items pi ON oi.product_id = pi.item_id
+                WHERE oi.order_id = ?
+            ");
+            $stmt_items->bind_param("i", $order_id);
+            $stmt_items->execute();
+            $items_result = $stmt_items->get_result();
+
+            while ($item = $items_result->fetch_assoc()) {
+
+                $product_id   = $item['product_id'];
+                $quantity     = $item['quantity'];
+                $group_id     = $item['group_id'];
+                $serial_number = $item['serial_number'];
+
+                // ===== product_items (serial)
+                if ($group_id) {
+
+                    if ($item['item_status'] === 'reserved' || $item['item_status'] === 'available') {
+
+                        $update_stmt = $conn->prepare("
+                            UPDATE product_items
+                            SET status = 'sold', sold_at = NOW()
+                            WHERE item_id = ?
+                        ");
+                        $update_stmt->bind_param("i", $product_id);
+                        $update_stmt->execute();
+                        $update_stmt->close();
+
+                        logStockChange(
+                            $conn,
+                            $product_id,
+                            'sold',
+                            1,
+                            1,
+                            0,
+                            'order_status_change',
+                            $order_id,
+                            $order_id,
+                            "Item sold (S/N: {$serial_number})",
+                            $created_by
+                        );
                     }
+
+                } else {
+                    // ===== products (old system)
+                    $stock = $conn->query("
+                        SELECT stock_quantity 
+                        FROM products 
+                        WHERE product_id = {$product_id} 
+                        AND del = 0 
+                        FOR UPDATE
+                    ")->fetch_assoc();
+
+                    if ($stock['stock_quantity'] < $quantity) {
+                        throw new Exception("Insufficient stock for product ID {$product_id}");
+                    }
+
+                    $new_stock = $stock['stock_quantity'] - $quantity;
+
+                    $update_stmt = $conn->prepare("
+                        UPDATE products SET stock_quantity = ? WHERE product_id = ?
+                    ");
+                    $update_stmt->bind_param("ii", $new_stock, $product_id);
+                    $update_stmt->execute();
+                    $update_stmt->close();
+
+                    logStockChange(
+                        $conn,
+                        $product_id,
+                        'deduct',
+                        $stock['stock_quantity'],
+                        $quantity,
+                        $new_stock,
+                        'order_status_change',
+                        $order_id,
+                        $order_id,
+                        "Stock deducted",
+                        $created_by
+                    );
                 }
-                
-                $stmt_items->close();
             }
-            
-            $conn->commit();
-            
-            $message = 'Order status updated successfully!';
-            if (count($processed_items) > 0) {
-                $message .= ' ' . count($processed_items) . ' item(s) marked as sold.';
+            $stmt_items->close();
+
+            // ===============================
+            // 3.2 CREATE USER AI COMPANIONS
+            // ===============================
+            $ai_stmt = $conn->prepare("
+                SELECT DISTINCT ac.ai_id
+                FROM order_items oi
+                INNER JOIN ai_companions ac ON oi.product_id = ac.item_id
+                WHERE oi.order_id = ?
+                  AND ac.del = 0
+                  AND ac.status = 1
+            ");
+            $ai_stmt->bind_param("i", $order_id);
+            $ai_stmt->execute();
+            $ai_result = $ai_stmt->get_result();
+
+            while ($ai = $ai_result->fetch_assoc()) {
+
+                $ai_id = $ai['ai_id'];
+
+                // กันซ้ำ
+                $check_ai = $conn->prepare("
+                    SELECT 1 FROM user_ai_companions
+                    WHERE user_id = ? AND ai_id = ? AND del = 0
+                    LIMIT 1
+                ");
+                $check_ai->bind_param("ii", $user_id, $ai_id);
+                $check_ai->execute();
+                $exists = $check_ai->get_result()->num_rows > 0;
+                $check_ai->close();
+
+                if (!$exists) {
+                    $insert_ai = $conn->prepare("
+                        INSERT INTO user_ai_companions
+                        (ai_id, user_id, status, del)
+                        VALUES (?, ?, 1, 0)
+                    ");
+                    $insert_ai->bind_param("ii", $ai_id, $user_id);
+                    $insert_ai->execute();
+                    $insert_ai->close();
+                }
             }
-            
-            $response = [
-                'status' => 'success',
-                'message' => $message,
-                'processed_items' => $processed_items,
-                'old_status' => $old_status,
-                'new_status' => $new_status
-            ];
-            
-        } catch (Exception $e) {
-            $conn->rollback();
-            throw $e;
+            $ai_stmt->close();
         }
+
+        // ===============================
+        // 4. COMMIT
+        // ===============================
+        $conn->commit();
+
+        $response = [
+            'status'     => 'success',
+            'message'    => 'Order status updated successfully',
+            'old_status' => $old_status,
+            'new_status' => $new_status
+        ];
+
+    } catch (Exception $e) {
+        $conn->rollback();
+        throw $e;
+    }
+
+
 
         
     // ========================================
