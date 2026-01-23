@@ -1941,7 +1941,7 @@ function loadAIChatButton(companionStatus) {
                         window.location.href = '?ai_chat_3d&lang=' + currentLang;
                     } else {
                         // ถ้ายัง setup ไม่เสร็จ -> ไป ai_questions
-                        window.location.href = '?ai_questions&companion_id=' + companionId + '&lang=' + lang;
+                        window.location.href = '?ai_activation&companion_id=' + companionId + '&lang=' + lang;
                     }
                 });
             } else {
