@@ -195,14 +195,16 @@ function ht($key, $lang) {
         z-index: 10;
         opacity: 0;
         transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-        /* ซ่อนให้แน่ใจว่ากดไม่ได้ */
         pointer-events: none;
         visibility: hidden;
+        width: 90%;
+        max-width: 1200px;
+        padding: 0 20px;
     }
 
     .hero-content.show {
         opacity: 1;
-        pointer-events: auto;
+        pointer-events: none;
         visibility: visible;
     }
 
@@ -266,7 +268,7 @@ function ht($key, $lang) {
     }
 
     .hero-content.show .hero-cta {
-        opacity: 1;
+        pointer-events: auto;
     }
 
     .hero-cta:hover {
@@ -331,7 +333,7 @@ function ht($key, $lang) {
         background: rgba(255, 255, 255, 0.4);
     }
 
-    /* Sound Control Button - ย้ายไปล่างขวา */
+    /* Sound Control Button */
     .sound-control {
         position: absolute;
         bottom: 60px;
@@ -374,21 +376,162 @@ function ht($key, $lang) {
         to { opacity: 1; }
     }
 
-    @media (max-width: 768px) {
+    /* Tablet Responsive */
+    @media (max-width: 1024px) {
+        .hero {
+            height: 60vh;
+            min-height: 500px;
+        }
+        
+        .hero-video {
+            object-fit: cover;
+            object-position: center;
+            transform: scale(0.85);
+        }
+
+        .hero-subtitle {
+            font-size: 11px;
+            letter-spacing: 0.25em;
+            margin-bottom: 18px;
+        }
+
         .hero-title {
             font-size: 48px;
+            margin-bottom: 25px;
         }
+
+        .hero-description {
+            font-size: 13px;
+            max-width: 480px;
+            padding: 0 20px;
+            margin-bottom: 35px;
+            line-height: 1.6;
+        }
+
+        .hero-cta {
+            padding: 12px 35px;
+            font-size: 10px;
+        }
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 768px) {
+        .hero {
+            height: 50vh;
+            min-height: 400px;
+        }
+
+        .hero-video {
+            object-fit: cover;
+            object-position: center;
+            transform: scale(0.75);
+        }
+
+        .hero-subtitle {
+            font-size: 8px;
+            letter-spacing: 0.15em;
+            margin-bottom: 10px;
+        }
+
+        .hero-title {
+            font-size: 32px;
+            margin-bottom: 15px;
+            line-height: 1.15;
+        }
+
+        .hero-description {
+            font-size: 10px;
+            max-width: 320px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+            padding: 0 15px;
+        }
+
+        .hero-cta {
+            padding: 8px 22px;
+            font-size: 8px;
+            letter-spacing: 0.1em;
+        }
+
         .hero-nav {
             bottom: 40px;
         }
+
         .hero-dot {
             width: 35px;
         }
+
         .sound-control {
             bottom: 40px;
             right: 20px;
             width: 45px;
             height: 45px;
+        }
+
+        .sound-control svg {
+            width: 20px;
+            height: 20px;
+        }
+    }
+
+    /* Small Mobile */
+    @media (max-width: 480px) {
+        .hero {
+            height: 40vh;
+            min-height: 320px;
+        }
+
+        .hero-video {
+            object-fit: cover;
+            object-position: center;
+            transform: scale(0.7);
+        }
+
+        .hero-subtitle {
+            font-size: 7px;
+            letter-spacing: 0.12em;
+            margin-bottom: 8px;
+        }
+
+        .hero-title {
+            font-size: 24px;
+            margin-bottom: 12px;
+            line-height: 1.2;
+        }
+
+        .hero-description {
+            font-size: 9px;
+            max-width: 260px;
+            line-height: 1.45;
+            margin-bottom: 15px;
+            padding: 0 10px;
+        }
+
+        .hero-cta {
+            padding: 7px 18px;
+            font-size: 7px;
+            letter-spacing: 0.08em;
+        }
+
+        .hero-nav {
+            bottom: 25px;
+            gap: 5px;
+        }
+
+        .hero-dot {
+            width: 28px;
+        }
+
+        .sound-control {
+            bottom: 25px;
+            right: 12px;
+            width: 38px;
+            height: 38px;
+        }
+
+        .sound-control svg {
+            width: 16px;
+            height: 16px;
         }
     }
 
