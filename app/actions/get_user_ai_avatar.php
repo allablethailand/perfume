@@ -57,10 +57,13 @@ if ($role_id != 5) {
     exit;
 }
 
+// ✅ แก้ไข: JOIN ผ่าน item_id แทน product_id
+// order_items.product_id คือ item_id ของขวดที่ซื้อ
+// ai_companions.item_id คือ item_id ของขวดที่มี AI
 $sql = "SELECT DISTINCT ac.ai_avatar_url, ac.ai_name_th, ac.ai_name_en, ac.ai_code, o.date_created
         FROM orders o
         INNER JOIN order_items oi ON o.order_id = oi.order_id
-        INNER JOIN ai_companions ac ON oi.product_id = ac.product_id
+        INNER JOIN ai_companions ac ON oi.product_id = ac.item_id
         WHERE o.user_id = ?
         AND o.order_status = 'completed'
         AND o.del = 0

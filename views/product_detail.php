@@ -15,34 +15,39 @@ if (!isset($_SESSION['guest_session_id'])) {
 // Get language
 $lang = isset($_GET['lang']) && in_array($_GET['lang'], ['en', 'cn', 'jp', 'kr']) ? $_GET['lang'] : 'th';
 
-// Get product ID
+// Get product ID (group_id)
 if (!isset($_GET['id'])) {
     header('Location: index.php');
     exit;
 }
 
-$product_id = base64_decode(urldecode($_GET['id']));
+$group_id = base64_decode(urldecode($_GET['id']));
 
 // Column names based on language
 $name_col = "name_" . $lang;
 $desc_col = "description_" . $lang;
 
-// Fetch product details
+// ✅ แก้ไข: ดึงข้อมูลจาก product_groups
 $product_query = "
     SELECT 
-        p.product_id,
-        p.{$name_col} as product_name,
-        p.{$desc_col} as description,
-        p.price,
-        p.vat_percentage,
-        ROUND(p.price * (1 + p.vat_percentage / 100), 2) as price_with_vat,
-        p.status
-    FROM products p
-    WHERE p.product_id = ? AND p.del = 0
+        pg.group_id,
+        pg.{$name_col} as product_name,
+        pg.{$desc_col} as description,
+        pg.price,
+        pg.vat_percentage,
+        ROUND(pg.price * (1 + pg.vat_percentage / 100), 2) as price_with_vat,
+        pg.status,
+        (SELECT COUNT(*) 
+         FROM product_items pi 
+         WHERE pi.group_id = pg.group_id 
+         AND pi.status = 'available' 
+         AND pi.del = 0) as available_stock
+    FROM product_groups pg
+    WHERE pg.group_id = ? AND pg.del = 0
 ";
 
 $stmt = $conn->prepare($product_query);
-$stmt->bind_param('i', $product_id);
+$stmt->bind_param('i', $group_id);
 $stmt->execute();
 $product_result = $stmt->get_result();
 
@@ -54,20 +59,20 @@ if ($product_result->num_rows === 0) {
 $product = $product_result->fetch_assoc();
 $stmt->close();
 
-// Fetch product images
+// ✅ แก้ไข: ดึงรูปภาพจาก product_group_images
 $images_query = "
     SELECT 
         image_id,
         api_path,
         is_primary,
         display_order
-    FROM product_images
-    WHERE product_id = ? AND del = 0
+    FROM product_group_images
+    WHERE group_id = ? AND del = 0
     ORDER BY is_primary DESC, display_order ASC
 ";
 
 $stmt_images = $conn->prepare($images_query);
-$stmt_images->bind_param('i', $product_id);
+$stmt_images->bind_param('i', $group_id);
 $stmt_images->execute();
 $images_result = $stmt_images->get_result();
 
@@ -314,8 +319,30 @@ $page_title = $product['product_name'];
         .price-note {
             font-size: 12px;
             color: var(--luxury-gray);
-            margin-bottom: 30px;
+            margin-bottom: 10px;
             font-weight: 300;
+        }
+
+        /* ✅ Stock Info */
+        .stock-info {
+            font-size: 13px;
+            color: #28a745;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .stock-info i {
+            font-size: 14px;
+        }
+
+        .stock-info.low-stock {
+            color: #ff9800;
+        }
+
+        .stock-info.out-of-stock {
+            color: #dc3545;
         }
 
         .product-description {
@@ -583,6 +610,27 @@ $page_title = $product['product_name'];
                     <?= $lang === 'en' ? 'Excluding VAT' : ($lang === 'cn' ? '不含增值税' : ($lang === 'jp' ? '税抜' : ($lang === 'kr' ? '부가세 제외' : 'ยังไม่รวม VAT'))) ?>
                 </div>
 
+                <!-- ✅ Stock Info -->
+                <?php 
+                $stock = intval($product['available_stock']);
+                if ($stock <= 0): 
+                ?>
+                    <div class="stock-info out-of-stock">
+                        <i class="fas fa-times-circle"></i>
+                        <span><?= $lang === 'en' ? 'Out of Stock' : ($lang === 'cn' ? '缺货' : ($lang === 'jp' ? '在庫切れ' : ($lang === 'kr' ? '품절' : 'สินค้าหมด'))) ?></span>
+                    </div>
+                <?php elseif ($stock <= 5): ?>
+                    <div class="stock-info low-stock">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span><?= $lang === 'en' ? 'Limited Stock' : ($lang === 'cn' ? '库存有限' : ($lang === 'jp' ? '在庫わずか' : ($lang === 'kr' ? '재고 부족' : 'สินค้าใกล้หมด'))) ?></span>
+                    </div>
+                <?php else: ?>
+                    <div class="stock-info">
+                        <i class="fas fa-check-circle"></i>
+                        <span><?= $lang === 'en' ? 'In Stock' : ($lang === 'cn' ? '有货' : ($lang === 'jp' ? '在庫あり' : ($lang === 'kr' ? '재고 있음' : 'มีสินค้า'))) ?></span>
+                    </div>
+                <?php endif; ?>
+
                 <?php if (!empty($product['description'])): ?>
                 <div class="product-description">
                     <?= nl2br(htmlspecialchars($product['description'])) ?>
@@ -618,9 +666,13 @@ $page_title = $product['product_name'];
 
             <!-- Action Buttons -->
             <div class="product-actions">
-                <button class="btn btn-primary" id="addToCartBtn" onclick="addToCart(event)">
+                <button class="btn btn-primary" id="addToCartBtn" onclick="addToCart(event)" <?= $stock <= 0 ? 'disabled' : '' ?>>
                     <i class="fas fa-shopping-bag"></i>
-                    <?= $lang === 'en' ? 'Add to Cart' : ($lang === 'cn' ? '加入购物车' : ($lang === 'jp' ? 'カートに追加' : ($lang === 'kr' ? '장바구니에 담기' : 'เพิ่มลงตะกร้า'))) ?>
+                    <?php if ($stock <= 0): ?>
+                        <?= $lang === 'en' ? 'Out of Stock' : ($lang === 'cn' ? '缺货' : ($lang === 'jp' ? '在庫切れ' : ($lang === 'kr' ? '품절' : 'สินค้าหมด'))) ?>
+                    <?php else: ?>
+                        <?= $lang === 'en' ? 'Add to Cart' : ($lang === 'cn' ? '加入购物车' : ($lang === 'jp' ? 'カートに追加' : ($lang === 'kr' ? '장바구니에 담기' : 'เพิ่มลงตะกร้า'))) ?>
+                    <?php endif; ?>
                 </button>
                 
                 <a href="https://lin.ee/yoSCNwF" target="_blank" class="btn btn-secondary">
@@ -655,6 +707,7 @@ $page_title = $product['product_name'];
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         const lang = "<?= $lang ?>";
+        const groupId = <?= $group_id ?>; // ✅ ใช้ group_id แทน product_id
         
         // Notification messages by language
         const messages = {
@@ -782,10 +835,8 @@ $page_title = $product['product_name'];
             });
         }
 
-        // Add to cart function
+        // ✅ Add to cart function - แก้ไขให้ส่ง group_id และระบบจะสุ่มเลือกขวด
         function addToCart(event) {
-            const productId = <?= $product_id ?>;
-            
             // Check JWT
             const jwt = sessionStorage.getItem("jwt");
             
@@ -814,12 +865,12 @@ $page_title = $product['product_name'];
             addButton.disabled = true;
             addButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> ' + (lang === 'en' ? 'Adding...' : (lang === 'cn' ? '添加中...' : (lang === 'jp' ? '追加中...' : (lang === 'kr' ? '추가 중...' : 'กำลังเพิ่ม...'))));
             
-            // Send request
-            fetch('app/actions/add_to_cart.php', {
+            // ✅ ส่ง group_id แทน product_id
+            fetch('app/actions/add_to_cart_group.php', {
                 method: 'POST',
                 headers: headers,
                 body: new URLSearchParams({
-                    product_id: productId,
+                    group_id: groupId,
                     quantity: 1
                 })
             })

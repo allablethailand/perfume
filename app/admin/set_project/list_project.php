@@ -16,7 +16,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link href="../../../inc/sweetalert2/css/sweetalert2.min.css" rel="stylesheet">
     <script src="../../../inc/sweetalert2/js/sweetalert2.all.min.js"></script>
-        <link href="https://cdn.datatables.net/v/dt/dt-2.1.4/datatables.min.css" rel="stylesheet">
+    <link href="https://cdn.datatables.net/v/dt/dt-2.1.4/datatables.min.css" rel="stylesheet">
     <script src="https://cdn.datatables.net/v/dt/dt-2.1.4/datatables.min.js"></script>
     <link href='../css/index_.css?v=<?php echo time(); ?>' rel='stylesheet'>
     <link href='css/ai-companion.css?v=<?php echo time(); ?>' rel='stylesheet'>
@@ -67,7 +67,7 @@ include '../template/header.php';
                                 <th width="8%">AI Avatar</th>
                                 <th width="12%">AI Code</th>
                                 <th width="15%">AI Name</th>
-                                <th width="15%">Product</th>
+                                <th width="15%">Serial Number</th>
                                 <th width="10%">Users</th>
                                 <th width="10%">Status</th>
                                 <th width="12%">Created</th>

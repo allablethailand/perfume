@@ -17,8 +17,16 @@ if (isset($_GET['lang'])) {
     }
 }
 
-// Get all products for filter
-$products_query = "SELECT product_id, name_th, name_en FROM products WHERE del = 0 ORDER BY name_th";
+// ✅ แก้ไข: ใช้เฉพาะ product_groups (ไม่มี products อีกต่อไป)
+$products_query = "
+    SELECT 
+        pg.group_id as id,
+        pg.name_th,
+        pg.name_en
+    FROM product_groups pg
+    WHERE pg.del = 0
+    ORDER BY pg.name_th
+";
 $products_result = $conn->query($products_query);
 $products = [];
 while ($row = $products_result->fetch_assoc()) {
@@ -94,10 +102,10 @@ function getTextByLang($key) {
             background: #f0f0f0;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
-        .log-item.log-add {
+        .log-item.log-add, .log-item.log-restore {
             border-left-color: #28a745;
         }
-        .log-item.log-deduct {
+        .log-item.log-deduct, .log-item.log-sold {
             border-left-color: #dc3545;
         }
         .log-item.log-adjust {
@@ -111,11 +119,11 @@ function getTextByLang($key) {
             font-weight: 600;
             text-transform: uppercase;
         }
-        .log-type-add {
+        .log-type-add, .log-type-restore {
             background: #d4edda;
             color: #155724;
         }
-        .log-type-deduct {
+        .log-type-deduct, .log-type-sold {
             background: #f8d7da;
             color: #721c24;
         }
@@ -149,6 +157,24 @@ function getTextByLang($key) {
             margin: 2px;
             border-radius: 15px;
         }
+        .serial-number {
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        .product-type-badge {
+            background: #f3e5f5;
+            color: #6a1b9a;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-left: 5px;
+        }
     </style>
 </head>
 
@@ -173,11 +199,11 @@ function getTextByLang($key) {
                 <div class="filter-section">
                     <div class="row mb-3">
                         <div class="col-md-3">
-                            <label><i class="fas fa-box"></i> สินค้า</label>
+                            <label><i class="fas fa-box"></i> กลุ่มสินค้า</label>
                             <select id="filterProduct" class="form-control">
                                 <option value="">ทั้งหมด</option>
                                 <?php foreach ($products as $product): ?>
-                                    <option value="<?= $product['product_id'] ?>">
+                                    <option value="<?= htmlspecialchars($product['id']) ?>">
                                         <?= htmlspecialchars($product['name_th']) ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -189,6 +215,8 @@ function getTextByLang($key) {
                                 <option value="">ทั้งหมด</option>
                                 <option value="add">เพิ่มสต็อก</option>
                                 <option value="deduct">ตัดสต็อก</option>
+                                <option value="sold">ขายแล้ว</option>
+                                <option value="restore">คืนสต็อก</option>
                                 <option value="adjust">ปรับปรุง</option>
                             </select>
                         </div>
@@ -273,7 +301,7 @@ function getTextByLang($key) {
             });
             
             function loadStockLogs() {
-                let productId = $('#filterProduct').val();
+                let groupId = $('#filterProduct').val();
                 let logType = $('#filterLogType').val();
                 let dateFrom = $('#filterDateFrom').val();
                 let dateTo = $('#filterDateTo').val();
@@ -283,7 +311,7 @@ function getTextByLang($key) {
                     type: 'POST',
                     data: {
                         action: 'getStockLogs',
-                        product_id: productId,
+                        group_id: groupId,
                         log_type: logType,
                         date_from: dateFrom,
                         date_to: dateTo,
@@ -318,16 +346,16 @@ function getTextByLang($key) {
                     return;
                 }
                 
-                // Add summary
-                let totalAdd = logs.filter(l => l.log_type === 'add').reduce((sum, l) => sum + parseInt(l.quantity_change), 0);
-                let totalDeduct = logs.filter(l => l.log_type === 'deduct').reduce((sum, l) => sum + parseInt(l.quantity_change), 0);
+                // ✅ Add summary
+                let totalAdd = logs.filter(l => l.log_type === 'add' || l.log_type === 'restore').reduce((sum, l) => sum + parseInt(l.quantity_change), 0);
+                let totalDeduct = logs.filter(l => l.log_type === 'deduct' || l.log_type === 'sold').reduce((sum, l) => sum + parseInt(l.quantity_change), 0);
                 
                 let summaryHtml = `
                     <div class="alert alert-info mb-3">
                         <strong><i class="fas fa-chart-bar"></i> สรุป:</strong>
                         พบ ${logs.length} รายการ | 
-                        <span class="text-success">เพิ่ม: +${totalAdd}</span> | 
-                        <span class="text-danger">ตัด: -${totalDeduct}</span> | 
+                        <span class="text-success">เพิ่ม/คืน: +${totalAdd}</span> | 
+                        <span class="text-danger">ตัด/ขาย: -${totalDeduct}</span> | 
                         <span class="text-primary">สุทธิ: ${totalAdd - totalDeduct}</span>
                     </div>
                 `;
@@ -345,6 +373,12 @@ function getTextByLang($key) {
                         case 'deduct':
                             logTypeText = 'ตัดสต็อก';
                             break;
+                        case 'sold':
+                            logTypeText = 'ขายแล้ว';
+                            break;
+                        case 'restore':
+                            logTypeText = 'คืนสต็อก';
+                            break;
                         case 'adjust':
                             logTypeText = 'ปรับปรุง';
                             break;
@@ -354,11 +388,11 @@ function getTextByLang($key) {
                     let changeClass = '';
                     let changeText = '';
                     
-                    if (log.log_type === 'add') {
+                    if (log.log_type === 'add' || log.log_type === 'restore') {
                         changeIcon = '<i class="fas fa-plus-circle"></i>';
                         changeClass = 'positive';
                         changeText = '+' + log.quantity_change;
-                    } else if (log.log_type === 'deduct') {
+                    } else if (log.log_type === 'deduct' || log.log_type === 'sold') {
                         changeIcon = '<i class="fas fa-minus-circle"></i>';
                         changeClass = 'negative';
                         changeText = '-' + log.quantity_change;
@@ -366,6 +400,12 @@ function getTextByLang($key) {
                         changeIcon = '<i class="fas fa-edit"></i>';
                         changeClass = log.quantity_change > 0 ? 'positive' : 'negative';
                         changeText = (log.quantity_change > 0 ? '+' : '') + log.quantity_change;
+                    }
+                    
+                    // ✅ แสดง Serial Number ถ้ามี
+                    let serialInfo = '';
+                    if (log.serial_number) {
+                        serialInfo = `<span class="serial-number">S/N: ${log.serial_number}</span>`;
                     }
                     
                     let orderInfo = '';
@@ -391,6 +431,7 @@ function getTextByLang($key) {
                                 <div class="col-md-8">
                                     <span class="log-type-badge ${badgeClass}">${logTypeText}</span>
                                     <strong style="margin-left: 10px;">${log.product_name || 'Unknown Product'}</strong>
+                                    ${serialInfo}
                                     <div class="log-meta">
                                         <i class="fas fa-clock"></i> ${log.created_at}
                                         <i class="fas fa-user" style="margin-left: 15px;"></i> ${createdBy}

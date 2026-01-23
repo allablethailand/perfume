@@ -3,14 +3,13 @@ const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
 let imageFiles = [];
-let deletedImageIds = [];
 
 $(document).ready(function() {
     
     // ========================================
-    // DATATABLE - LIST PRODUCTS
+    // DATATABLE - LIST PRODUCT GROUPS
     // ========================================
-    if ($('#td_list_products').length > 0) {
+    if ($('#td_list_product_groups').length > 0) {
         function getUrlParameter(name) {
             name = name.replace(/[\[]/, '\\[').replace(/[\]]/, '\\]');
             var regex = new RegExp('[\\?&]' + name + '=([^&#]*)');
@@ -18,22 +17,22 @@ $(document).ready(function() {
             return results === null ? '' : decodeURIComponent(results[1].replace(/\+/g, ' '));
         }
 
-        function loadListProducts(lang) {
-            if ($.fn.DataTable.isDataTable('#td_list_products')) {
-                $('#td_list_products').DataTable().destroy();
-                $('#td_list_products tbody').empty();
+        function loadListGroups(lang) {
+            if ($.fn.DataTable.isDataTable('#td_list_product_groups')) {
+                $('#td_list_product_groups').DataTable().destroy();
+                $('#td_list_product_groups tbody').empty();
             }
 
-            $('#td_list_products').DataTable({
+            $('#td_list_product_groups').DataTable({
                 "autoWidth": false,
                 "processing": true,
                 "serverSide": true,
                 ajax: {
-                    url: "actions/process_products.php",
+                    url: "actions/process_product_groups.php",
                     method: 'POST',
                     dataType: 'json',
                     data: function(d) {
-                        d.action = 'getData_products';
+                        d.action = 'getData_groups';
                         d.lang = lang;
                     },
                     dataSrc: function(json) {
@@ -77,51 +76,33 @@ $(document).ready(function() {
                     },
                     {
                         "target": 4,
-                        data: "price_with_vat",
+                        data: "total_bottles",
                         render: function(data) {
-                            return parseFloat(data).toFixed(2) + ' ฿';
+                            return `<span class="badge bg-secondary">${data}</span>`;
                         }
                     },
                     {
                         "target": 5,
-                        data: "stock_quantity",
+                        data: "available_bottles",
                         render: function(data) {
-                            let stock = parseInt(data);
-                            let badgeClass = '';
-                            let icon = '';
-                            
-                            if (stock === 0) {
-                                badgeClass = 'badge-stock-out';
-                                icon = '<i class="fas fa-times-circle"></i> ';
-                            } else if (stock <= 5) {
-                                badgeClass = 'badge-stock-low';
-                                icon = '<i class="fas fa-exclamation-triangle"></i> ';
-                            } else if (stock <= 20) {
-                                badgeClass = 'badge-stock-medium';
-                                icon = '<i class="fas fa-info-circle"></i> ';
-                            } else {
-                                badgeClass = 'badge-stock-high';
-                                icon = '<i class="fas fa-check-circle"></i> ';
-                            }
-                            
-                            return `<span class="badge badge-stock ${badgeClass}">${icon}${stock}</span>`;
+                            return `<span class="badge stock-available">${data}</span>`;
                         }
                     },
                     {
                         "target": 6,
-                        data: "status",
+                        data: "sold_bottles",
                         render: function(data) {
-                            if (data == 1) {
-                                return '<span class="badge badge-active">Active</span>';
-                            }
-                            return '<span class="badge badge-inactive">Inactive</span>';
+                            return `<span class="badge stock-sold">${data}</span>`;
                         }
                     },
                     {
                         "target": 7,
-                        data: "created_at",
+                        data: "status",
                         render: function(data) {
-                            return data;
+                            if (data == 1) {
+                                return '<span class="badge bg-success">Active</span>';
+                            }
+                            return '<span class="badge bg-danger">Inactive</span>';
                         }
                     },
                     {
@@ -129,17 +110,16 @@ $(document).ready(function() {
                         data: null,
                         render: function(data, type, row) {
                             return `
-                                <div class="d-flex">
-                                    <span style="margin: 2px;">
-                                        <button type="button" class="btn-circle btn-edit" data-id="${row.product_id}">
-                                            <i class="fas fa-pencil-alt"></i>
-                                        </button>
-                                    </span>
-                                    <span style="margin: 2px;">
-                                        <button type="button" class="btn-circle btn-del" data-id="${row.product_id}">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
-                                    </span>
+                                <div class="d-flex gap-1">
+                                    <button type="button" class="btn-circle btn-bottles" data-id="${row.group_id}" title="จัดการขวด">
+                                        <i class="fas fa-wine-bottle"></i>
+                                    </button>
+                                    <button type="button" class="btn-circle btn-edit" data-id="${row.group_id}">
+                                        <i class="fas fa-pencil-alt"></i>
+                                    </button>
+                                    <button type="button" class="btn-circle btn-del" data-id="${row.group_id}">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
                                 </div>
                             `;
                         }
@@ -157,39 +137,44 @@ $(document).ready(function() {
                 }
             });
 
-            // Event delegation for Edit button
-            $('#td_list_products').on('click', '.btn-edit', function() {
-                let productId = $(this).data('id');
-                reDirect('edit_product.php', { product_id: productId });
+            // Manage Bottles
+            $('#td_list_product_groups').on('click', '.btn-bottles', function() {
+                let groupId = $(this).data('id');
+                reDirect('manage_bottles.php', { group_id: groupId });
             });
 
-            // Event delegation for Delete button
-            $('#td_list_products').on('click', '.btn-del', function() {
-                let productId = $(this).data('id');
+            // Edit Group
+            $('#td_list_product_groups').on('click', '.btn-edit', function() {
+                let groupId = $(this).data('id');
+                reDirect('edit_product_group.php', { group_id: groupId });
+            });
+
+            // Delete Group
+            $('#td_list_product_groups').on('click', '.btn-del', function() {
+                let groupId = $(this).data('id');
                 
                 Swal.fire({
-                    title: "Are you sure?",
-                    text: "Do you want to delete this product?",
+                    title: "ลบกลิ่นนี้?",
+                    text: "ขวดทั้งหมดในกลิ่นนี้จะถูกลบด้วย",
                     icon: "warning",
                     showCancelButton: true,
                     confirmButtonColor: "#d33",
-                    cancelButtonColor: "#3085d6",
-                    confirmButtonText: "Yes, delete it!"
+                    confirmButtonText: "ใช่, ลบเลย!"
                 }).then((result) => {
                     if (result.isConfirmed) {
                         $('#loading-overlay').fadeIn();
                         
                         $.ajax({
-                            url: 'actions/process_products.php',
+                            url: 'actions/process_product_groups.php',
                             type: 'POST',
                             data: {
-                                action: 'deleteProduct',
-                                product_id: productId
+                                action: 'deleteGroup',
+                                group_id: groupId
                             },
                             dataType: 'json',
                             success: function(response) {
                                 if (response.status === 'success') {
-                                    Swal.fire('Deleted!', response.message, 'success').then(() => {
+                                    Swal.fire('ลบแล้ว!', response.message, 'success').then(() => {
                                         window.location.reload();
                                     });
                                 } else {
@@ -197,7 +182,7 @@ $(document).ready(function() {
                                 }
                             },
                             error: function(xhr, status, error) {
-                                Swal.fire('Error', 'Failed to delete product', 'error');
+                                Swal.fire('Error', 'ลบกลิ่นไม่สำเร็จ', 'error');
                             },
                             complete: function() {
                                 $('#loading-overlay').fadeOut();
@@ -209,41 +194,30 @@ $(document).ready(function() {
         }
 
         let defaultLang = getUrlParameter('lang') || 'th';
-        loadListProducts(defaultLang);
+        loadListGroups(defaultLang);
     }
     
     // ========================================
-    // IMAGE PREVIEW & SORTING
+    // IMAGE PREVIEW
     // ========================================
-    if ($('#productImages').length > 0) {
-        $('#productImages').on('change', function(e) {
-            console.log('=== Image Input Changed ===');
+    if ($('#groupImages').length > 0) {
+        $('#groupImages').on('change', function(e) {
             let files = e.target.files;
-            console.log('Files selected:', files.length);
             
             for (let i = 0; i < files.length; i++) {
                 let file = files[i];
                 
-                console.log(`File ${i}:`, {
-                    name: file.name,
-                    size: file.size,
-                    type: file.type
-                });
-                
-                // Validate file size
                 if (file.size > MAX_FILE_SIZE_BYTES) {
-                    alertError(`File "${file.name}" exceeds ${MAX_FILE_SIZE_MB}MB limit.`);
+                    alertError(`ไฟล์ "${file.name}" ขนาดเกิน ${MAX_FILE_SIZE_MB}MB`);
                     continue;
                 }
                 
-                // Validate file type
                 if (ALLOWED_MIME_TYPES.indexOf(file.type) === -1) {
-                    alertError(`File "${file.name}" is not a valid image type.`);
+                    alertError(`ไฟล์ "${file.name}" ไม่ใช่รูปภาพที่ถูกต้อง`);
                     continue;
                 }
                 
                 imageFiles.push(file);
-                console.log('✅ Added to imageFiles array. Total:', imageFiles.length);
                 
                 let reader = new FileReader();
                 reader.onload = function(event) {
@@ -260,15 +234,10 @@ $(document).ready(function() {
                     `;
                     
                     $('#imagePreviewContainer').append(imageHtml);
-                    console.log('✅ Preview added to container');
-                    
                     initSortable();
-                    updateImageNumbers();
                 };
                 reader.readAsDataURL(file);
             }
-            
-            console.log('Current imageFiles array:', imageFiles.map(f => f.name));
             
             $(this).val('');
         });
@@ -287,7 +256,6 @@ $(document).ready(function() {
                 onEnd: function() {
                     updatePrimaryBadge();
                     updateImageNumbers();
-                    updateExistingImagesOrder();
                 }
             });
             container.sortableInitialized = true;
@@ -309,17 +277,6 @@ $(document).ready(function() {
         });
     }
     
-    function updateExistingImagesOrder() {
-        let imageIds = [];
-        $('#imagePreviewContainer .image-preview-item[data-image-id]').each(function() {
-            imageIds.push($(this).data('image-id'));
-        });
-        $('#existing_images').val(JSON.stringify(imageIds));
-    }
-    
-    // ========================================
-    // REMOVE IMAGES
-    // ========================================
     window.removeNewImage = function(index) {
         imageFiles.splice(index, 1);
         $(`#imagePreviewContainer .image-preview-item[data-index="${index}"]`).remove();
@@ -336,22 +293,191 @@ $(document).ready(function() {
         updateImageNumbers();
     };
     
+    // ========================================
+    // SUBMIT ADD PRODUCT GROUP
+    // ========================================
+    $('#submitAddGroup').on('click', function(e) {
+        e.preventDefault();
+        
+        if (!$('#name_th').val().trim()) {
+            alertError('กรุณากรอกชื่อกลิ่น (ไทย)');
+            return;
+        }
+        
+        if (!$('#serial_prefix').val().trim()) {
+            alertError('กรุณากรอก Prefix รหัสขวด');
+            return;
+        }
+        
+        let bottleQty = parseInt($('#bottle_quantity').val());
+        if (isNaN(bottleQty) || bottleQty < 1) {
+            alertError('กรุณากรอกจำนวนขวดที่ถูกต้อง (ขั้นต่ำ 1 ขวด)');
+            return;
+        }
+        
+        if (imageFiles.length === 0) {
+            alertError('กรุณาเพิ่มรูปภาพสินค้าอย่างน้อย 1 รูป');
+            return;
+        }
+        
+        let formData = new FormData();
+        
+        formData.append('action', 'addGroup');
+        
+        formData.append('name_th', $('#name_th').val());
+        formData.append('name_en', $('#name_en').val() || '');
+        formData.append('name_cn', $('#name_cn').val() || '');
+        formData.append('name_jp', $('#name_jp').val() || '');
+        formData.append('name_kr', $('#name_kr').val() || '');
+        
+        formData.append('description_th', $('#description_th').val() || '');
+        formData.append('description_en', $('#description_en').val() || '');
+        formData.append('description_cn', $('#description_cn').val() || '');
+        formData.append('description_jp', $('#description_jp').val() || '');
+        formData.append('description_kr', $('#description_kr').val() || '');
+        
+        formData.append('price', $('#price').val());
+        formData.append('vat_percentage', $('#vat_percentage').val());
+        formData.append('bottle_quantity', bottleQty);
+        formData.append('serial_prefix', $('#serial_prefix').val().toUpperCase());
+        
+        imageFiles.forEach((file, index) => {
+            if (file instanceof File) {
+                formData.append('group_images[]', file, file.name);
+            }
+        });
+        
+        $('#loading-overlay').fadeIn();
+        
+        $.ajax({
+            url: 'actions/process_product_groups.php',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'สำเร็จ!',
+                        html: `<div style="text-align: left;">
+                                <p>${response.message}</p>
+                                <p><strong>จำนวนขวดที่สร้าง:</strong> ${response.bottles_created}</p>
+                                <p><strong>รหัสขวด:</strong> ${response.serial_start} - ${response.serial_end}</p>
+                               </div>`,
+                        timer: 3000
+                    }).then(() => {
+                        window.location.href = 'list_shop.php';
+                    });
+                } else {
+                    alertError(response.message);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error:', error);
+                alertError('เพิ่มกลิ่นไม่สำเร็จ: ' + error);
+            },
+            complete: function() {
+                $('#loading-overlay').fadeOut();
+            }
+        });
+    });
+    
+    
+    // ========================================
+    // SUBMIT EDIT PRODUCT GROUP
+    // ========================================
+    $('#submitEditGroup').on('click', function(e) {
+        e.preventDefault();
+        
+        if (!$('#name_th').val().trim()) {
+            alertError('กรุณากรอกชื่อกลิ่น (ไทย)');
+            return;
+        }
+        
+        let formData = new FormData();
+        
+        formData.append('action', 'editGroup');
+        formData.append('group_id', $('#group_id').val());
+        
+        formData.append('name_th', $('#name_th').val());
+        formData.append('name_en', $('#name_en').val() || '');
+        formData.append('name_cn', $('#name_cn').val() || '');
+        formData.append('name_jp', $('#name_jp').val() || '');
+        formData.append('name_kr', $('#name_kr').val() || '');
+        
+        formData.append('description_th', $('#description_th').val() || '');
+        formData.append('description_en', $('#description_en').val() || '');
+        formData.append('description_cn', $('#description_cn').val() || '');
+        formData.append('description_jp', $('#description_jp').val() || '');
+        formData.append('description_kr', $('#description_kr').val() || '');
+        
+        formData.append('price', $('#price').val());
+        formData.append('vat_percentage', $('#vat_percentage').val());
+        formData.append('status', $('#status').val());
+        
+        updateExistingImagesOrder();
+        formData.append('existing_images', $('#existing_images').val());
+        
+        imageFiles.forEach((file, index) => {
+            if (file instanceof File) {
+                formData.append('group_images[]', file, file.name);
+            }
+        });
+        
+        $('#loading-overlay').fadeIn();
+        
+        $.ajax({
+            url: 'actions/process_product_groups.php',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    Swal.fire('สำเร็จ!', response.message, 'success').then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    alertError(response.message);
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error:', error);
+                alertError('อัปเดตกลิ่นไม่สำเร็จ: ' + error);
+            },
+            complete: function() {
+                $('#loading-overlay').fadeOut();
+            }
+        });
+    });
+    
+    function updateExistingImagesOrder() {
+        let imageIds = [];
+        $('#imagePreviewContainer .image-preview-item[data-image-id]').each(function() {
+            imageIds.push($(this).data('image-id'));
+        });
+        $('#existing_images').val(JSON.stringify(imageIds));
+    }
+    
     window.removeExistingImage = function(imageId) {
         Swal.fire({
-            title: "Delete this image?",
-            text: "This action cannot be undone",
+            title: "ลบรูปนี้?",
+            text: "การกระทำนี้ไม่สามารถย้อนกลับได้",
             icon: "warning",
             showCancelButton: true,
             confirmButtonColor: "#d33",
-            confirmButtonText: "Yes, delete it!",
-            cancelButtonText: "Cancel"
+            confirmButtonText: "ใช่, ลบเลย!",
+            cancelButtonText: "ยกเลิก"
         }).then((result) => {
             if (result.isConfirmed) {
                 let $imageItem = $(`#imagePreviewContainer .image-preview-item[data-image-id="${imageId}"]`);
                 let isPrimary = $imageItem.find('.primary-badge').length > 0;
                 
                 $.ajax({
-                    url: 'actions/process_products.php',
+                    url: 'actions/process_product_groups.php',
                     type: 'POST',
                     data: {
                         action: 'deleteImage',
@@ -376,7 +502,7 @@ $(document).ready(function() {
                             
                             Swal.fire({
                                 icon: 'success',
-                                title: 'Deleted!',
+                                title: 'ลบแล้ว!',
                                 text: response.message,
                                 timer: 1500,
                                 showConfirmButton: false
@@ -387,7 +513,7 @@ $(document).ready(function() {
                     },
                     error: function(xhr, status, error) {
                         console.error('Delete error:', error);
-                        Swal.fire('Error', 'Failed to delete image', 'error');
+                        Swal.fire('Error', 'ลบรูปไม่สำเร็จ', 'error');
                     }
                 });
             }
@@ -395,242 +521,9 @@ $(document).ready(function() {
     };
     
     // ========================================
-    // SUBMIT ADD PRODUCT
-    // ========================================
-    $('#submitAddProduct').on('click', function(e) {
-        e.preventDefault();
-        
-        console.log('=== Submit Add Product Clicked ===');
-        
-        // Validate
-        if (!$('#name_th').val().trim()) {
-            alertError('Please enter product name (Thai)');
-            return;
-        }
-        
-        // Validate stock quantity
-        let stockQty = parseInt($('#stock_quantity').val());
-        if (isNaN(stockQty) || stockQty < 0) {
-            alertError('Please enter valid stock quantity (0 or more)');
-            return;
-        }
-        
-        console.log('Current imageFiles array:', imageFiles);
-        console.log('imageFiles.length:', imageFiles.length);
-        
-        if (imageFiles.length === 0) {
-            alertError('Please add at least one product image');
-            return;
-        }
-        
-        console.log('=== Creating FormData ===');
-        let formData = new FormData();
-        
-        formData.append('action', 'addProduct');
-        
-        formData.append('name_th', $('#name_th').val());
-        formData.append('name_en', $('#name_en').val() || '');
-        formData.append('name_cn', $('#name_cn').val() || '');
-        formData.append('name_jp', $('#name_jp').val() || '');
-        formData.append('name_kr', $('#name_kr').val() || '');
-        
-        formData.append('description_th', $('#description_th').val() || '');
-        formData.append('description_en', $('#description_en').val() || '');
-        formData.append('description_cn', $('#description_cn').val() || '');
-        formData.append('description_jp', $('#description_jp').val() || '');
-        formData.append('description_kr', $('#description_kr').val() || '');
-        
-        formData.append('price', $('#price').val());
-        formData.append('vat_percentage', $('#vat_percentage').val());
-        formData.append('stock_quantity', stockQty);
-        formData.append('status', $('#status').val());
-        
-        console.log('Adding images to FormData...');
-        imageFiles.forEach((file, index) => {
-            console.log(`  [${index}] Adding:`, file.name, '(' + file.size + ' bytes, ' + file.type + ')');
-            
-            if (file instanceof File) {
-                formData.append('product_images[]', file, file.name);
-                console.log('    ✅ Added successfully');
-            } else {
-                console.error('    ❌ Not a File object!', typeof file);
-            }
-        });
-        
-        let imageOrder = [];
-        $('#imagePreviewContainer .image-preview-item').each(function(index) {
-            imageOrder.push(index);
-        });
-        formData.append('image_order', JSON.stringify(imageOrder));
-        
-        console.log('Image order:', imageOrder);
-        
-        console.log('=== Final FormData Validation ===');
-        let hasImages = false;
-        let imageCount = 0;
-        
-        for (let [key, value] of formData.entries()) {
-            if (key === 'product_images[]') {
-                imageCount++;
-                hasImages = true;
-                if (value instanceof File) {
-                    console.log(`✅ ${key}: ${value.name} (${value.size} bytes, ${value.type})`);
-                } else {
-                    console.error(`❌ ${key}: NOT A FILE!`, typeof value, value);
-                }
-            } else if (value instanceof File) {
-                console.log(`${key}: ${value.name}`);
-            } else {
-                console.log(`${key}: ${value}`);
-            }
-        }
-        
-        console.log(`Total product_images[] entries: ${imageCount}`);
-        
-        if (!hasImages || imageCount === 0) {
-            console.error('❌ CRITICAL: No images in FormData!');
-            alertError('Failed to prepare images for upload. Please try again.');
-            return;
-        }
-        
-        console.log('✅ FormData validation passed. Sending to server...');
-        
-        $('#loading-overlay').fadeIn();
-        
-        $.ajax({
-            url: 'actions/process_products.php',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            cache: false,
-            dataType: 'json',
-            success: function(response) {
-                console.log('=== Server Response ===');
-                console.log(response);
-                
-                if (response.status === 'success') {
-                    console.log('✅ Product added successfully');
-                    console.log('   Product ID:', response.product_id);
-                    console.log('   Images uploaded:', response.images_uploaded);
-                    
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'Success!',
-                        text: response.message,
-                        timer: 2000
-                    }).then(() => {
-                        window.location.href = 'list_shop.php';
-                    });
-                } else {
-                    console.error('❌ Server returned error:', response.message);
-                    alertError(response.message);
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('=== AJAX Error ===');
-                console.error('Status:', status);
-                console.error('Error:', error);
-                console.error('Response Text:', xhr.responseText);
-                
-                try {
-                    let errorResponse = JSON.parse(xhr.responseText);
-                    alertError('Server error: ' + errorResponse.message);
-                } catch (e) {
-                    alertError('Failed to add product. Please check the console for details.');
-                }
-            },
-            complete: function() {
-                $('#loading-overlay').fadeOut();
-            }
-        });
-    });
-    
-    // ========================================
-    // SUBMIT EDIT PRODUCT
-    // ========================================
-    $('#submitEditProduct').on('click', function(e) {
-        e.preventDefault();
-        
-        console.log('=== Submit Edit Product Clicked ===');
-        
-        if (!$('#name_th').val().trim()) {
-            alertError('Please enter product name (Thai)');
-            return;
-        }
-        
-        // Validate stock quantity
-        let stockQty = parseInt($('#stock_quantity').val());
-        if (isNaN(stockQty) || stockQty < 0) {
-            alertError('Please enter valid stock quantity (0 or more)');
-            return;
-        }
-        
-        let formData = new FormData();
-        
-        formData.append('action', 'editProduct');
-        formData.append('product_id', $('#product_id').val());
-        
-        formData.append('name_th', $('#name_th').val());
-        formData.append('name_en', $('#name_en').val() || '');
-        formData.append('name_cn', $('#name_cn').val() || '');
-        formData.append('name_jp', $('#name_jp').val() || '');
-        formData.append('name_kr', $('#name_kr').val() || '');
-        
-        formData.append('description_th', $('#description_th').val() || '');
-        formData.append('description_en', $('#description_en').val() || '');
-        formData.append('description_cn', $('#description_cn').val() || '');
-        formData.append('description_jp', $('#description_jp').val() || '');
-        formData.append('description_kr', $('#description_kr').val() || '');
-        
-        formData.append('price', $('#price').val());
-        formData.append('vat_percentage', $('#vat_percentage').val());
-        formData.append('stock_quantity', stockQty);
-        formData.append('status', $('#status').val());
-        
-        updateExistingImagesOrder();
-        formData.append('existing_images', $('#existing_images').val());
-        
-        console.log('Adding new images:', imageFiles.length);
-        imageFiles.forEach((file, index) => {
-            if (file instanceof File) {
-                formData.append('product_images[]', file, file.name);
-                console.log(`  Added: ${file.name}`);
-            }
-        });
-        
-        $('#loading-overlay').fadeIn();
-        
-        $.ajax({
-            url: 'actions/process_products.php',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            dataType: 'json',
-            success: function(response) {
-                if (response.status === 'success') {
-                    Swal.fire('Success!', response.message, 'success').then(() => {
-                        window.location.reload();
-                    });
-                } else {
-                    alertError(response.message);
-                }
-            },
-            error: function(xhr, status, error) {
-                console.error('AJAX Error:', error);
-                alertError('Failed to update product: ' + error);
-            },
-            complete: function() {
-                $('#loading-overlay').fadeOut();
-            }
-        });
-    });
-    
-    // ========================================
     // BACK BUTTON
     // ========================================
-    $('#backToProductList').on('click', function() {
+    $('#backToList').on('click', function() {
         window.location.href = 'list_shop.php';
     });
     
@@ -643,11 +536,7 @@ $(document).ready(function() {
             position: "top-end",
             showConfirmButton: false,
             timer: 3000,
-            timerProgressBar: true,
-            didOpen: (toast) => {
-                toast.onmouseenter = Swal.stopTimer;
-                toast.onmouseleave = Swal.resumeTimer;
-            }
+            timerProgressBar: true
         });
         Toast.fire({
             icon: "error",
