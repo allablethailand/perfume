@@ -57,19 +57,18 @@ if ($role_id != 5) {
     exit;
 }
 
-// ✅ แก้ไข: JOIN ผ่าน item_id แทน product_id
-// order_items.product_id คือ item_id ของขวดที่ซื้อ
-// ai_companions.item_id คือ item_id ของขวดที่มี AI
-$sql = "SELECT DISTINCT ac.ai_avatar_url, ac.ai_name_th, ac.ai_name_en, ac.ai_code, o.date_created
-        FROM orders o
-        INNER JOIN order_items oi ON o.order_id = oi.order_id
-        INNER JOIN ai_companions ac ON oi.product_id = ac.item_id
-        WHERE o.user_id = ?
-        AND o.order_status = 'completed'
-        AND o.del = 0
+// ✅ เช็คจากตาราง user_ai_companions ว่า user คนนี้มี AI companion หรือไม่
+$sql = "SELECT uac.user_companion_id, uac.ai_id, uac.preferred_language, 
+               ac.ai_avatar_url, ac.ai_name_th, ac.ai_name_en, ac.ai_code,
+               uac.setup_completed_at
+        FROM user_ai_companions uac
+        INNER JOIN ai_companions ac ON uac.ai_id = ac.ai_id
+        WHERE uac.user_id = ?
+        AND uac.status = 1
+        AND uac.del = 0
         AND ac.status = 1
         AND ac.del = 0
-        ORDER BY o.date_created DESC
+        ORDER BY uac.setup_completed_at DESC
         LIMIT 1";
 
 $stmt = $conn->prepare($sql);
@@ -93,7 +92,8 @@ if ($result->num_rows > 0) {
         'ai_avatar_url' => $ai_data['ai_avatar_url'],
         'ai_name_th' => $ai_data['ai_name_th'],
         'ai_name_en' => $ai_data['ai_name_en'],
-        'ai_code' => $ai_data['ai_code']
+        'ai_code' => $ai_data['ai_code'],
+        'preferred_language' => $ai_data['preferred_language']
     ]);
 } else {
     echo json_encode([
