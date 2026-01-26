@@ -1,10 +1,9 @@
 /**
- * AI Chat 3D - Enhanced with Dynamic Video URLs from Database
- * ✅ ดึง idle_video_url และ talking_video_url จาก database ตาม ai_id
- * ✅ รองรับวิดีโอ 2 ไฟล์แยก: ไม่พูด กับ พูด
- * ✅ Smooth transition ไม่มี AbortError
- * ✅ Welcome message อัตโนมัติ
- * ✅ แก้ไขภาษาจีน ญี่ปุ่น เกาหลี ให้ใช้ cn, jp, kr
+ * AI Chat 3D - Mobile Audio Fix + Unmute Button
+ * ✅ แก้ปัญหาเสียงบนมือถือ 100%
+ * ✅ ปุ่ม Unmute/Mute ขวาตรงกลาง
+ * ✅ รองรับ iOS, Android, Desktop
+ * ✅ Auto-unlock audio เมื่อ user interaction
  */
 
 let currentConversationId = 0;
@@ -18,7 +17,6 @@ let waveIntensity = 0;
 let videoAvatar = null;
 let useVideoAvatar = true;
 
-// ⭐ URL วิดีโอจะดึงจาก database
 let IDLE_VIDEO_URL = '';
 let SPEAKING_VIDEO_URL = '';
 let currentVideoState = 'idle';
@@ -29,7 +27,13 @@ let preloadedSpeakingVideo = null;
 window.isSpeaking = false;
 window.waveIntensity = 0;
 
-// 🎉 Welcome Messages (5 ภาษา) - ใช้ cn, jp, kr
+// 🔊 Audio Management
+let audioContext = null;
+let isAudioUnlocked = false;
+let isMuted = true; // เริ่มต้นเป็น muted
+let currentAudio = null;
+
+// Welcome Messages (5 ภาษา)
 const WELCOME_MESSAGES = {
     th: "ยินดีต้อนรับกลับมานะเพื่อน",
     en: "Welcome back, my friend",
@@ -40,7 +44,7 @@ const WELCOME_MESSAGES = {
 
 let userPreferredLanguage = 'th';
 let isWelcomeMessagePlayed = false;
-let aiCompanionData = null; // เก็บข้อมูล AI companion
+let aiCompanionData = null;
 
 $(document).ready(function() {
     if (!jwt) {
@@ -48,13 +52,13 @@ $(document).ready(function() {
         return;
     }
     
-    // ✅ Unlock audio สำหรับมือถือเมื่อมี interaction
-    const unlockEvents = ['touchstart', 'touchend', 'click'];
-    unlockEvents.forEach(eventName => {
-        document.addEventListener(eventName, unlockAudio, { once: true, passive: true });
-    });
+    // ✅ Setup Unmute Button
+    setupUnmuteButton();
     
-    // ✅ ดึงข้อมูล AI companion ก่อน (รวม video URLs)
+    // ✅ Setup auto-unlock events
+    setupAutoUnlock();
+    
+    // ✅ Fetch AI data & initialize
     fetchAICompanionData().then(() => {
         if (useVideoAvatar && IDLE_VIDEO_URL && SPEAKING_VIDEO_URL) {
             initVideoAvatar();
@@ -64,9 +68,9 @@ $(document).ready(function() {
         
         loadConversations();
         
-        // เล่น Welcome Message
+        // แสดง Welcome message (แต่ยังไม่เล่นเสียง)
         setTimeout(() => {
-            playWelcomeMessage();
+            showWelcomeMessage();
         }, 800);
     });
     
@@ -77,7 +81,152 @@ $(document).ready(function() {
 });
 
 /**
- * 🔍 Fetch AI Companion Data (รวม video URLs และ preferred_language)
+ * 🔊 Setup Unmute Button
+ */
+function setupUnmuteButton() {
+    const unmuteBtn = document.getElementById('unmuteBtn');
+    
+    unmuteBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        toggleMute();
+    });
+}
+
+/**
+ * 🔄 Toggle Mute/Unmute
+ */
+function toggleMute() {
+    const unmuteBtn = document.getElementById('unmuteBtn');
+    const icon = unmuteBtn.querySelector('i');
+    
+    if (isMuted) {
+        // Unmute
+        isMuted = false;
+        unmuteBtn.classList.remove('muted');
+        unmuteBtn.classList.add('unmuted');
+        icon.className = 'fas fa-volume-up';
+        unmuteBtn.title = 'Click to mute';
+        
+        // Unlock audio
+        unlockAudio();
+        
+        // เล่น welcome message ถ้ายังไม่ได้เล่น
+        if (!isWelcomeMessagePlayed) {
+            playWelcomeMessage();
+        }
+        
+        // แจ้งเตือน
+        showToast('🔊 Sound Enabled', 'success');
+        
+    } else {
+        // Mute
+        isMuted = true;
+        unmuteBtn.classList.remove('unmuted');
+        unmuteBtn.classList.add('muted');
+        icon.className = 'fas fa-volume-mute';
+        unmuteBtn.title = 'Click to enable sound';
+        
+        // หยุดเสียงที่กำลังเล่น
+        stopCurrentAudio();
+        
+        showToast('🔇 Sound Muted', 'info');
+    }
+}
+
+/**
+ * 🔓 Auto-unlock audio on user interaction
+ */
+function setupAutoUnlock() {
+    const unlockEvents = ['touchstart', 'touchend', 'click', 'keydown'];
+    
+    unlockEvents.forEach(eventName => {
+        document.addEventListener(eventName, function unlockOnce() {
+            if (!isAudioUnlocked) {
+                unlockAudio();
+            }
+        }, { once: false, passive: true });
+    });
+}
+
+/**
+ * 🔓 Unlock Audio (iOS/Android)
+ */
+function unlockAudio() {
+    if (isAudioUnlocked) return;
+    
+    try {
+        // สร้าง AudioContext
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        // Resume AudioContext
+        if (audioContext.state === 'suspended') {
+            audioContext.resume().then(() => {
+                console.log('✅ AudioContext resumed');
+            });
+        }
+        
+        // เล่นเสียงเงียบสั้นๆ
+        const silentBuffer = audioContext.createBuffer(1, 1, 22050);
+        const source = audioContext.createBufferSource();
+        source.buffer = silentBuffer;
+        source.connect(audioContext.destination);
+        source.start(0);
+        
+        isAudioUnlocked = true;
+        console.log('✅ Audio unlocked');
+        
+        // Unlock video avatar
+        if (videoAvatar && videoAvatar.paused) {
+            videoAvatar.play().catch(e => {
+                console.log('Video play will retry on interaction');
+            });
+        }
+        
+    } catch (err) {
+        console.warn('⚠️ Audio unlock error:', err.message);
+    }
+}
+
+/**
+ * 🛑 Stop current audio
+ */
+function stopCurrentAudio() {
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+    }
+    
+    if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+    }
+    
+    isSpeaking = false;
+    window.isSpeaking = false;
+    
+    if (useVideoAvatar) {
+        stopSpeakingAnimation();
+    }
+}
+
+/**
+ * 📢 Show Toast Notification
+ */
+function showToast(message, icon = 'info') {
+    Swal.fire({
+        icon: icon,
+        title: message,
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 2000,
+        timerProgressBar: true
+    });
+}
+
+/**
+ * 🔍 Fetch AI Companion Data
  */
 function fetchAICompanionData() {
     return new Promise((resolve, reject) => {
@@ -89,12 +238,8 @@ function fetchAICompanionData() {
             success: function(response) {
                 if (response.status === 'success') {
                     aiCompanionData = response.companion;
-                    
-                    // ✅ ดึง video URLs จาก database
                     IDLE_VIDEO_URL = response.companion.idle_video_url || '';
                     SPEAKING_VIDEO_URL = response.companion.talking_video_url || '';
-                    
-                    // ✅ ดึงภาษาที่ user เลือก
                     userPreferredLanguage = response.companion.preferred_language || 'th';
                     
                     console.log('✅ AI Companion loaded:', {
@@ -105,7 +250,6 @@ function fetchAICompanionData() {
                         talking_video: SPEAKING_VIDEO_URL
                     });
                     
-                    // ✅ ตรวจสอบว่ามี video URLs หรือไม่
                     if (!IDLE_VIDEO_URL || !SPEAKING_VIDEO_URL) {
                         console.warn('⚠️ Video URLs not found, switching to 3D avatar');
                         useVideoAvatar = false;
@@ -128,11 +272,20 @@ function fetchAICompanionData() {
 }
 
 /**
- * 🎉 Play Welcome Message
+ * 🎉 Show Welcome Message (ยังไม่เล่นเสียง)
+ */
+function showWelcomeMessage() {
+    const welcomeText = WELCOME_MESSAGES[userPreferredLanguage] || WELCOME_MESSAGES.th;
+    showMessage(welcomeText);
+    
+    console.log(`👋 Welcome message displayed: ${welcomeText}`);
+}
+
+/**
+ * 🎉 Play Welcome Message (เล่นเสียง)
  */
 function playWelcomeMessage() {
-    if (isWelcomeMessagePlayed) {
-        console.log('⏭️ Welcome message already played');
+    if (isWelcomeMessagePlayed || isMuted) {
         return;
     }
     
@@ -140,23 +293,15 @@ function playWelcomeMessage() {
     
     const welcomeText = WELCOME_MESSAGES[userPreferredLanguage] || WELCOME_MESSAGES.th;
     
-    console.log(`🎉 Playing welcome message in ${userPreferredLanguage}: ${welcomeText}`);
+    console.log(`🎉 Playing welcome message: ${welcomeText}`);
     
-    // ✅ Unlock audio สำหรับมือถือ
+    // Unlock audio
     unlockAudio();
     
-    if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
-        videoAvatar.play().catch(e => {
-            console.warn('⚠️ Autoplay blocked, will play on user interaction');
-        });
-    }
-    
-    showMessage(welcomeText);
-    
-    // ✅ รอให้ audio unlock ก่อน (สำหรับมือถือ)
+    // เล่นเสียง
     setTimeout(() => {
         speakText(welcomeText, userPreferredLanguage);
-    }, 500);
+    }, 300);
 }
 
 /**
@@ -184,8 +329,6 @@ function initVideoAvatar() {
     videoAvatar.playsInline = true;
     videoAvatar.loop = true;
     videoAvatar.preload = 'auto';
-    
-    // ✅ ใช้ URL จาก database
     videoAvatar.src = IDLE_VIDEO_URL;
     currentVideoState = 'idle';
     
@@ -194,17 +337,6 @@ function initVideoAvatar() {
     const loadTimeout = setTimeout(() => {
         if (videoAvatar.readyState < 2) {
             console.warn('Video loading timeout. Switching to 3D avatar...');
-            
-            Swal.fire({
-                icon: 'info',
-                title: 'Loading 3D Avatar',
-                text: 'Video taking too long. Using 3D model instead.',
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000
-            });
-            
             useVideoAvatar = false;
             container.removeChild(videoAvatar);
             init3DAvatar();
@@ -213,19 +345,16 @@ function initVideoAvatar() {
     
     videoAvatar.addEventListener('loadeddata', function() {
         clearTimeout(loadTimeout);
-        console.log('✅ Idle video loaded from database');
-        console.log('Video dimensions:', videoAvatar.videoWidth, 'x', videoAvatar.videoHeight);
+        console.log('✅ Idle video loaded');
         
         videoAvatar.play().catch(e => {
-            console.log('⏸️ Autoplay prevented, waiting for user interaction');
+            console.log('⏸️ Autoplay prevented, waiting for interaction');
         });
     });
     
     videoAvatar.addEventListener('error', function(e) {
         clearTimeout(loadTimeout);
         console.error('❌ Video error:', videoAvatar.error);
-        console.error('Error code:', videoAvatar.error ? videoAvatar.error.code : 'unknown');
-        
         useVideoAvatar = false;
         container.removeChild(videoAvatar);
         init3DAvatar();
@@ -233,7 +362,6 @@ function initVideoAvatar() {
     
     videoAvatar.load();
     
-    // Preload speaking video
     setTimeout(() => preloadSpeakingVideo(), 1000);
 }
 
@@ -251,7 +379,7 @@ function preloadSpeakingVideo() {
     preloadedSpeakingVideo.src = SPEAKING_VIDEO_URL;
     
     preloadedSpeakingVideo.addEventListener('loadeddata', function() {
-        console.log('✅ Speaking video preloaded from database');
+        console.log('✅ Speaking video preloaded');
     });
     
     preloadedSpeakingVideo.load();
@@ -330,13 +458,13 @@ function stopSpeakingAnimation() {
 }
 
 /**
- * 🎨 Original 3D Avatar initialization (fallback)
+ * 🎨 Original 3D Avatar initialization
  */
 function init3DAvatar() {
     const canvas = document.getElementById('avatarCanvas');
     
     scene = new THREE.Scene();
-    scene.background = null; 
+    scene.background = null;
     
     camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
     camera.position.z = 7;
@@ -514,11 +642,11 @@ function sendMessage() {
     
     if (!message) return;
     
-    // ✅ Unlock audio เมื่อ user ส่งข้อความ (สำหรับมือถือ)
+    // ✅ Unlock audio & video
     unlockAudio();
     
-    if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
-        videoAvatar.play().catch(e => console.log('Play on interaction'));
+    if (videoAvatar && videoAvatar.paused) {
+        videoAvatar.play().catch(e => console.log('Video play on interaction'));
     }
     
     $('#messageInput').prop('disabled', true);
@@ -547,7 +675,11 @@ function sendMessage() {
                 }
                 
                 showMessage(response.ai_message);
-                speakText(response.ai_message);
+                
+                // ✅ เล่นเสียงถ้าไม่ได้ mute
+                if (!isMuted) {
+                    speakText(response.ai_message);
+                }
             } else {
                 Swal.fire('Error', response.message, 'error');
                 updateStatus('Ready to chat', false);
@@ -571,32 +703,36 @@ function showMessage(text) {
 }
 
 /**
- * 🗣️ Speak text with language detection (ใช้ cn, jp, kr)
+ * 🗣️ Speak text with language detection
  */
 function speakText(text, forceLangCode = null) {
+    // ถ้า muted ไม่ต้องเล่นเสียง
+    if (isMuted) {
+        console.log('🔇 Audio is muted, skipping TTS');
+        return;
+    }
+    
     let langCode = forceLangCode;
     let detectedLang = 'Thai';
     
     if (!langCode) {
-        // ตรวจจับภาษาอัตโนมัติ
         if (/[\u0E00-\u0E7F]/.test(text)) {
             langCode = 'th';
             detectedLang = 'Thai';
         } else if (/[\u4E00-\u9FFF]/.test(text)) {
-            langCode = 'cn'; // ✅ เปลี่ยนจาก zh เป็น cn
+            langCode = 'cn';
             detectedLang = 'Chinese';
         } else if (/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) {
-            langCode = 'jp'; // ✅ เปลี่ยนจาก ja เป็น jp
+            langCode = 'jp';
             detectedLang = 'Japanese';
         } else if (/[\uAC00-\uD7AF]/.test(text)) {
-            langCode = 'kr'; // ✅ เปลี่ยนจาก ko เป็น kr
+            langCode = 'kr';
             detectedLang = 'Korean';
         } else {
             langCode = 'en';
             detectedLang = 'English';
         }
     } else {
-        // ✅ แปลงรหัสภาษาเป็นชื่อภาษา
         const langMap = {
             'th': 'Thai',
             'en': 'English',
@@ -638,53 +774,18 @@ function speakText(text, forceLangCode = null) {
     playTTSChunks(chunks, 0, langCode);
 }
 
-let currentAudio = null;
-let audioContext = null;
-let isAudioUnlocked = false;
-
 /**
- * 🔓 Unlock audio for mobile devices
- */
-function unlockAudio() {
-    if (isAudioUnlocked) return;
-    
-    try {
-        // สร้าง AudioContext สำหรับ iOS/Android
-        if (!audioContext) {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        }
-        
-        // Resume AudioContext
-        if (audioContext.state === 'suspended') {
-            audioContext.resume();
-        }
-        
-        // เล่นเสียงเงียบสั้นๆ เพื่อ unlock
-        const silentAudio = new Audio('data:audio/mp3;base64,SUQzAwAAAAAAFlRJVDIAAAAOAAAAAABTaWxlbmNlAAAA//uSwAAAAAABLAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAUHAAAAAAAAAYYoN0Q0AAAAAAD/+xDEAAPAAAGkAAAAIAAANIAAAARMQU1FMy4xMDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/+xDEHgPAAAGkAAAAIAAANIAAAARMQU1FMy4xMDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/+xDEJgPAAAGkAAAAIAAANIAAAARMQU1FMy4xMDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=');
-        silentAudio.play().then(() => {
-            isAudioUnlocked = true;
-            console.log('✅ Audio unlocked for mobile');
-        }).catch(err => {
-            console.log('⚠️ Audio unlock attempt:', err.message);
-        });
-        
-    } catch (err) {
-        console.log('⚠️ AudioContext not supported:', err.message);
-    }
-}
-
-/**
- * 🔊 Play TTS chunks with correct language codes (cn, jp, kr)
+ * 🔊 Play TTS chunks
  */
 function playTTSChunks(chunks, index, langCode) {
-    if (index >= chunks.length) {
+    // ถ้า muted หรือผู้ใช้หยุด ให้หยุดทันที
+    if (isMuted || index >= chunks.length) {
         isSpeaking = false;
         window.isSpeaking = false;
         updateStatus('Ready to chat', false);
         $('#currentMessage').fadeOut();
         
         if (mouth) mouth.scale.y = 1;
-        
         if (useVideoAvatar) {
             stopSpeakingAnimation();
         }
@@ -697,13 +798,9 @@ function playTTSChunks(chunks, index, langCode) {
     
     let ttsUrl;
     
-    // ✅ ใช้ ResponsiveVoice สำหรับภาษาไทย
     if (langCode === 'th') {
         ttsUrl = `https://code.responsivevoice.org/getvoice.php?t=${encodedText}&tl=th&sv=&vn=&pitch=0.5&rate=0.5&vol=1`;
-    } 
-    // ✅ ใช้ Google Translate TTS สำหรับภาษาอื่นๆ (cn, jp, kr, en)
-    else {
-        // แปลงรหัสภาษาให้ตรงกับที่ Google TTS ต้องการ
+    } else {
         let googleLangCode = langCode;
         if (langCode === 'cn') googleLangCode = 'zh-CN';
         if (langCode === 'jp') googleLangCode = 'ja';
@@ -718,16 +815,15 @@ function playTTSChunks(chunks, index, langCode) {
     }
     
     currentAudio = new Audio();
-    currentAudio.crossOrigin = 'anonymous'; // ✅ สำหรับ CORS
+    currentAudio.crossOrigin = 'anonymous';
     currentAudio.preload = 'auto';
     
-    // ✅ Unlock audio on first play (สำหรับมือถือ)
-    if (!isAudioUnlocked) {
-        unlockAudio();
-    }
-    
     currentAudio.oncanplaythrough = function() {
-        // ✅ ลองเล่นและจัดการ error สำหรับมือถือ
+        if (isMuted) {
+            playTTSChunks(chunks, chunks.length, langCode); // Skip remaining
+            return;
+        }
+        
         const playPromise = this.play();
         
         if (playPromise !== undefined) {
@@ -735,28 +831,6 @@ function playTTSChunks(chunks, index, langCode) {
                 console.log('🔊 Audio playing');
             }).catch(err => {
                 console.error('❌ TTS play error:', err.message);
-                
-                // ถ้าเป็น autoplay policy ให้แจ้งเตือนผู้ใช้
-                if (err.name === 'NotAllowedError') {
-                    console.log('📱 Autoplay blocked - needs user interaction');
-                    
-                    // แจ้งเตือนครั้งเดียว
-                    if (!window.autoplayWarningShown) {
-                        window.autoplayWarningShown = true;
-                        
-                        Swal.fire({
-                            icon: 'info',
-                            title: 'Tap to Enable Sound',
-                            text: 'Please tap anywhere to enable audio playback',
-                            toast: true,
-                            position: 'top',
-                            showConfirmButton: false,
-                            timer: 3000
-                        });
-                    }
-                }
-                
-                // ข้ามไปข้อความถัดไป
                 playTTSChunks(chunks, index + 1, langCode);
             });
         }
@@ -783,10 +857,10 @@ function playTTSChunks(chunks, index, langCode) {
 }
 
 /**
- * 🔄 Fallback to Web Speech API (ใช้ cn, jp, kr)
+ * 🔄 Fallback to Web Speech API
  */
 function fallbackToWebSpeech(text, langCode) {
-    if (!window.speechSynthesis) {
+    if (!window.speechSynthesis || isMuted) {
         isSpeaking = false;
         window.isSpeaking = false;
         updateStatus('Ready to chat', false);
@@ -795,15 +869,9 @@ function fallbackToWebSpeech(text, langCode) {
             stopSpeakingAnimation();
         }
         
-        Swal.fire({
-            icon: 'warning',
-            title: 'TTS Not Available',
-            text: 'Text-to-speech is not available. Please try using Chrome or Edge browser.',
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 4000
-        });
+        if (!isMuted) {
+            showToast('⚠️ TTS Not Available', 'warning');
+        }
         return;
     }
     
@@ -811,7 +879,6 @@ function fallbackToWebSpeech(text, langCode) {
     
     const utterance = new SpeechSynthesisUtterance(text);
     
-    // ✅ แปลงรหัสภาษาให้ตรงกับ Web Speech API
     if (langCode === 'th') {
         utterance.lang = 'th-TH';
     } else if (langCode === 'cn') {
@@ -874,22 +941,7 @@ function createNewChat() {
     $('#messageInput').val('').focus();
     $('#currentMessage').fadeOut();
     
-    if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-    }
-    
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio = null;
-    }
-    
-    isSpeaking = false;
-    window.isSpeaking = false;
-    updateStatus('Ready to chat', false);
-    
-    if (useVideoAvatar) {
-        playIdleAnimation();
-    }
+    stopCurrentAudio();
 }
 
 function deleteConversation(conversationId, event) {

@@ -24,7 +24,6 @@ if (session_status() == PHP_SESSION_NONE) {
         .chat-container-3d {
             display: flex;
             height: 100vh;
-            /* margin-top: 70px; */
             overflow: hidden;
             position: relative;
         }
@@ -57,6 +56,52 @@ if (session_status() == PHP_SESSION_NONE) {
 
         .floating-menu-btn.active {
             background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+        }
+
+        /* ========== Unmute Button - ขวาตรงกลาง ========== */
+        .unmute-btn {
+            position: fixed;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 100;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(102, 126, 234, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            transition: all 0.3s ease;
+            pointer-events: auto;
+        }
+
+        .unmute-btn:hover {
+            transform: translateY(-50%) scale(1.1);
+            box-shadow: 0 6px 30px rgba(102, 126, 234, 0.8);
+        }
+
+        .unmute-btn.muted {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            animation: pulse-muted 2s infinite;
+        }
+
+        .unmute-btn.unmuted {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+
+        @keyframes pulse-muted {
+            0%, 100% {
+                box-shadow: 0 4px 20px rgba(220, 53, 69, 0.6);
+            }
+            50% {
+                box-shadow: 0 6px 30px rgba(220, 53, 69, 1);
+            }
         }
 
         /* ========== Dropdown Menu ========== */
@@ -171,7 +216,7 @@ if (session_status() == PHP_SESSION_NONE) {
             position: relative;
         }
 
-        /* Audio Wave Background - Water Wave Style */
+        /* Audio Wave Background */
         .audio-wave-bg {
             position: absolute;
             top: 0;
@@ -204,9 +249,9 @@ if (session_status() == PHP_SESSION_NONE) {
 
         .wave-path {
             fill: none;
-            stroke-width: 3; /* เพิ่มความหนาของเส้นนิดหน่อย */
-            transition: stroke 0.5s ease; /* ให้สีเปลี่ยนนุ่มๆ */
-            filter: blur(2px); /* เพิ่ม Blur ให้ดูเหมือนแสงเรืองๆ (Neon Wave) */
+            stroke-width: 3;
+            transition: stroke 0.5s ease;
+            filter: blur(2px);
         }
 
         .wave-path-1 {
@@ -224,7 +269,6 @@ if (session_status() == PHP_SESSION_NONE) {
             opacity: 0.2;
         }
 
-        /* Particle effects */
         .particles {
             position: absolute;
             width: 100%;
@@ -501,6 +545,12 @@ if (session_status() == PHP_SESSION_NONE) {
                 font-size: 20px;
             }
 
+            .unmute-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 20px;
+            }
+
             .dropdown-menu {
                 width: calc(100vw - 40px);
                 max-width: 320px;
@@ -517,6 +567,11 @@ if (session_status() == PHP_SESSION_NONE) {
     <!-- Floating Menu Button -->
     <button class="floating-menu-btn" id="menuToggle">
         <i class="fas fa-bars"></i>
+    </button>
+
+    <!-- Unmute/Mute Button - ขวาตรงกลาง -->
+    <button class="unmute-btn muted" id="unmuteBtn" title="Click to enable sound">
+        <i class="fas fa-volume-mute"></i>
     </button>
 
     <!-- Dropdown Menu -->
@@ -540,7 +595,7 @@ if (session_status() == PHP_SESSION_NONE) {
 
     <div class="chat-container-3d">
         <div class="chat-main-3d">
-            <!-- Audio Wave Background - Water Wave -->
+            <!-- Audio Wave Background -->
             <div class="audio-wave-bg">
                 <div class="wave-container">
                     <svg class="wave-svg" viewBox="0 0 1200 300" preserveAspectRatio="none">
@@ -605,11 +660,11 @@ if (session_status() == PHP_SESSION_NONE) {
         document.addEventListener('click', function(event) {
             if (!menuToggle.contains(event.target) && !dropdownMenu.contains(event.target)) {
                 dropdownMenu.classList.remove('show');
-                menuToggle.classList.remove('active');
+                menuToggle.classList.toggle('active');
             }
         });
 
-        // Create water wave animation with dynamic intensity based on speaking
+        // Create water wave animation
         let waveAnimationFrame;
         let waveOffset = 0;
 
@@ -617,11 +672,9 @@ if (session_status() == PHP_SESSION_NONE) {
             const paths = document.querySelectorAll('.wave-path');
             
             function animateWaves() {
-                // 1. ความเร็วพื้นฐาน
                 const speed = window.isSpeaking ? 0.08 : 0.015; 
                 waveOffset += speed;
                 
-                // 2. ปรับ Intensity ของการสั่นสะเทือน
                 if (!window.waveIntensity) window.waveIntensity = 0;
                 if (window.isSpeaking) {
                     window.waveIntensity = Math.min(window.waveIntensity + 0.1, 1);
@@ -632,28 +685,20 @@ if (session_status() == PHP_SESSION_NONE) {
                 paths.forEach((path, index) => {
                     const points = [];
                     const baseAmplitude = 10 + (index * 5); 
-                    
-                    // เพิ่ม 'ความปั่นป่วน' ของเสียง (Frequency Jitter)
-                    // ถ้ากำลังพูด จะมีการคูณค่า random เล็กๆ เข้าไปเพื่อให้เส้นหยักเหมือนคลื่นไฟฟ้า
                     const noise = window.isSpeaking ? (Math.random() * 15 * window.waveIntensity) : 0;
                     const amplitude = baseAmplitude + (50 * window.waveIntensity) + noise;
-                    
                     const frequency = 0.006 + (index * 0.002);
                     const offset = waveOffset * (1 + index * 0.3);
                     
-                    for (let x = 0; x <= 1200; x += 15) { // ลด step x เพื่อให้เส้นหยักละเอียดขึ้น
-                        // Main Sine
+                    for (let x = 0; x <= 1200; x += 15) {
                         let wave = Math.sin(x * frequency + offset);
                         
-                        // Secondary "Noise" Wave: จะทำงานหนักขึ้นเมื่อ AI พูด
                         if (window.isSpeaking) {
-                            // ใช้ Sine ความถี่สูงมาซ้อนเพื่อให้เกิดรอยหยัก (Harmonics)
                             wave += Math.sin(x * 0.05 + offset * 2) * 0.2 * window.waveIntensity;
-                            wave += (Math.random() - 0.5) * 0.1 * window.waveIntensity; // เพิ่มความสั่นเล็กน้อย
+                            wave += (Math.random() - 0.5) * 0.1 * window.waveIntensity;
                         }
                         
-                        // คำนวณค่า Y โดยให้จุดกึ่งกลางมีการสวิงแรงกว่าขอบ (Bell Curve Effect)
-                        const edgeSoftener = Math.sin((x / 1200) * Math.PI); // ขอบซ้ายขวาจะนิ่งกว่าตรงกลาง
+                        const edgeSoftener = Math.sin((x / 1200) * Math.PI);
                         const y = 200 + (wave * amplitude * edgeSoftener);
                         
                         points.push(`${x},${y}`);
@@ -673,7 +718,6 @@ if (session_status() == PHP_SESSION_NONE) {
             animateWaves();
         }
 
-        // Create floating particles with dynamic behavior
         function createParticles() {
             const container = document.getElementById('particlesContainer');
             for (let i = 0; i < 25; i++) {
@@ -689,7 +733,6 @@ if (session_status() == PHP_SESSION_NONE) {
                 container.appendChild(particle);
             }
             
-            // อัพเดตความเร็วของ particles เมื่อพูด
             setInterval(() => {
                 const particles = document.querySelectorAll('.particle');
                 particles.forEach(particle => {
