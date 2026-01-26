@@ -21,40 +21,43 @@ $searchTerm = $conn->real_escape_string($query);
 // กำหนดคอลัมน์ตามภาษา
 $subject_col = 'subject_news' . ($lang !== 'th' ? '_' . $lang : '');
 $description_col = 'description_news' . ($lang !== 'th' ? '_' . $lang : '');
-$content_col = 'content_news' . ($lang !== 'th' ? '_' . $lang : '');
-$product_name_col = 'name_' . $lang;
-$product_desc_col = 'description_' . $lang;
 
-// ค้นหาข่าว
+// ค้นหาข่าว - แก้ไข query ให้ใช้ subquery
 $news_query = "
     SELECT 
-        dn.news_id,
-        dn.{$subject_col} as title,
-        dn.{$description_col} as description,
-        GROUP_CONCAT(DISTINCT dnc.api_path ORDER BY dnc.id LIMIT 1) AS image
-    FROM dn_news dn
-    LEFT JOIN dn_news_doc dnc ON dn.news_id = dnc.news_id AND dnc.del = '0' AND dnc.status = '1'
-    WHERE dn.del = '0'
-        AND dn.status = '0'
+        n.news_id,
+        n.{$subject_col} as title,
+        n.{$description_col} as description,
+        (
+            SELECT dnc.api_path 
+            FROM dn_news_doc dnc 
+            WHERE dnc.news_id = n.news_id 
+                AND dnc.del = '0' 
+                AND dnc.status = '1' 
+            ORDER BY dnc.id ASC 
+            LIMIT 1
+        ) AS image
+    FROM dn_news n
+    WHERE n.del = '0'
+        AND n.status = '0'
         AND (
-            dn.subject_news LIKE '%{$searchTerm}%' OR 
-            dn.subject_news_en LIKE '%{$searchTerm}%' OR 
-            dn.subject_news_cn LIKE '%{$searchTerm}%' OR 
-            dn.subject_news_jp LIKE '%{$searchTerm}%' OR 
-            dn.subject_news_kr LIKE '%{$searchTerm}%' OR
-            dn.description_news LIKE '%{$searchTerm}%' OR 
-            dn.description_news_en LIKE '%{$searchTerm}%' OR 
-            dn.description_news_cn LIKE '%{$searchTerm}%' OR 
-            dn.description_news_jp LIKE '%{$searchTerm}%' OR 
-            dn.description_news_kr LIKE '%{$searchTerm}%' OR
-            dn.content_news LIKE '%{$searchTerm}%' OR 
-            dn.content_news_en LIKE '%{$searchTerm}%' OR 
-            dn.content_news_cn LIKE '%{$searchTerm}%' OR 
-            dn.content_news_jp LIKE '%{$searchTerm}%' OR 
-            dn.content_news_kr LIKE '%{$searchTerm}%'
+            n.subject_news LIKE '%{$searchTerm}%' OR 
+            n.subject_news_en LIKE '%{$searchTerm}%' OR 
+            n.subject_news_cn LIKE '%{$searchTerm}%' OR 
+            n.subject_news_jp LIKE '%{$searchTerm}%' OR 
+            n.subject_news_kr LIKE '%{$searchTerm}%' OR
+            n.description_news LIKE '%{$searchTerm}%' OR 
+            n.description_news_en LIKE '%{$searchTerm}%' OR 
+            n.description_news_cn LIKE '%{$searchTerm}%' OR 
+            n.description_news_jp LIKE '%{$searchTerm}%' OR 
+            n.description_news_kr LIKE '%{$searchTerm}%' OR
+            n.content_news LIKE '%{$searchTerm}%' OR 
+            n.content_news_en LIKE '%{$searchTerm}%' OR 
+            n.content_news_cn LIKE '%{$searchTerm}%' OR 
+            n.content_news_jp LIKE '%{$searchTerm}%' OR 
+            n.content_news_kr LIKE '%{$searchTerm}%'
         )
-    GROUP BY dn.news_id
-    ORDER BY dn.date_create DESC
+    ORDER BY n.date_create DESC
     LIMIT 5
 ";
 
@@ -63,18 +66,19 @@ $news = [];
 
 if ($news_result && $news_result->num_rows > 0) {
     while ($row = $news_result->fetch_assoc()) {
-        // แยก image ออกมา (เนื่องจาก GROUP_CONCAT)
-        $images = !empty($row['image']) ? explode(',', $row['image']) : [];
         $news[] = [
             'news_id' => $row['news_id'],
             'title' => $row['title'] ?: '',
             'description' => $row['description'] ?: '',
-            'image' => !empty($images) ? $images[0] : null
+            'image' => $row['image'] ?: null
         ];
     }
 }
 
-// ค้นหาสินค้า
+// ค้นหาสินค้า (เหมือนเดิม)
+$product_name_col = 'name_' . $lang;
+$product_desc_col = 'description_' . $lang;
+
 $product_query = "
     SELECT 
         p.product_id,
