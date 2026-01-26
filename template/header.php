@@ -1307,6 +1307,10 @@ $languages = [
                             }
                         } elseif (isset($_GET['about'])) {
                             $currentPage = '?about';
+                        }elseif (isset($_GET['soul'])) {
+                            $currentPage = '?soul';
+                        } elseif (isset($_GET['story'])) {
+                            $currentPage = '?story';
                         } elseif (isset($_GET['privacy'])) {
                             $currentPage = '?privacy';
                         } elseif (isset($_GET['termofuse'])) {
@@ -1385,7 +1389,11 @@ $languages = [
                             }
                         } elseif (isset($_GET['about'])) {
                             $currentPage = '?about';
-                        }elseif (isset($_GET['privacy'])) {
+                        } elseif (isset($_GET['soul'])) {
+                            $currentPage = '?soul';
+                        } elseif (isset($_GET['story'])) {
+                            $currentPage = '?story';
+                        } elseif (isset($_GET['privacy'])) {
                             $currentPage = '?privacy';
                         }elseif (isset($_GET['termofuse'])) {
                             $currentPage = '?termofuse';

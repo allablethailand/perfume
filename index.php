@@ -59,7 +59,7 @@ $allowedRoutes = [
     'news_detail', 'news', 'otp_confirm', 'project_detail',
     'project', 'register', 'service', 'product_detail',
     'product', 'googleb6dd9f2aa59b820c.html', 'Video',
-    'preview', 'orders','ai_activation','ai_questions','ai_edit_prompts', 'ai_chat','ai_chat_3d','order_detail', 'payment', 'cart' ,'checkout','privacy','termofuse' , 'profile', 'lang'
+    'preview', 'orders','ai_activation', 'story', 'soul','ai_questions','ai_edit_prompts', 'ai_chat','ai_chat_3d','order_detail', 'payment', 'cart' ,'checkout','privacy','termofuse' , 'profile', 'lang'
 ];
 
 if ($fragment !== '' && !in_array($fragment, $allowedRoutes)) {
@@ -109,5 +109,7 @@ switch($fragment) {
     case 'ai_chat': require __DIR__.'/views/ai_chat.php'; break;
     case 'ai_chat_3d': require __DIR__.'/views/ai_chat_3d.php'; break;
     case 'ai_edit_prompts': require __DIR__.'/views/ai_edit_prompts.php'; break;
+    case 'story': require __DIR__.'/views/story.php'; break;
+    case 'soul': require __DIR__.'/views/soul.php'; break;
     default: require __DIR__.'/views/homepage.php'; break;
 }
