@@ -963,7 +963,7 @@
                             background: '#1a1a1a',
                             color: '#fff'
                         }).then(() => {
-                            window.location.href = '?ai_chat&companion_id=' + companionId + '&lang=' + lang;
+                            window.location.href = '?ai_chat_3d&companion_id=' + companionId + '&lang=' + lang;
                         });
                     } else {
                         Swal.fire('Error!', response.message || 'Failed to save answers', 'error');

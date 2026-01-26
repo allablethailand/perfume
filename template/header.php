@@ -2023,7 +2023,27 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-
+     // 🔥 เช็คว่าอยู่หน้า register หรือ otp_confirm หรือไม่
+    const urlParams = new URLSearchParams(window.location.search);
+    const isRegisterPage = urlParams.has('register');
+    const isOtpPage = urlParams.has('otp_confirm');
+    const isOnExcludedPage = isRegisterPage || isOtpPage;
+    
+    // 🔥 เปิด login modal อัตโนมัติถ้ามี pending_ai_code (และไม่อยู่หน้า register/otp)
+    if (!isOnExcludedPage) {
+        const pendingAiCode = sessionStorage.getItem('pending_ai_code');
+        if (pendingAiCode) {
+            // มี pending AI code -> เปิด login modal อัตโนมัติ
+            const jwt = sessionStorage.getItem('jwt');
+            if (!jwt) {
+                // ยังไม่ได้ login -> เปิด modal
+                const modal = document.getElementById('myModal-sign-in');
+                if (modal) {
+                    modal.style.display = 'block';
+                }
+            }
+        }
+    }
     // Check if user is logged in
     const jwt = sessionStorage.getItem("jwt");
     const userBtn = document.getElementById('userBtn');
