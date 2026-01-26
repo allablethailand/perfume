@@ -56,7 +56,7 @@ if (!isset($_SESSION['guest_session_id'])) {
             color: #000;
         }
 
-        /* AI Avatar - Full Width Right Section */
+        /* AI Avatar - Full Width Right Section with Cosmic Effects */
         .ai-avatar-section {
             width: 150px;
             min-width: 150px;
@@ -68,21 +68,173 @@ if (!isset($_SESSION['guest_session_id'])) {
             position: relative;
             overflow: hidden;
             height: 200px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        }
+
+        /* Animated Cosmic Border Effect */
+        .ai-avatar-section::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                transparent,
+                transparent 40%,
+                rgba(147, 51, 234, 0.6) 45%,
+                rgba(79, 70, 229, 0.8) 50%,
+                rgba(147, 51, 234, 0.6) 55%,
+                transparent 60%,
+                transparent
+            );
+            animation: cosmicRotate 4s linear infinite;
+            z-index: 1;
+        }
+
+        /* Electric Glow Effect */
+        .ai-avatar-section::after {
+            content: '';
+            position: absolute;
+            inset: 2px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            z-index: 2;
+        }
+
+        @keyframes cosmicRotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         .ai-avatar-section:hover {
             transform: scale(1.02);
+            box-shadow: 0 0 30px rgba(147, 51, 234, 0.6), 0 0 60px rgba(79, 70, 229, 0.4);
+        }
+
+        /* Inner Glow Container */
+        .ai-avatar-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            overflow: hidden;
+        }
+
+        /* Floating Particles Effect */
+        .ai-avatar-wrapper::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(147, 51, 234, 0.3) 1px, transparent 1px),
+                radial-gradient(circle at 80% 70%, rgba(79, 70, 229, 0.3) 1px, transparent 1px),
+                radial-gradient(circle at 40% 80%, rgba(236, 72, 153, 0.3) 1px, transparent 1px),
+                radial-gradient(circle at 60% 20%, rgba(59, 130, 246, 0.3) 1px, transparent 1px);
+            background-size: 50px 50px, 80px 80px, 60px 60px, 70px 70px;
+            animation: particleFloat 20s linear infinite;
+            z-index: 1;
+            opacity: 0.6;
+        }
+
+        @keyframes particleFloat {
+            0% { transform: translateY(0) translateX(0); }
+            50% { transform: translateY(-20px) translateX(10px); }
+            100% { transform: translateY(0) translateX(0); }
+        }
+
+        /* Energy Pulse Effect */
+        .ai-avatar-wrapper::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at center, rgba(147, 51, 234, 0.2) 0%, transparent 70%);
+            animation: energyPulse 3s ease-in-out infinite;
+            z-index: 1;
+        }
+
+        @keyframes energyPulse {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.1); }
         }
 
         .ai-avatar-image-full {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transition: all 0.3s ease;
+            transition: all 0.5s ease;
+            position: relative;
+            z-index: 2;
+            filter: brightness(1.1) contrast(1.1);
         }
 
         .ai-avatar-section:hover .ai-avatar-image-full {
-            transform: scale(1.05);
+            transform: scale(1.08);
+            filter: brightness(1.2) contrast(1.15) drop-shadow(0 0 20px rgba(147, 51, 234, 0.6));
+        }
+
+        /* Scan Line Effect */
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, rgba(147, 51, 234, 0.8), transparent);
+            top: 0;
+            left: 0;
+            animation: scanMove 3s linear infinite;
+            z-index: 4;
+            filter: blur(1px);
+        }
+
+        @keyframes scanMove {
+            0% { top: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        /* Corner Accents */
+        .ai-corner {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(147, 51, 234, 0.8);
+            z-index: 4;
+            animation: cornerPulse 2s ease-in-out infinite;
+        }
+
+        .ai-corner.top-left {
+            top: 10px;
+            left: 10px;
+            border-right: none;
+            border-bottom: none;
+        }
+
+        .ai-corner.top-right {
+            top: 10px;
+            right: 10px;
+            border-left: none;
+            border-bottom: none;
+        }
+
+        .ai-corner.bottom-left {
+            bottom: 10px;
+            left: 10px;
+            border-right: none;
+            border-top: none;
+        }
+
+        .ai-corner.bottom-right {
+            bottom: 10px;
+            right: 10px;
+            border-left: none;
+            border-top: none;
+        }
+
+        @keyframes cornerPulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
         }
 
         .no-ai-section {
@@ -785,34 +937,33 @@ if (!isset($_SESSION['guest_session_id'])) {
                             <input type="text" class="form-control" id="province" name="province" required>
                         </div>
                         <div class="form-group">
-                                    <label>Country</label>
-                                    <select class="form-control" id="country" name="country" required>
-                                        <option value="Thailand">Thailand</option>
-                                        <option value="Singapore">Singapore</option>
-                                        <option value="Malaysia">Malaysia</option>
-                                        <option value="Vietnam">Vietnam</option>
-                                        <option value="Indonesia">Indonesia</option>
-                                        <option value="Philippines">Philippines</option>
-                                        <option value="Myanmar">Myanmar</option>
-                                        <option value="Laos">Laos</option>
-                                        <option value="Cambodia">Cambodia</option>
-                                        <option value="Brunei">Brunei</option>
-                                        <option value="Japan">Japan</option>
-                                        <option value="South Korea">South Korea</option>
-                                        <option value="China">China</option>
-                                        <option value="Hong Kong">Hong Kong</option>
-                                        <option value="Taiwan">Taiwan</option>
-                                        <option value="United States">United States</option>
-                                        <option value="United Kingdom">United Kingdom</option>
-                                        <option value="Australia">Australia</option>
-                                        <option value="Other">Other</option>
-                                    </select>
-                                </div>
-                            </div>
-                        <div class="form-group">
-                            <label>Postal Code</label>
-                            <input type="text" class="form-control" id="postal_code" name="postal_code" required>
+                            <label>Country</label>
+                            <select class="form-control" id="country" name="country" required>
+                                <option value="Thailand">Thailand</option>
+                                <option value="Singapore">Singapore</option>
+                                <option value="Malaysia">Malaysia</option>
+                                <option value="Vietnam">Vietnam</option>
+                                <option value="Indonesia">Indonesia</option>
+                                <option value="Philippines">Philippines</option>
+                                <option value="Myanmar">Myanmar</option>
+                                <option value="Laos">Laos</option>
+                                <option value="Cambodia">Cambodia</option>
+                                <option value="Brunei">Brunei</option>
+                                <option value="Japan">Japan</option>
+                                <option value="South Korea">South Korea</option>
+                                <option value="China">China</option>
+                                <option value="Hong Kong">Hong Kong</option>
+                                <option value="Taiwan">Taiwan</option>
+                                <option value="United States">United States</option>
+                                <option value="United Kingdom">United Kingdom</option>
+                                <option value="Australia">Australia</option>
+                                <option value="Other">Other</option>
+                            </select>
                         </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Postal Code</label>
+                        <input type="text" class="form-control" id="postal_code" name="postal_code" required>
                     </div>
                     <div class="form-group">
                         <label>
@@ -1078,7 +1229,7 @@ if (!isset($_SESSION['guest_session_id'])) {
         }
 
         // =========================================
-        // AI AVATAR - Full Width Version
+        // AI AVATAR - Full Width Version with Cosmic Effects
         // =========================================
         function loadUserAI() {
             $.ajax({
@@ -1108,8 +1259,15 @@ if (!isset($_SESSION['guest_session_id'])) {
 
         function displayAIAvatarFull(aiData) {
             const html = `
-                <div class="ai-avatar-section" onclick="window.location.href='?chat&ai=${aiData.ai_code}'" title="${aiData.ai_name_th} (${aiData.ai_name_en})">
-                    <img src="${aiData.ai_avatar_url}" alt="${aiData.ai_name_en}" class="ai-avatar-image-full">
+                <div class="ai-avatar-section" onclick="window.location.href='?ai_chat_3d&ai=${aiData.ai_code}'" title="${aiData.ai_name_th} (${aiData.ai_name_en})">
+                    <div class="ai-avatar-wrapper">
+                        <img src="${aiData.ai_avatar_url}" alt="${aiData.ai_name_en}" class="ai-avatar-image-full">
+                        <div class="scan-line"></div>
+                        <div class="ai-corner top-left"></div>
+                        <div class="ai-corner top-right"></div>
+                        <div class="ai-corner bottom-left"></div>
+                        <div class="ai-corner bottom-right"></div>
+                    </div>
                 </div>
             `;
             $('#aiAvatarSection').html(html);
