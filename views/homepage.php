@@ -1233,7 +1233,7 @@ if ($ticker_result && $ticker_result->num_rows > 0) {
             </article>
 
             <article class="news-card">
-                <a href="#">
+                <a href="?story&lang=<?= $lang ?>">
                     <div class="news-image">
                         <img src="public/product_images/696089dc34f0a_1767934428.jpg" 
                              alt="News Article"
@@ -1251,7 +1251,7 @@ if ($ticker_result && $ticker_result->num_rows > 0) {
             </article>
 
             <article class="news-card">
-                <a href="#">
+                <a href="?soul&lang=<?= $lang ?>">
                     <div class="news-image">
                         <img src="public/product_images/69645f25dea49_1768185637.jpg" 
                              alt="News Article"
