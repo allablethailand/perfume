@@ -556,15 +556,23 @@ try {
             throw new Exception("Group ID is required.");
         }
         
-        $whereClause = "group_id = $group_id AND del = 0";
+        $whereClause = "pi.group_id = $group_id AND pi.del = 0";
         
-        $totalRecordsQuery = "SELECT COUNT(item_id) FROM product_items WHERE $whereClause";
+        $totalRecordsQuery = "SELECT COUNT(pi.item_id) FROM product_items pi WHERE $whereClause";
         $totalRecords = $conn->query($totalRecordsQuery)->fetch_row()[0];
         
-        $dataQuery = "SELECT * FROM product_items 
-                     WHERE $whereClause
-                     ORDER BY serial_number ASC
-                     LIMIT $start, $length";
+        // ✅ JOIN กับ ai_companions เพื่อดึง ai_avatar_url และ ai_code
+        $dataQuery = "
+            SELECT 
+                pi.*,
+                ac.ai_code,
+                ac.ai_avatar_url
+            FROM product_items pi
+            LEFT JOIN ai_companions ac ON pi.item_id = ac.item_id AND ac.del = 0
+            WHERE $whereClause
+            ORDER BY pi.serial_number ASC
+            LIMIT $start, $length
+        ";
         
         $dataResult = $conn->query($dataQuery);
         $data = [];
@@ -581,6 +589,7 @@ try {
             "recordsFiltered" => intval($totalRecords),
             "data" => $data
         ];
+
         
     // ========================================
     // GET BOTTLE STATISTICS
