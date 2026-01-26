@@ -272,7 +272,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $verify = 1;
                 $generate_otp = rand(100000, 999999);
                 $confirm_email = 0;
-                $del = 0; // เพิ่มตัวแปรนี้
+                $del = 0;
 
                 $sql = "INSERT INTO mb_user ( 
                     first_name, 
@@ -294,7 +294,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $stmt = $conn->prepare($sql);
                 $stmt->bind_param(
-                    "sssssssiisii",  // เปลี่ยนเป็น type string นี้ (เพิ่ม i 2 ตัวสำหรับ confirm_email และ del)
+                    "sssssssiisii",
                     $first_name, 
                     $last_name, 
                     $hashedPassword, 
@@ -346,7 +346,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
 
-                // Redirect ไปหน้า OTP
+                // 🔥 เช็คว่ามี pending_ai_code จากการสแกน RFID หรือไม่
+                if (isset($_SESSION['pending_ai_code']) && !empty($_SESSION['pending_ai_code'])) {
+                    $ai_code = $_SESSION['pending_ai_code'];
+                    $ai_lang = $_SESSION['pending_ai_lang'] ?? 'th';
+                    
+                    // ไม่ต้องลบออกจาก session ตอนนี้ จะลบหลังจาก OTP verify สำเร็จ
+                    // Redirect ไปหน้า OTP พร้อมส่ง pending_ai parameter
+                    header("Location: ?otp_confirm&register&otpID=" . $user_id . "&method=" . $login_method . "&lang=" . $lang . "&pending_ai=" . urlencode($ai_code) . "&pending_lang=" . urlencode($ai_lang));
+                    exit;
+                }
+
+                // ไม่มี pending AI -> Redirect ไปหน้า OTP ปกติ
                 header("Location: ?otp_confirm&register&otpID=" . $user_id . "&method=" . $login_method . "&lang=" . $lang);
                 exit;
 
@@ -763,8 +774,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body>
 
-
-
     <div class="register-container">
         <div class="register-card">
             <div class="register-header">
@@ -954,18 +963,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 });
             }
         });
+        
         // Phone number validation
         const phoneInput = document.getElementById('signUp_phone');
         phoneInput.addEventListener('input', function(e) {
-            // Remove any non-digit characters
             this.value = this.value.replace(/\D/g, '');
             
-            // Ensure first digit is not 0
             if (this.value.length > 0 && this.value[0] === '0') {
                 this.value = this.value.substring(1);
             }
             
-            // Limit to 9 digits
             if (this.value.length > 9) {
                 this.value = this.value.substring(0, 9);
             }
@@ -1002,7 +1009,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         password.addEventListener('input', function() {
             const value = this.value;
             
-            // Enable confirm password field
             if (value.length > 0) {
                 confirmPassword.disabled = false;
             } else {
@@ -1010,7 +1016,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 confirmPassword.value = '';
             }
 
-            // Check length
             if (value.length >= 8) {
                 requirements.length.classList.remove('invalid');
                 requirements.length.classList.add('valid');
@@ -1023,7 +1028,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 requirements.length.querySelector('i').classList.add('fa-times');
             }
 
-            // Check uppercase
             if (/[A-Z]/.test(value)) {
                 requirements.upper.classList.remove('invalid');
                 requirements.upper.classList.add('valid');
@@ -1036,7 +1040,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 requirements.upper.querySelector('i').classList.add('fa-times');
             }
 
-            // Check lowercase
             if (/[a-z]/.test(value)) {
                 requirements.lower.classList.remove('invalid');
                 requirements.lower.classList.add('valid');
@@ -1049,7 +1052,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 requirements.lower.querySelector('i').classList.add('fa-times');
             }
 
-            // Check number
             if (/[0-9]/.test(value)) {
                 requirements.number.classList.remove('invalid');
                 requirements.number.classList.add('valid');
@@ -1062,7 +1064,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 requirements.number.querySelector('i').classList.add('fa-times');
             }
 
-            // Check special character
             if (/[!@#_]/.test(value)) {
                 requirements.special.classList.remove('invalid');
                 requirements.special.classList.add('valid');
@@ -1076,7 +1077,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         });
 
-        // Confirm password validation
         confirmPassword.addEventListener('input', function() {
             if (this.value === password.value && this.value.length > 0) {
                 this.style.borderColor = '#4CAF50';
@@ -1087,13 +1087,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         });
 
-        // Form validation before submit
         document.getElementById('personal_register').addEventListener('submit', function(e) {
             const pwd = password.value;
             const confirmPwd = confirmPassword.value;
             const phone = phoneInput.value;
 
-            // Check phone number
             if (phone.length !== 9) {
                 e.preventDefault();
                 alert('Phone number must be exactly 9 digits.');
@@ -1108,7 +1106,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 return false;
             }
 
-            // Check all password requirements
             const isLengthValid = pwd.length >= 8;
             const hasUpper = /[A-Z]/.test(pwd);
             const hasLower = /[a-z]/.test(pwd);
@@ -1121,7 +1118,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 return false;
             }
 
-            // Check password match
             if (pwd !== confirmPwd) {
                 e.preventDefault();
                 alert('Passwords do not match.');
@@ -1129,7 +1125,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 return false;
             }
 
-            // Check consent checkbox
             if (!document.getElementById('signUp_agree').checked) {
                 e.preventDefault();
                 alert('Please accept the terms and conditions.');

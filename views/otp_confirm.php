@@ -1,6 +1,15 @@
 <?php
 require_once('lib/connect.php');
 global $conn;
+
+// Start session
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+// รับ pending_ai parameters จาก URL (ถ้ามี)
+$pending_ai = $_GET['pending_ai'] ?? '';
+$pending_lang = $_GET['pending_lang'] ?? 'th';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -33,7 +42,6 @@ global $conn;
             border: none;
             box-shadow: 0px 5px 20px 0px rgba(0,0,0,0.1);
             z-index: 1;
-            /* display: flex; */
             justify-content: center;
             align-items: center;
             border-radius: 10px;
@@ -138,7 +146,6 @@ global $conn;
             text-decoration: underline;
         }
 
-        /* Loading Overlay */
         #loading-overlay {
             position: fixed;
             top: 0;
@@ -174,15 +181,12 @@ global $conn;
 </head>
 
 <body>
-    <!-- Loading Overlay -->
     <div id="loading-overlay">
         <div class="spinner"></div>
     </div>
 
     <?php
-
     if (isset($_GET['register']) || isset($_GET['forgot'])) {
-
         $user_id = isset($_GET['otpID']) ? $_GET['otpID'] : '';
         $method = isset($_GET['method']) ? $_GET['method'] : 'email';
 
@@ -206,11 +210,9 @@ global $conn;
             $maskedContact = substr($contact, 0, 3) . str_repeat('*', strpos($contact, '@') - 3) . substr($contact, strpos($contact, '@'));
         } else {
             $contact = $row['phone_number'];
-            // Mask phone: +66 8xx xxx xxx
             $maskedContact = substr($contact, 0, 5) . str_repeat('*', 3) . ' ' . str_repeat('*', 3) . ' ' . substr($contact, -3);
         }
     }
-
     ?>
 
     <?php if (isset($_GET['register'])) { ?>
@@ -236,6 +238,8 @@ global $conn;
                     
                     <input type="hidden" id="user_id" name="user_id" value="<?php echo $user_id; ?>">
                     <input type="hidden" id="login_method" name="login_method" value="<?php echo $login_method; ?>">
+                    <input type="hidden" id="pending_ai" name="pending_ai" value="<?php echo htmlspecialchars($pending_ai); ?>">
+                    <input type="hidden" id="pending_lang" name="pending_lang" value="<?php echo htmlspecialchars($pending_lang); ?>">
                     
                     <div id="otp" class="inputs d-flex flex-row justify-content-center mt-4">
                         <input class="text-center form-control rounded" type="text" id="first" maxlength="1" />
@@ -304,6 +308,8 @@ global $conn;
     <?php } ?>
 
     <script>
+        // currentLang ถูกประกาศไว้แล้วใน header.php
+        
         function OTPInput() {
             const $inputs = $('#otp > input');
 
@@ -329,10 +335,7 @@ global $conn;
         }
 
         $(document).ready(function() {
-
             OTPInput();
-
-            // Focus first input
             $('#first').focus();
 
             $('#confirm_emailBtn').on('click', function() {
@@ -373,10 +376,8 @@ global $conn;
 
             $('#resendOTP').on('click', function(e) {
                 e.preventDefault();
-                // TODO: Implement resend OTP functionality
                 alert('Resend OTP functionality will be implemented');
             });
-
         });
 
         function confirmReset(user_id, otp, method) {
@@ -393,9 +394,7 @@ global $conn;
                 },
                 dataType: 'JSON',
                 success: function(response) {
-
                     if (response.status == 'succeed') {
-
                         $.ajax({
                             url: 'app/actions/otp_forgot_password.php',
                             type: 'POST',
@@ -406,7 +405,6 @@ global $conn;
                             },
                             dataType: 'JSON',
                             success: function(response) {
-
                                 if (response.status == 'succeed') {
                                     $('#loading-overlay').removeClass('active');
                                     const Toast = Swal.mixin({
@@ -427,7 +425,6 @@ global $conn;
                                     }).then(() => {
                                         window.location.href = '?';
                                     });
-
                                 } else {
                                     $('#loading-overlay').removeClass('active');
                                     const Toast = Swal.mixin({
@@ -447,14 +444,12 @@ global $conn;
                                         title: response.message
                                     });
                                 }
-
                             },
                             error: function(error) {
                                 console.log('Error:', error);
                                 $('#loading-overlay').removeClass('active');
                             }
                         });
-
                     } else {
                         $('#loading-overlay').removeClass('active');
                         const Toast = Swal.mixin({
@@ -473,20 +468,16 @@ global $conn;
                             icon: "error",
                             title: response.message
                         });
-
                     }
-
                 },
                 error: function(error) {
                     console.log('Error:', error);
                     $('#loading-overlay').removeClass('active');
                 }
             });
-
         }
 
         function confirmOTP(user_id, otp, method) {
-
             console.log('Starting OTP confirmation...', {user_id, otp, method});
             $('#loading-overlay').addClass('active');
 
@@ -506,6 +497,11 @@ global $conn;
                     if (response.status == 'succeed') {
                         $('#loading-overlay').removeClass('active');
                         
+                        // 🔥 เก็บ JWT ใน sessionStorage
+                        if (response.jwt) {
+                            sessionStorage.setItem('jwt', response.jwt);
+                        }
+                        
                         Swal.fire({
                             icon: 'success',
                             title: 'Success!',
@@ -513,10 +509,31 @@ global $conn;
                             showConfirmButton: true,
                             confirmButtonColor: '#ff9800'
                         }).then(() => {
-    window.location.href = '?=1&lang=' + currentLang;
-});
-
-
+                            // 🔥 เช็คว่ามี pending_ai หรือไม่
+                            const pendingAi = $('#pending_ai').val();
+                            const pendingLang = $('#pending_lang').val() || currentLang;
+                            
+                            if (pendingAi && pendingAi.trim() !== '') {
+                                // มี pending AI -> ลบ session และ redirect ไป ai_scan
+                                <?php
+                                if (!empty($pending_ai)) {
+                                    echo "
+                                    // ลบ pending_ai_code ออกจาก PHP session
+                                    fetch('app/actions/clear_pending_ai.php', {
+                                        method: 'POST'
+                                    }).then(() => {
+                                        window.location.href = '?ai_scan&ai_code=' + encodeURIComponent(pendingAi) + '&lang=' + pendingLang;
+                                    });
+                                    ";
+                                } else {
+                                    echo "window.location.href = '?ai_scan&ai_code=' + encodeURIComponent(pendingAi) + '&lang=' + pendingLang;";
+                                }
+                                ?>
+                            } else {
+                                // ไม่มี pending -> redirect ปกติ
+                                window.location.href = '?lang=' + currentLang;
+                            }
+                        });
                     } else {
                         $('#loading-overlay').removeClass('active');
                         
@@ -544,7 +561,6 @@ global $conn;
                     });
                 }
             });
-
         }
     </script>
 
