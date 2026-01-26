@@ -85,7 +85,7 @@ $about_content = [
         'kr' => '아이디어'
     ],
     'section2_title' => [
-        'th' => 'ถ้างกลิ่นหอมของคุณ<br>มีชีวิตได้ล่ะ',
+        'th' => 'ถ้ากลิ่นหอมของคุณ<br>มีชีวิตได้ล่ะ',
         'en' => 'What If Your Scent<br>Could Come Alive',
         'cn' => '如果你的香气<br>可以活过来',
         'jp' => 'あなたの香りが<br>生きていたら',
