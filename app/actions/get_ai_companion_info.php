@@ -76,10 +76,24 @@ try {
     $companion = $result->fetch_assoc();
     $stmt->close();
     
-    // ✅ เลือกชื่อตามภาษาที่ user เลือก
-    $lang = $companion['preferred_language'] ?? 'th';
+    // ✅ เลือกชื่อตามภาษาที่ user เลือก (fallback เป็น th ถ้าไม่มี)
+    $lang = strtolower(trim($companion['preferred_language'] ?? 'th'));
+    
+    // รองรับเฉพาะภาษาที่มีในระบบ
+    $supported_langs = ['th', 'en', 'cn', 'jp', 'kr'];
+    if (!in_array($lang, $supported_langs)) {
+        $lang = 'th';
+    }
+    
     $ai_name_key = 'ai_name_' . $lang;
-    $companion['ai_name'] = $companion[$ai_name_key] ?? $companion['ai_name_th'];
+    
+    // ถ้าชื่อภาษานั้นไม่มี ให้ fallback เป็น th
+    $ai_name = !empty($companion[$ai_name_key]) ? $companion[$ai_name_key] : $companion['ai_name_th'];
+    
+    // ถ้า th ก็ยังไม่มี ให้ใช้ ai_code แทน
+    if (empty($ai_name)) {
+        $ai_name = $companion['ai_code'] ?? 'AI Companion';
+    }
     
     echo json_encode([
         'status' => 'success',
@@ -87,7 +101,7 @@ try {
             'user_companion_id' => $companion['user_companion_id'],
             'ai_id' => $companion['ai_id'],
             'ai_code' => $companion['ai_code'],
-            'ai_name' => $companion['ai_name'],
+            'ai_name' => $ai_name,
             'preferred_language' => $companion['preferred_language'],
             'ai_avatar_url' => $companion['ai_avatar_url'],
             'idle_video_url' => $companion['idle_video_url'],
