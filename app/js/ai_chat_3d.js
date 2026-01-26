@@ -4,6 +4,7 @@
  * ✅ รองรับวิดีโอ 2 ไฟล์แยก: ไม่พูด กับ พูด
  * ✅ Smooth transition ไม่มี AbortError
  * ✅ Welcome message อัตโนมัติ
+ * ✅ แก้ไขภาษาจีน ญี่ปุ่น เกาหลี ให้ใช้ cn, jp, kr
  */
 
 let currentConversationId = 0;
@@ -28,13 +29,13 @@ let preloadedSpeakingVideo = null;
 window.isSpeaking = false;
 window.waveIntensity = 0;
 
-// 🎉 Welcome Messages (5 ภาษา)
+// 🎉 Welcome Messages (5 ภาษา) - ใช้ cn, jp, kr
 const WELCOME_MESSAGES = {
     th: "ยินดีต้อนรับกลับมานะเพื่อน",
     en: "Welcome back, my friend",
-    zh: "欢迎回来,我的朋友",
-    ja: "おかえりなさい、友よ",
-    ko: "다시 오신 것을 환영합니다, 친구"
+    cn: "欢迎回来,我的朋友",
+    jp: "おかえりなさい、友よ",
+    kr: "다시 오신 것을 환영합니다, 친구"
 };
 
 let userPreferredLanguage = 'th';
@@ -46,6 +47,12 @@ $(document).ready(function() {
         window.location.href = '?login';
         return;
     }
+    
+    // ✅ Unlock audio สำหรับมือถือเมื่อมี interaction
+    const unlockEvents = ['touchstart', 'touchend', 'click'];
+    unlockEvents.forEach(eventName => {
+        document.addEventListener(eventName, unlockAudio, { once: true, passive: true });
+    });
     
     // ✅ ดึงข้อมูล AI companion ก่อน (รวม video URLs)
     fetchAICompanionData().then(() => {
@@ -135,6 +142,9 @@ function playWelcomeMessage() {
     
     console.log(`🎉 Playing welcome message in ${userPreferredLanguage}: ${welcomeText}`);
     
+    // ✅ Unlock audio สำหรับมือถือ
+    unlockAudio();
+    
     if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
         videoAvatar.play().catch(e => {
             console.warn('⚠️ Autoplay blocked, will play on user interaction');
@@ -142,7 +152,11 @@ function playWelcomeMessage() {
     }
     
     showMessage(welcomeText);
-    speakText(welcomeText, userPreferredLanguage);
+    
+    // ✅ รอให้ audio unlock ก่อน (สำหรับมือถือ)
+    setTimeout(() => {
+        speakText(welcomeText, userPreferredLanguage);
+    }, 500);
 }
 
 /**
@@ -500,6 +514,9 @@ function sendMessage() {
     
     if (!message) return;
     
+    // ✅ Unlock audio เมื่อ user ส่งข้อความ (สำหรับมือถือ)
+    unlockAudio();
+    
     if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
         videoAvatar.play().catch(e => console.log('Play on interaction'));
     }
@@ -553,34 +570,39 @@ function showMessage(text) {
     $('#currentMessage').fadeIn();
 }
 
+/**
+ * 🗣️ Speak text with language detection (ใช้ cn, jp, kr)
+ */
 function speakText(text, forceLangCode = null) {
     let langCode = forceLangCode;
     let detectedLang = 'Thai';
     
     if (!langCode) {
+        // ตรวจจับภาษาอัตโนมัติ
         if (/[\u0E00-\u0E7F]/.test(text)) {
             langCode = 'th';
             detectedLang = 'Thai';
         } else if (/[\u4E00-\u9FFF]/.test(text)) {
-            langCode = 'zh';
+            langCode = 'cn'; // ✅ เปลี่ยนจาก zh เป็น cn
             detectedLang = 'Chinese';
         } else if (/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) {
-            langCode = 'ja';
+            langCode = 'jp'; // ✅ เปลี่ยนจาก ja เป็น jp
             detectedLang = 'Japanese';
         } else if (/[\uAC00-\uD7AF]/.test(text)) {
-            langCode = 'ko';
+            langCode = 'kr'; // ✅ เปลี่ยนจาก ko เป็น kr
             detectedLang = 'Korean';
         } else {
             langCode = 'en';
             detectedLang = 'English';
         }
     } else {
+        // ✅ แปลงรหัสภาษาเป็นชื่อภาษา
         const langMap = {
             'th': 'Thai',
             'en': 'English',
-            'zh': 'Chinese',
-            'ja': 'Japanese',
-            'ko': 'Korean'
+            'cn': 'Chinese',
+            'jp': 'Japanese',
+            'kr': 'Korean'
         };
         detectedLang = langMap[langCode] || 'English';
     }
@@ -617,7 +639,43 @@ function speakText(text, forceLangCode = null) {
 }
 
 let currentAudio = null;
+let audioContext = null;
+let isAudioUnlocked = false;
 
+/**
+ * 🔓 Unlock audio for mobile devices
+ */
+function unlockAudio() {
+    if (isAudioUnlocked) return;
+    
+    try {
+        // สร้าง AudioContext สำหรับ iOS/Android
+        if (!audioContext) {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        
+        // Resume AudioContext
+        if (audioContext.state === 'suspended') {
+            audioContext.resume();
+        }
+        
+        // เล่นเสียงเงียบสั้นๆ เพื่อ unlock
+        const silentAudio = new Audio('data:audio/mp3;base64,SUQzAwAAAAAAFlRJVDIAAAAOAAAAAABTaWxlbmNlAAAA//uSwAAAAAABLAAAAAASW5mbwAAAA8AAAACAAABhgC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7//////////////////////////////////////////////////////////////////8AAAAATGF2YzU4LjEzAAAAAAAAAAAAAAAAJAUHAAAAAAAAAYYoN0Q0AAAAAAD/+xDEAAPAAAGkAAAAIAAANIAAAARMQU1FMy4xMDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/+xDEHgPAAAGkAAAAIAAANIAAAARMQU1FMy4xMDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/+xDEJgPAAAGkAAAAIAAANIAAAARMQU1FMy4xMDAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=');
+        silentAudio.play().then(() => {
+            isAudioUnlocked = true;
+            console.log('✅ Audio unlocked for mobile');
+        }).catch(err => {
+            console.log('⚠️ Audio unlock attempt:', err.message);
+        });
+        
+    } catch (err) {
+        console.log('⚠️ AudioContext not supported:', err.message);
+    }
+}
+
+/**
+ * 🔊 Play TTS chunks with correct language codes (cn, jp, kr)
+ */
 function playTTSChunks(chunks, index, langCode) {
     if (index >= chunks.length) {
         isSpeaking = false;
@@ -639,10 +697,19 @@ function playTTSChunks(chunks, index, langCode) {
     
     let ttsUrl;
     
+    // ✅ ใช้ ResponsiveVoice สำหรับภาษาไทย
     if (langCode === 'th') {
         ttsUrl = `https://code.responsivevoice.org/getvoice.php?t=${encodedText}&tl=th&sv=&vn=&pitch=0.5&rate=0.5&vol=1`;
-    } else {
-        ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${langCode}&client=tw-ob&q=${encodedText}`;
+    } 
+    // ✅ ใช้ Google Translate TTS สำหรับภาษาอื่นๆ (cn, jp, kr, en)
+    else {
+        // แปลงรหัสภาษาให้ตรงกับที่ Google TTS ต้องการ
+        let googleLangCode = langCode;
+        if (langCode === 'cn') googleLangCode = 'zh-CN';
+        if (langCode === 'jp') googleLangCode = 'ja';
+        if (langCode === 'kr') googleLangCode = 'ko';
+        
+        ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${googleLangCode}&client=tw-ob&q=${encodedText}`;
     }
     
     if (currentAudio) {
@@ -651,12 +718,48 @@ function playTTSChunks(chunks, index, langCode) {
     }
     
     currentAudio = new Audio();
+    currentAudio.crossOrigin = 'anonymous'; // ✅ สำหรับ CORS
+    currentAudio.preload = 'auto';
+    
+    // ✅ Unlock audio on first play (สำหรับมือถือ)
+    if (!isAudioUnlocked) {
+        unlockAudio();
+    }
     
     currentAudio.oncanplaythrough = function() {
-        this.play().catch(err => {
-            console.error('TTS play error:', err);
-            playTTSChunks(chunks, index + 1, langCode);
-        });
+        // ✅ ลองเล่นและจัดการ error สำหรับมือถือ
+        const playPromise = this.play();
+        
+        if (playPromise !== undefined) {
+            playPromise.then(() => {
+                console.log('🔊 Audio playing');
+            }).catch(err => {
+                console.error('❌ TTS play error:', err.message);
+                
+                // ถ้าเป็น autoplay policy ให้แจ้งเตือนผู้ใช้
+                if (err.name === 'NotAllowedError') {
+                    console.log('📱 Autoplay blocked - needs user interaction');
+                    
+                    // แจ้งเตือนครั้งเดียว
+                    if (!window.autoplayWarningShown) {
+                        window.autoplayWarningShown = true;
+                        
+                        Swal.fire({
+                            icon: 'info',
+                            title: 'Tap to Enable Sound',
+                            text: 'Please tap anywhere to enable audio playback',
+                            toast: true,
+                            position: 'top',
+                            showConfirmButton: false,
+                            timer: 3000
+                        });
+                    }
+                }
+                
+                // ข้ามไปข้อความถัดไป
+                playTTSChunks(chunks, index + 1, langCode);
+            });
+        }
     };
     
     currentAudio.onplay = function() {
@@ -679,6 +782,9 @@ function playTTSChunks(chunks, index, langCode) {
     currentAudio.load();
 }
 
+/**
+ * 🔄 Fallback to Web Speech API (ใช้ cn, jp, kr)
+ */
 function fallbackToWebSpeech(text, langCode) {
     if (!window.speechSynthesis) {
         isSpeaking = false;
@@ -704,10 +810,20 @@ function fallbackToWebSpeech(text, langCode) {
     window.speechSynthesis.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = langCode === 'th' ? 'th-TH' : 
-                     langCode === 'zh' ? 'zh-CN' :
-                     langCode === 'ja' ? 'ja-JP' :
-                     langCode === 'ko' ? 'ko-KR' : 'en-US';
+    
+    // ✅ แปลงรหัสภาษาให้ตรงกับ Web Speech API
+    if (langCode === 'th') {
+        utterance.lang = 'th-TH';
+    } else if (langCode === 'cn') {
+        utterance.lang = 'zh-CN';
+    } else if (langCode === 'jp') {
+        utterance.lang = 'ja-JP';
+    } else if (langCode === 'kr') {
+        utterance.lang = 'ko-KR';
+    } else {
+        utterance.lang = 'en-US';
+    }
+    
     utterance.rate = 0.85;
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
