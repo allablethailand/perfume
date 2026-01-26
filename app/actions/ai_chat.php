@@ -7,6 +7,7 @@
  * 
  * ✅ เพิ่มฟีเจอร์ dump_prompt เพื่อดูข้อมูลที่ส่งไปยัง AI
  * ✅ แก้ไข: ดึงภาษาจาก preferred_language และใช้แทน language ที่ส่งมา
+ * ✅ เพิ่ม: AI รู้จักชื่อตัวเองและไม่สามารถเปลี่ยนชื่อได้
  */
 
 require_once('../../lib/connect.php');
@@ -212,10 +213,23 @@ try {
     // ✅ สร้าง AI Model Manager
     $aiManager = new AIModelManager($conn);
     
-    // สร้าง system prompt โดยใช้ภาษาจาก preferred_language
+    // ✅ สร้าง system prompt โดยใช้ภาษาจาก preferred_language และเพิ่มชื่อของ AI
     $system_prompt_result = $aiManager->buildSystemPrompt($ai_companion, $user_personality, $language);
     $system_prompt = $system_prompt_result['prompt'];
     $prompt_details = $system_prompt_result['details'];
+    
+    // ✅ เพิ่มชื่อและข้อจำกัดเกี่ยวกับชื่อเข้าไปใน system prompt
+    $ai_name = $ai_companion['ai_name'];
+    $identity_instruction = "\n\n=== YOUR IDENTITY ===\n";
+    $identity_instruction .= "Your name is: {$ai_name}\n";
+    $identity_instruction .= "IMPORTANT RULES:\n";
+    $identity_instruction .= "- You must ALWAYS introduce yourself as '{$ai_name}'\n";
+    $identity_instruction .= "- You CANNOT change your name under any circumstances\n";
+    $identity_instruction .= "- If someone asks you to change your name, politely decline and remind them that your name is '{$ai_name}'\n";
+    $identity_instruction .= "- If someone calls you by a different name, gently correct them and tell them your real name is '{$ai_name}'\n";
+    $identity_instruction .= "- Your name is part of your core identity and cannot be modified\n";
+    
+    $system_prompt = $system_prompt . $identity_instruction;
     
     $messages = [
         ['role' => 'system', 'content' => $system_prompt]
@@ -240,7 +254,7 @@ try {
             'ai_companion' => [
                 'ai_id' => $ai_companion['ai_id'],
                 'ai_code' => $ai_companion['ai_code'],
-                'ai_name' => $ai_companion['ai_name']
+                'ai_name' => $ai_name
             ],
             'user_personality_count' => count($user_personality),
             'chat_history_count' => count($chat_history),
@@ -311,7 +325,7 @@ try {
         'conversation_id' => $conversation_id,
         'language_used' => $language,
         'ai_message' => $ai_message,
-        'ai_name' => $ai_companion['ai_name'],
+        'ai_name' => $ai_name,
         'tokens_used' => $tokens_used,
         'response_time_ms' => $response_time,
         'model_used' => $ai_model,
