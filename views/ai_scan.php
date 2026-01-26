@@ -282,7 +282,7 @@ $_SESSION['pending_ai_lang'] = $lang;
                         showError('Authentication failed. Please login again.');
                         setTimeout(() => {
                             sessionStorage.removeItem('jwt');
-                            window.location.href = '?login=1&lang=' + currentLang;
+                            window.location.href = '?=1&lang=' + currentLang;
                         }, 2000);
                     }
                 },
@@ -290,7 +290,7 @@ $_SESSION['pending_ai_lang'] = $lang;
                     showError('Authentication error. Please login again.');
                     setTimeout(() => {
                         sessionStorage.removeItem('jwt');
-                        window.location.href = '?login=1&lang=' + currentLang;
+                        window.location.href = '?=1&lang=' + currentLang;
                     }, 2000);
                 }
             });

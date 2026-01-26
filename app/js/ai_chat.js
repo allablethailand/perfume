@@ -10,7 +10,7 @@ const jwt = sessionStorage.getItem("jwt");
 // ✅ โหลด conversations เมื่อเปิดหน้า
 $(document).ready(function() {
     if (!jwt) {
-        window.location.href = '?login';
+        window.location.href = '?';
         return;
     }
     
@@ -36,7 +36,7 @@ function loadConversations() {
             if (response.status === 'success') {
                 displayConversations(response.conversations);
             } else if (response.require_login) {
-                window.location.href = '?login';
+                window.location.href = '?';
             }
         },
         error: function() {
