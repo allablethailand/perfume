@@ -110,7 +110,13 @@ $searchQuery = isset($_GET['s']) ? trim($_GET['s']) : '';
             font-weight: 500;
             text-align: center;
             color: #1a1a1a;
+            transition: color 0.3s ease;
         }
+
+        .product-card:hover .product-name {
+            color: #c9a961;
+        }
+
 
         /* Empty State */
         .empty-state {
