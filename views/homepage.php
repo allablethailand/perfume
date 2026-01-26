@@ -1215,7 +1215,7 @@ if ($ticker_result && $ticker_result->num_rows > 0) {
 
         <div class="news-grid">
             <article class="news-card">
-                <a href="#">
+                <a href="?&lang=<?= $lang ?>">
                     <div class="news-image">
                         <img src="public/product_images/69645f1665b2c_1768185622.jpg" 
                              alt="News Article"
