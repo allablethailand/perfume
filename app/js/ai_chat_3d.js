@@ -44,7 +44,7 @@ let aiCompanionData = null; // เก็บข้อมูล AI companion
 
 $(document).ready(function() {
     if (!jwt) {
-        window.location.href = '?login';
+        window.location.href = '?';
         return;
     }
     
@@ -436,7 +436,7 @@ function loadConversations() {
             if (response.status === 'success') {
                 displayConversations(response.conversations);
             } else if (response.require_login) {
-                window.location.href = '?login';
+                window.location.href = '?';
             }
         }
     });
