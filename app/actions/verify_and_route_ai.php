@@ -40,7 +40,12 @@ if (!$decoded) {
     exit();
 }
 
-$user_id = $decoded['user_id'];
+// Start session if not started
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+$user_id = requireAuth();
 $ai_code = strtoupper(trim($_POST['ai_code'] ?? ''));
 
 // Validate AI code format
@@ -75,25 +80,36 @@ try {
     
     $ai_id = $ai['ai_id'];
     
-    // Step 2: ตรวจสอบว่า user มี companion ตัวนี้แล้วหรือยัง
+    // Step 2: ตรวจสอบว่า AI มีเจ้าของแล้วหรือยัง
     $stmt = $conn->prepare("
         SELECT 
             user_companion_id,
             preferred_language,
             setup_completed,
-            status
+            status,
+            user_id
         FROM user_ai_companions
-        WHERE user_id = ? AND ai_id = ? AND del = 0
+        WHERE ai_id = ? AND del = 0
         LIMIT 1
     ");
-    $stmt->bind_param("ii", $user_id, $ai_id);
+    $stmt->bind_param("i", $ai_id);
     $stmt->execute();
     $result = $stmt->get_result();
-    $user_companion = $result->fetch_assoc();
+    $existing_companion = $result->fetch_assoc();
     $stmt->close();
     
-    // Step 3: ถ้ายังไม่มี -> สร้างใหม่
-    if (!$user_companion) {
+    // Step 3: ถ้ามีคนอื่นเป็นเจ้าของแล้ว -> แสดง error
+    if ($existing_companion && $existing_companion['user_id'] != $user_id) {
+        http_response_code(403);
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'This AI Companion already has an owner'
+        ]);
+        exit();
+    }
+    
+    // Step 4: ถ้าไม่มีเจ้าของเลย -> สร้างใหม่
+    if (!$existing_companion) {
         $conn->begin_transaction();
         
         try {
@@ -130,16 +146,16 @@ try {
         }
     }
     
-    // Step 4: มี companion แล้ว -> ตรวจสอบสถานะ setup
-    if ($user_companion['setup_completed'] == 0) {
+    // Step 5: มี companion แล้ว และเป็นของ user คนนี้เอง -> ตรวจสอบสถานะ setup
+    if ($existing_companion['setup_completed'] == 0) {
         // ยัง setup ไม่เสร็จ -> ส่งไปหน้า activation
         echo json_encode([
             'status' => 'success',
             'message' => 'Continue AI setup',
-            'redirect_url' => '?ai_activation&companion_id=' . $user_companion['user_companion_id'] . '&lang=' . $user_companion['preferred_language'],
+            'redirect_url' => '?ai_activation&companion_id=' . $existing_companion['user_companion_id'] . '&lang=' . $existing_companion['preferred_language'],
             'data' => [
                 'ai_id' => $ai_id,
-                'user_companion_id' => $user_companion['user_companion_id'],
+                'user_companion_id' => $existing_companion['user_companion_id'],
                 'setup_completed' => 0
             ]
         ]);
@@ -151,17 +167,17 @@ try {
             SET last_active_at = NOW() 
             WHERE user_companion_id = ?
         ");
-        $stmt->bind_param("i", $user_companion['user_companion_id']);
+        $stmt->bind_param("i", $existing_companion['user_companion_id']);
         $stmt->execute();
         $stmt->close();
         
         echo json_encode([
             'status' => 'success',
             'message' => 'Welcome back!',
-            'redirect_url' => '?ai_chat_3d&lang=' . $user_companion['preferred_language'],
+            'redirect_url' => '?ai_chat_3d&lang=' . $existing_companion['preferred_language'],
             'data' => [
                 'ai_id' => $ai_id,
-                'user_companion_id' => $user_companion['user_companion_id'],
+                'user_companion_id' => $existing_companion['user_companion_id'],
                 'setup_completed' => 1
             ]
         ]);

@@ -249,12 +249,12 @@ $_SESSION['pending_ai_lang'] = $lang;
                 sessionStorage.setItem('pending_ai_code', aiCode);
                 sessionStorage.setItem('pending_ai_lang', currentLang);
                 
-                $('#pageTitle').text('Please Login First');
-                $('#pageDesc').text('You need to login to activate your AI companion. Redirecting to homepage...');
+                $('#pageTitle').text('Please Register First');
+                $('#pageDesc').text('You need to register to activate your AI companion. Redirecting to registration...');
                 
                 setTimeout(() => {
-                    // Redirect ไปหน้าหลักพร้อม parameter login=1 เพื่อเปิด modal
-                    window.location.href = '?login=1&lang=' + currentLang;
+                    // Redirect ไปหน้า Register แทน login modal
+                    window.location.href = '?register&lang=' + currentLang;
                 }, 2000);
                 return;
             }
