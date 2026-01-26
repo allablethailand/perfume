@@ -159,6 +159,8 @@ $stmt->close();
                                     <tr>
                                         <th>#</th>
                                         <th>รหัสขวด</th>
+                                        <th>AI Code</th>
+                                        <th>AI Avatar</th>
                                         <th>สถานะ</th>
                                         <th>จองเมื่อ</th>
                                         <th>ขายเมื่อ</th>
@@ -259,6 +261,23 @@ $stmt->close();
                     },
                     {
                         "target": 2,
+                        data: "ai_code",
+                        render: function(data) {
+                            return data ? `<span class="badge bg-info">${data}</span>` : '<span class="text-muted">-</span>';
+                        }
+                    },
+                    {
+                        "target": 3,
+                        data: "ai_avatar_url",
+                        render: function(data) {
+                            if (data) {
+                                return `<img src="${data}" alt="AI Avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;">`;
+                            }
+                            return '<span class="text-muted">-</span>';
+                        }
+                    },
+                    {
+                        "target": 4,
                         data: "status",
                         render: function(data) {
                             let className = 'status-available';
@@ -276,32 +295,32 @@ $stmt->close();
                         }
                     },
                     {
-                        "target": 3,
+                        "target": 5,
                         data: "reserved_at",
                         render: function(data) {
                             return data || '-';
                         }
                     },
                     {
-                        "target": 4,
+                        "target": 6,
                         data: "sold_at",
                         render: function(data) {
                             return data || '-';
                         }
                     },
                     {
-                        "target": 5,
+                        "target": 7,
                         data: "order_id",
                         render: function(data) {
                             return data || '-';
                         }
                     },
                     {
-                        "target": 6,
+                        "target": 8,
                         data: "created_at"
                     },
                     {
-                        "target": 7,
+                        "target": 9,
                         data: null,
                         render: function(data, type, row) {
                             if (row.status === 'sold') {
