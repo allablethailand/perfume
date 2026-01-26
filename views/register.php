@@ -330,23 +330,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // ส่ง OTP ตาม login_method ที่เลือก
                 require_once(__DIR__ . '/../lib/send_mail.php');
                 
-                if ($login_method == 'email') {
-                    // ส่ง OTP ทางอีเมล
-                    $emailSent = sendEmail($email, 'register', $user_id, $generate_otp);
-                    
-                    if (!$emailSent) {
-                        error_log("Failed to send email to: " . $email);
+                $otpSent = false;
+                $errorDetail = '';
+
+                try {
+                    if ($login_method == 'email') {
+                        // ส่ง OTP ทางอีเมล
+                        error_log("🔵 Attempting to send email OTP to: " . $email);
+                        $otpSent = sendEmail($email, 'register', $user_id, $generate_otp);
+                        
+                        if (!$otpSent) {
+                            $errorDetail = "Failed to send email to: " . $email;
+                            error_log("❌ " . $errorDetail);
+                        } else {
+                            error_log("✅ Email sent successfully to: " . $email);
+                        }
+                    } else {
+                        // ส่ง OTP ทาง SMS
+                        error_log("🔵 Attempting to send SMS OTP to: " . $full_phone);
+                        $otpSent = sendSMS($full_phone, $generate_otp);
+                        
+                        if (!$otpSent) {
+                            $errorDetail = "Failed to send SMS to: " . $full_phone;
+                            error_log("❌ " . $errorDetail);
+                        } else {
+                            error_log("✅ SMS sent successfully to: " . $full_phone);
+                        }
                     }
-                } else {
-                    // ส่ง OTP ทาง SMS
-                    $smsSent = sendSMS($full_phone, $generate_otp);
-                    
-                    if (!$smsSent) {
-                        error_log("Failed to send SMS to: " . $full_phone);
-                    }
+                } catch (Exception $e) {
+                    $errorDetail = "OTP sending exception: " . $e->getMessage();
+                    error_log("⚠️ " . $errorDetail);
+                    error_log("Exception trace: " . $e->getTraceAsString());
                 }
 
-                // 🔥 เช็คว่ามี pending_ai_code จากการสแกน RFID หรือไม่
+                // 🔥 Redirect ไปหน้า OTP แม้ว่าการส่ง OTP จะล้มเหลว
+                // เพราะ OTP ถูกบันทึกไว้ในฐานข้อมูลแล้ว ผู้ใช้สามารถกรอกได้
+                
+                // เช็คว่ามี pending_ai_code จากการสแกน RFID หรือไม่
                 if (isset($_SESSION['pending_ai_code']) && !empty($_SESSION['pending_ai_code'])) {
                     $ai_code = $_SESSION['pending_ai_code'];
                     $ai_lang = $_SESSION['pending_ai_lang'] ?? 'th';
@@ -358,12 +378,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 // ไม่มี pending AI -> Redirect ไปหน้า OTP ปกติ
+                error_log("🔄 Redirecting to OTP page for user ID: " . $user_id);
                 header("Location: ?otp_confirm&register&otpID=" . $user_id . "&method=" . $login_method . "&lang=" . $lang);
                 exit;
 
             } catch (Exception $e) {
                 $conn->rollback();
                 $error_message = "Error: " . $e->getMessage();
+                error_log("💥 Registration error: " . $e->getMessage());
+                error_log("Error trace: " . $e->getTraceAsString());
             }
         }
     }

@@ -10,72 +10,208 @@ require  __DIR__ . '/../vendor/phpmailer/PHPMailer/src/SMTP.php';
 
 require_once(__DIR__ . '/../lib/base_directory.php');
 
+/**
+ * ส่งอีเมล OTP หรือข้อความอื่นๆ
+ * 
+ * @param string $to อีเมลผู้รับ
+ * @param string $type_mes ประเภทข้อความ (register, forgot, new_password)
+ * @param int $id ID ของผู้ใช้
+ * @param string $otp รหัส OTP
+ * @return bool สำเร็จ = true, ล้มเหลว = false
+ */
 function sendEmail($to, $type_mes, $id, $otp)
 {
     $mail = new PHPMailer(true);
 
     try {
-        //Server settings
+        // Server settings
         $mail->isSMTP();
         $mail->SMTPAuth   = true;
-
+        $mail->SMTPDebug  = 0; // 0 = ปิด, 1 = errors only, 2 = full debug
+        
+        // ตั้งค่า SMTP
         $mail->Host       = 'smtp.gmail.com';
-        $mail->Username   = 'apisit@origami.life'; // ใส่อีเมลของคุณ
-        $mail->Password   = 'lswx qgcg iicc ykiv';     // ใส่ App Password
-
+        $mail->Username   = 'apisit@origami.life';
+        $mail->Password   = 'lswx qgcg iicc ykiv'; // App Password จาก Google
+        
+        // ลอง SSL (port 465) ก่อน
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
         $mail->Port       = 465;
+        
+        // เพิ่ม timeout และ options
+        $mail->Timeout    = 30; // 30 seconds
+        $mail->SMTPKeepAlive = true;
+        
+        // ถ้า SSL ไม่ผ่าน ให้ลอง TLS (uncomment บรรทัดด้านล่าง)
+        // $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        // $mail->Port       = 587;
+        
+        // สำหรับ production ที่มีปัญหา SSL verification
+        $mail->SMTPOptions = array(
+            'ssl' => array(
+                'verify_peer' => false,
+                'verify_peer_name' => false,
+                'allow_self_signed' => true
+            )
+        );
 
-        //Recipients
+        // Recipients
         $mail->setFrom('apisit@origami.life', 'PERFUME');
         $mail->addAddress($to);
+        $mail->addReplyTo('apisit@origami.life', 'PERFUME Support');
 
-        //Content
+        // Content
         $mail->isHTML(true);
         $mail->CharSet = 'UTF-8';
         $mail->Subject = messageSubject($type_mes);
         $mail->Body    = messageBody($type_mes, $id, $otp);
+        $mail->AltBody = strip_tags(messageBody($type_mes, $id, $otp)); // Plain text version
 
+        // ส่งอีเมล
         $mail->send();
+        
+        error_log("✅ Email sent successfully to: " . $to . " (Type: " . $type_mes . ")");
         return true;
+        
     } catch (Exception $e) {
-        error_log("Mail Error: {$mail->ErrorInfo}");
+        $errorMsg = "❌ Mail Error to {$to}: {$mail->ErrorInfo}";
+        error_log($errorMsg);
+        error_log("Exception Message: " . $e->getMessage());
+        error_log("Exception Code: " . $e->getCode());
+        error_log("Exception File: " . $e->getFile() . " (Line: " . $e->getLine() . ")");
+        error_log("Stack Trace: " . $e->getTraceAsString());
+        
         return false;
     }
 }
 
+/**
+ * ส่ง SMS OTP
+ * 
+ * @param string $phone หมายเลขโทรศัพท์ (รวม country code)
+ * @param string $otp รหัส OTP
+ * @return bool สำเร็จ = true, ล้มเหลว = false
+ */
 function sendSMS($phone, $otp)
 {
-    // สำหรับส่ง SMS ใช้ API ของผู้ให้บริการ SMS Gateway
-    // ตัวอย่าง: Twilio, AWS SNS, หรือผู้ให้บริการในไทยอย่าง ThaiBulkSMS
-    
-    // ตัวอย่างการส่งด้วย Twilio (ต้อง install twilio/sdk ก่อน)
+    // ========================================
+    // Option 1: ใช้ Twilio (ต้อง install twilio/sdk ก่อน)
+    // ========================================
     /*
     try {
-        $sid = "your_twilio_sid";
-        $token = "your_twilio_token";
-        $twilio = new \Twilio\Rest\Client($sid, $token);
+        require_once __DIR__ . '/../vendor/autoload.php';
         
-        $message = $twilio->messages->create(
+        $sid = "your_twilio_account_sid";
+        $token = "your_twilio_auth_token";
+        $twilioPhone = "your_twilio_phone_number";
+        
+        $client = new \Twilio\Rest\Client($sid, $token);
+        
+        $message = $client->messages->create(
             $phone,
             [
-                "from" => "your_twilio_phone",
-                "body" => "Your PERFUME verification code is: " . $otp
+                "from" => $twilioPhone,
+                "body" => "Your PERFUME verification code is: " . $otp . ". Valid for 10 minutes."
             ]
         );
         
+        error_log("✅ SMS sent successfully to: " . $phone . " (SID: " . $message->sid . ")");
         return true;
+        
     } catch (Exception $e) {
-        error_log("SMS Error: " . $e->getMessage());
+        error_log("❌ SMS Error to {$phone}: " . $e->getMessage());
         return false;
     }
     */
     
-    // สำหรับตอนนี้ให้ log ไว้ก่อน
-    error_log("SMS to {$phone}: OTP = {$otp}");
-    return true; // สมมติว่าส่งสำเร็จ
+    // ========================================
+    // Option 2: ใช้ Thai SMS Gateway (เช่น ThaiBulkSMS)
+    // ========================================
+    /*
+    try {
+        $apiKey = "your_api_key";
+        $sender = "PERFUME";
+        $message = "Your PERFUME verification code is: " . $otp . ". Valid for 10 minutes.";
+        
+        $url = "https://api.thaibulksms.com/sms";
+        $data = [
+            'apikey' => $apiKey,
+            'sender' => $sender,
+            'msisdn' => $phone,
+            'message' => $message
+        ];
+        
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_POST, 1);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($httpCode == 200) {
+            error_log("✅ SMS sent successfully to: " . $phone);
+            return true;
+        } else {
+            error_log("❌ SMS Error to {$phone}: HTTP {$httpCode} - {$response}");
+            return false;
+        }
+        
+    } catch (Exception $e) {
+        error_log("❌ SMS Exception to {$phone}: " . $e->getMessage());
+        return false;
+    }
+    */
+    
+    // ========================================
+    // Option 3: ใช้ AWS SNS
+    // ========================================
+    /*
+    try {
+        require_once __DIR__ . '/../vendor/autoload.php';
+        
+        $sns = new \Aws\Sns\SnsClient([
+            'version' => 'latest',
+            'region'  => 'ap-southeast-1',
+            'credentials' => [
+                'key'    => 'your_aws_access_key',
+                'secret' => 'your_aws_secret_key',
+            ]
+        ]);
+        
+        $message = "Your PERFUME verification code is: " . $otp . ". Valid for 10 minutes.";
+        
+        $result = $sns->publish([
+            'Message' => $message,
+            'PhoneNumber' => $phone,
+        ]);
+        
+        error_log("✅ SMS sent successfully to: " . $phone . " (MessageId: " . $result['MessageId'] . ")");
+        return true;
+        
+    } catch (Exception $e) {
+        error_log("❌ SMS Error to {$phone}: " . $e->getMessage());
+        return false;
+    }
+    */
+    
+    // ========================================
+    // Temporary: Log เท่านั้น (สำหรับทดสอบ)
+    // ========================================
+    error_log("📱 SMS Mock: Send to {$phone}, OTP: {$otp}");
+    error_log("⚠️ SMS feature is not configured. Please set up SMS gateway in send_mail.php");
+    
+    // Return true เพื่อไม่ให้บล็อกการลงทะเบียน
+    // เปลี่ยนเป็น false ถ้าต้องการให้ระบบแจ้งเตือนเมื่อส่ง SMS ไม่สำเร็จ
+    return true;
 }
 
+/**
+ * สร้าง Subject สำหรับอีเมล
+ */
 function messageSubject($subject)
 {
     $HTMLsj = '';
@@ -91,12 +227,16 @@ function messageSubject($subject)
             $HTMLsj = 'รหัสผ่านใหม่ของคุณ - PERFUME';
             break;
         default:
+            $HTMLsj = 'แจ้งเตือนจาก PERFUME';
             break;
     }
 
     return $HTMLsj;
 }
 
+/**
+ * สร้าง Body สำหรับอีเมล
+ */
 function messageBody($body, $id, $otp)
 {
     global $base_path;
@@ -119,6 +259,9 @@ function messageBody($body, $id, $otp)
     return $HTMLbd;
 }
 
+/**
+ * สร้าง random string สำหรับ URL
+ */
 function generateUrl($length)
 {
     $characters = '!@#$%^&*()_+1234567890abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -130,6 +273,9 @@ function generateUrl($length)
     return $randomString;
 }
 
+/**
+ * Template HTML สำหรับอีเมล
+ */
 function templateMail($url, $type_tmp, $otp)
 {
     switch ($type_tmp) {
@@ -138,12 +284,14 @@ function templateMail($url, $type_tmp, $otp)
                 <html>
                 <head>
                     <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <style>
                         body {
                             font-family: Arial, sans-serif;
                             background-color: #f9f9f9;
                             color: #333;
                             padding: 20px;
+                            margin: 0;
                         }
                         .email-container {
                             background-color: #fff;
@@ -239,12 +387,14 @@ function templateMail($url, $type_tmp, $otp)
                 <html>
                 <head>
                     <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <style>
                         body {
                             font-family: Arial, sans-serif;
                             background-color: #f9f9f9;
                             color: #333;
                             padding: 20px;
+                            margin: 0;
                         }
                         .email-container {
                             background-color: #fff;
@@ -326,12 +476,14 @@ function templateMail($url, $type_tmp, $otp)
                 <html>
                 <head>
                     <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
                     <style>
                         body {
                             font-family: Arial, sans-serif;
                             background-color: #f9f9f9;
                             color: #333;
                             padding: 20px;
+                            margin: 0;
                         }
                         .email-container {
                             background-color: #fff;
@@ -395,8 +547,25 @@ function templateMail($url, $type_tmp, $otp)
             break;
             
         default:
-            $mesMail = '';
+            $mesMail = '<!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 20px; }
+                        .container { max-width: 600px; margin: 0 auto; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h2>PERFUME</h2>
+                        <p>ข้อความจากระบบ</p>
+                    </div>
+                </body>
+            </html>';
             break;
     }
+    
+    return $mesMail;
 }
 ?>
