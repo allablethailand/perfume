@@ -1,3 +1,21 @@
+<?php
+require_once('lib/connect.php');
+global $conn;
+
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+// รับ companion_id และ lang จาก URL
+$companion_id = $_GET['companion_id'] ?? null;
+$lang = $_GET['lang'] ?? 'th';
+
+// ถ้าไม่มี companion_id redirect กลับหน้าแรก
+if (!$companion_id) {
+    header("Location: ?lang=$lang");
+    exit;
+}
+?>
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -5,7 +23,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Activate Your AI Companion</title>
     
-    <link rel="icon" type="image/x-icon" href="/perfume//public/product_images/696089dc2eba5_1767934428.jpg">
+    <link rel="icon" type="image/x-icon" href="public/product_images/696089dc2eba5_1767934428.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css">
     
@@ -98,83 +116,13 @@
             margin-bottom: 40px;
         }
 
-        .step-code {
-            display: block;
-        }
-
-        .step-code.hidden {
-            display: none;
-        }
-
-        .code-input {
-            position: relative;
-            margin-bottom: 30px;
-        }
-
-        .code-input input {
-            width: 100%;
-            padding: 18px 24px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            font-size: 18px;
-            text-align: center;
-            text-transform: uppercase;
-            letter-spacing: 3px;
-            color: #fff;
-            transition: all 0.3s;
-        }
-
-        .code-input input:focus {
-            outline: none;
-            border-color: #7877c6;
-            background: rgba(255, 255, 255, 0.08);
-            box-shadow: 0 0 0 4px rgba(120, 119, 198, 0.1);
-        }
-
-        .code-input input::placeholder {
-            color: rgba(255, 255, 255, 0.3);
-        }
-
-        .btn {
-            width: 100%;
-            padding: 18px;
-            border: none;
-            border-radius: 16px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 1.5px;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #7877c6 0%, #a8a7e5 100%);
-            color: white;
-            box-shadow: 0 8px 24px rgba(120, 119, 198, 0.3);
-        }
-
-        .btn-primary:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(120, 119, 198, 0.5);
-        }
-
-        .btn-primary:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-
         /* Step 2: Language Selection */
         .step-language {
             display: none;
         }
 
         .step-language.active {
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            display: block;
         }
 
         .language-grid {
@@ -221,6 +169,36 @@
             font-size: 14px;
             font-weight: 600;
             color: rgba(255, 255, 255, 0.9);
+        }
+
+        .btn {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #7877c6 0%, #a8a7e5 100%);
+            color: white;
+            box-shadow: 0 8px 24px rgba(120, 119, 198, 0.3);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(120, 119, 198, 0.5);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
         }
 
         /* Step 3: AI Preview - FULLSCREEN */
@@ -495,34 +473,20 @@
 <body>
     <div class="gradient-overlay"></div>
 
-    <!-- Step 1: Enter Code -->
+    <!-- Step 1: Loading (Auto-load AI data) -->
     <div class="fullscreen-container" id="step1Container">
         <div class="card">
             <div class="logo">
                 <i class="fas fa-robot"></i>
             </div>
 
-            <h1>Activate Your AI Companion</h1>
-            <p class="subtitle">Enter your unique AI code to begin</p>
+            <h1>Loading AI Companion</h1>
+            <p class="subtitle">Please wait...</p>
 
             <div class="error-message" id="errorMessage"></div>
             <div class="success-message" id="successMessage"></div>
 
-            <div class="step-code" id="stepCode">
-                <div class="code-input">
-                    <input 
-                        type="text" 
-                        id="aiCodeInput" 
-                        placeholder="AI-XXXXXXXX"
-                        maxlength="50"
-                    >
-                </div>
-                <button class="btn btn-primary" id="btnVerifyCode">
-                    <i class="fas fa-check-circle"></i> Verify Code
-                </button>
-            </div>
-
-            <div class="loading" id="loading">
+            <div class="loading active" id="loading">
                 <i class="fas fa-spinner"></i>
                 <p style="margin-top: 20px; color: rgba(255,255,255,0.6);">Loading...</p>
             </div>
@@ -606,13 +570,14 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
         let currentAI = null;
-        let selectedLanguage = 'th';
+        let selectedLanguage = '<?= $lang ?>';
         let selectedGreeting = 'สวัสดี ฉันยินดีที่ได้รู้จักคุณ';
         let userId = null;
         let currentAudio = null;
         let isSpeaking = false;
+        let companionId = <?= intval($companion_id) ?>; // รับจาก PHP
 
-        // 🗣️ Video Greeting Messages - รวมทั้ง 2 ส่วน (5 ภาษา)
+        // 🗣️ Video Greeting Messages
         const VIDEO_GREETINGS = {
             th: "สวัสดี ฉันยินดีที่ได้รู้จักคุณ เรามาทำความรู้จักกันหน่อยดีกว่า",
             en: "Hello! Nice to meet you. Let's get to know each other",
@@ -621,7 +586,6 @@
             kr: "안녕하세요! 만나서 반갑습니다. 서로 알아가 봅시다"
         };
 
-        // Language code mapping for TTS
         const LANG_CODE_MAP = {
             'th': 'th',
             'en': 'en',
@@ -647,62 +611,48 @@
                 return;
             }
 
+            // โหลดข้อมูล AI จาก companion_id
+            loadCompanionData();
+        });
+
+        function loadCompanionData() {
+            const jwt = sessionStorage.getItem('jwt');
+            
             $.ajax({
-                url: 'app/actions/protected.php',
+                url: 'app/actions/get_companion_data.php',
                 type: 'GET',
                 headers: { 'Authorization': 'Bearer ' + jwt },
+                data: { companion_id: companionId },
+                dataType: 'json',
                 success: function(response) {
                     if (response.status === 'success') {
-                        userId = response.data.user_id;
+                        userId = response.user_id;
+                        currentAI = response.ai_data;
+                        selectedLanguage = response.preferred_language || '<?= $lang ?>';
+                        
+                        hideLoading();
+                        
+                        // ไปหน้าเลือกภาษา
+                        $('#step1Container').fadeOut(400, function() {
+                            $('#stepLanguage').addClass('active');
+                            
+                            // Pre-select language if already set
+                            if (selectedLanguage) {
+                                $('.language-option[data-lang="' + selectedLanguage + '"]').addClass('selected');
+                                $('#btnConfirmLanguage').prop('disabled', false);
+                            }
+                        });
                     } else {
-                        showError('ไม่สามารถยืนยันตัวตนได้');
+                        showError(response.message || 'ไม่พบข้อมูล AI Companion');
                         setTimeout(() => window.location.href = '?', 2000);
                     }
                 },
                 error: function() {
-                    showError('ไม่สามารถยืนยันตัวตนได้');
+                    showError('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
                     setTimeout(() => window.location.href = '?', 2000);
                 }
             });
-        });
-
-        $('#btnVerifyCode').on('click', function() {
-            const aiCode = $('#aiCodeInput').val().trim().toUpperCase();
-            
-            if (!aiCode) {
-                showError('กรุณากรอกรหัส AI');
-                return;
-            }
-
-            showLoading();
-
-            $.ajax({
-                url: 'app/actions/verify_ai_code.php',
-                type: 'POST',
-                data: { ai_code: aiCode },
-                dataType: 'json',
-                success: function(response) {
-                    hideLoading();
-                    
-                    if (response.status === 'success') {
-                        currentAI = response.data;
-                        showSuccess('พบ AI Companion ของคุณแล้ว!');
-                        
-                        setTimeout(() => {
-                            $('#step1Container').fadeOut(400, function() {
-                                $('#stepLanguage').addClass('active').hide().fadeIn(400);
-                            });
-                        }, 1000);
-                    } else {
-                        showError(response.message || 'ไม่พบรหัส AI นี้ในระบบ');
-                    }
-                },
-                error: function() {
-                    hideLoading();
-                    showError('เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
-                }
-            });
-        });
+        }
 
         $('.language-option').on('click', function() {
             $('.language-option').removeClass('selected');
@@ -732,7 +682,6 @@
             $('#stepLanguage').fadeOut(400, function() {
                 $('#stepPreview').addClass('active');
                 
-                // Show avatar for 3 seconds, then video, then description
                 setTimeout(() => {
                     if (currentAI.ai_video_url) {
                         $('#aiVideo source').attr('src', currentAI.ai_video_url);
@@ -741,7 +690,6 @@
                         $('#avatarSection').fadeOut(600, function() {
                             $('#videoSection').fadeIn(600);
                             
-                            // 🎤 พูดเฉพาะตอนแสดงวิดีโอ (รวมคำทักทายทั้งหมด)
                             setTimeout(() => {
                                 const videoGreeting = VIDEO_GREETINGS[selectedLanguage] || VIDEO_GREETINGS.th;
                                 speakText(videoGreeting, LANG_CODE_MAP[selectedLanguage]);
@@ -752,7 +700,6 @@
                             };
                         });
                     } else {
-                        // No video, go straight to description after avatar
                         setTimeout(() => {
                             showDescriptionSection();
                         }, 2000);
@@ -762,7 +709,6 @@
         });
 
         function skipVideo() {
-            // Stop any current speech
             stopSpeaking();
             showDescriptionSection();
         }
@@ -774,45 +720,41 @@
         }
 
         $('#btnStartQuestions').on('click', function() {
-            // Stop any current speech before navigating
             stopSpeaking();
             
-            if (!userId || !currentAI || !selectedLanguage) {
+            if (!userId || !companionId || !selectedLanguage) {
                 showError('ข้อมูลไม่ครบถ้วน กรุณาลองใหม่');
                 return;
             }
 
             const jwt = sessionStorage.getItem('jwt');
 
+            // อัพเดทภาษาที่เลือก
             $.ajax({
-                url: 'app/actions/create_user_companion.php',
+                url: 'app/actions/update_companion_language.php',
                 type: 'POST',
                 headers: { 'Authorization': 'Bearer ' + jwt },
                 data: {
-                    ai_id: currentAI.ai_id,
+                    companion_id: companionId,
                     preferred_language: selectedLanguage
                 },
                 dataType: 'json',
                 success: function(response) {
                     if (response.status === 'success') {
-                        window.location.href = '?ai_questions&companion_id=' + response.user_companion_id + '&lang=' + selectedLanguage;
+                        window.location.href = '?ai_questions&companion_id=' + companionId + '&lang=' + selectedLanguage;
                     } else {
                         showError(response.message || 'เกิดข้อผิดพลาด');
                     }
                 },
                 error: function() {
-                    showError('ไม่สามารถสร้าง AI Companion ได้');
+                    showError('ไม่สามารถบันทึกภาษาได้');
                 }
             });
         });
 
-        /**
-         * 🗣️ Text-to-Speech Function (รองรับ 5 ภาษา)
-         */
         function speakText(text, langCode) {
             if (!text || isSpeaking) return;
             
-            // Stop any previous speech
             stopSpeaking();
             
             isSpeaking = true;
@@ -821,7 +763,6 @@
             let ttsUrl;
             const encodedText = encodeURIComponent(text);
             
-            // Use Thai-specific TTS for Thai language
             if (langCode === 'th') {
                 ttsUrl = `https://code.responsivevoice.org/getvoice.php?t=${encodedText}&tl=th&sv=&vn=&pitch=0.5&rate=0.5&vol=1`;
             } else {
@@ -857,9 +798,6 @@
             currentAudio.load();
         }
 
-        /**
-         * 🔇 Stop Speaking
-         */
         function stopSpeaking() {
             if (currentAudio) {
                 currentAudio.pause();
@@ -874,9 +812,6 @@
             updateSpeakingIndicator(false);
         }
 
-        /**
-         * 🎤 Fallback to Web Speech API
-         */
         function fallbackToWebSpeech(text, langCode) {
             if (!window.speechSynthesis) {
                 isSpeaking = false;
@@ -914,9 +849,6 @@
             window.speechSynthesis.speak(utterance);
         }
 
-        /**
-         * 💬 Update Speaking Indicator
-         */
         function updateSpeakingIndicator(speaking, language = 'Speaking') {
             if (speaking) {
                 $('#speakingText').text(`Speaking in ${language}...`);
@@ -928,12 +860,10 @@
 
         function showLoading() {
             $('#loading').addClass('active');
-            $('button').prop('disabled', true);
         }
 
         function hideLoading() {
             $('#loading').removeClass('active');
-            $('button').prop('disabled', false);
         }
 
         function showError(message) {
@@ -945,10 +875,6 @@
             $('#successMessage').text(message).addClass('active');
             setTimeout(() => $('#successMessage').removeClass('active'), 3000);
         }
-
-        $('#aiCodeInput').on('keypress', function(e) {
-            if (e.which === 13) $('#btnVerifyCode').click();
-        });
     </script>
 </body>
 </html>

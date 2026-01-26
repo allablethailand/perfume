@@ -2147,35 +2147,49 @@ document.addEventListener('DOMContentLoaded', function() {
                     const token = sessionStorage.getItem('jwt');
                     
                     $.ajax({
-                        url: 'app/actions/protected.php',
-                        type: 'GET',
-                        headers: {
-                            'Authorization': 'Bearer ' + token
-                        },
-                        success: function(response) {
-                            if (response.status === "success") {
-                                const roleId = parseInt(response.data.role_id);
-
-                                loadCartCount();
-                                loadAIAvatar();
-                                checkAICompanionStatus(); // เช็คสถานะ AI companion หลัง login
-
-                                if (roleId === 1) {
-                                    window.location.href = 'app/admin/index.php';
-                                } else if (roleId === 2) {
-                                    window.location.href = 'app/editer/index.php';
-                                } else {
-                                    location.reload();
-                                }
-                            } else {
-                                alert(response.message);
-                            }
-                        },
-                        error: function(xhr, status, error) {
-                            console.error("Request failed:", status, error);
-                            alert("An error occurred while accessing protected resource.");
+                url: 'app/actions/protected.php',
+                type: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + token
+                },
+                success: function(response) {
+                    if (response.status === "success") {
+                        const roleId = parseInt(response.data.role_id);
+                        
+                        loadCartCount();
+                        loadAIAvatar();
+                        checkAICompanionStatus();
+                        
+                        // 🔥 NEW: เช็คว่ามี pending_ai_code จากการสแกน RFID หรือไม่
+                        const pendingAiCode = sessionStorage.getItem('pending_ai_code');
+                        const pendingAiLang = sessionStorage.getItem('pending_ai_lang');
+                        
+                        if (pendingAiCode) {
+                            // มี pending RFID scan -> redirect กลับไปที่ ai_scan
+                            sessionStorage.removeItem('pending_ai_code');
+                            sessionStorage.removeItem('pending_ai_lang');
+                            
+                            window.location.href = '?ai_scan&ai_code=' + pendingAiCode + '&lang=' + (pendingAiLang || 'th');
+                            return;
                         }
-                    });
+                        
+                        // ไม่มี pending -> redirect ตามปกติ
+                        if (roleId === 1) {
+                            window.location.href = 'app/admin/index.php';
+                        } else if (roleId === 2) {
+                            window.location.href = 'app/editer/index.php';
+                        } else {
+                            location.reload();
+                        }
+                    } else {
+                        alert(response.message);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Request failed:", status, error);
+                    alert("An error occurred while accessing protected resource.");
+                }
+            });
                 } else {
                     alert(response.message);
                 }
