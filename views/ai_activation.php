@@ -65,6 +65,7 @@ if (!$companion_id) {
         .card {
             max-width: 600px;
             width: 90%;
+            margin: 0 auto; /* ← เพิ่มบรรทัดนี้ */
             background: rgba(255, 255, 255, 0.03);
             backdrop-filter: blur(20px);
             border: 1px solid rgba(255, 255, 255, 0.1);
