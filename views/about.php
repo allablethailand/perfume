@@ -751,7 +751,7 @@ function tt($key, $lang) {
             <p class="hero-subtitle"><?= tt('hero_subtitle', $lang) ?></p>
         </div>
         <div class="scroll-indicator">
-            <span></span>
+            <!-- <span></span> -->
         </div>
     </section>
 
