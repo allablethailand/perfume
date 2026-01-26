@@ -497,43 +497,45 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
                     if (response.status == 'succeed') {
                         $('#loading-overlay').removeClass('active');
                         
-                        // 🔥 เก็บ JWT ใน sessionStorage
-                        if (response.jwt) {
-                            sessionStorage.setItem('jwt', response.jwt);
-                        }
+                        // 🔥 เช็คว่ามี pending_ai หรือไม่
+                        const pendingAi = $('#pending_ai').val();
+                        const pendingLang = $('#pending_lang').val() || currentLang;
                         
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Success!',
-                            text: response.message,
-                            showConfirmButton: true,
-                            confirmButtonColor: '#ff9800'
-                        }).then(() => {
-                            // 🔥 เช็คว่ามี pending_ai หรือไม่
-                            const pendingAi = $('#pending_ai').val();
-                            const pendingLang = $('#pending_lang').val() || currentLang;
-                            
-                            if (pendingAi && pendingAi.trim() !== '') {
-                                // มี pending AI -> ลบ session และ redirect ไป ai_scan
-                                <?php
-                                if (!empty($pending_ai)) {
-                                    echo "
-                                    // ลบ pending_ai_code ออกจาก PHP session
-                                    fetch('app/actions/clear_pending_ai.php', {
-                                        method: 'POST'
-                                    }).then(() => {
-                                        window.location.href = '?ai_scan&ai_code=' + encodeURIComponent(pendingAi) + '&lang=' + pendingLang;
-                                    });
-                                    ";
-                                } else {
-                                    echo "window.location.href = '?ai_scan&ai_code=' + encodeURIComponent(pendingAi) + '&lang=' + pendingLang;";
-                                }
-                                ?>
-                            } else {
-                                // ไม่มี pending -> redirect ปกติ
+                        if (pendingAi && pendingAi.trim() !== '') {
+                            // มี pending AI -> เก็บใน sessionStorage และ redirect ไปหน้าหลักเพื่อ login
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Registration Complete!',
+                                text: 'Please login to continue activating your AI companion',
+                                showConfirmButton: true,
+                                confirmButtonColor: '#ff9800'
+                            }).then(() => {
+                                // เก็บ pending_ai ใน sessionStorage
+                                sessionStorage.setItem('pending_ai_code', pendingAi);
+                                sessionStorage.setItem('pending_ai_lang', pendingLang);
+                                
+                                // ลบ pending_ai_code ออกจาก PHP session
+                                $.ajax({
+                                    url: 'app/actions/clear_pending_ai.php',
+                                    type: 'POST',
+                                    complete: function() {
+                                        // Redirect ไปหน้าหลัก (modal จะเปิดเองจาก header.php)
+                                        window.location.href = '?lang=' + pendingLang;
+                                    }
+                                });
+                            });
+                        } else {
+                            // ไม่มี pending -> redirect ไปหน้าหลัก
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Registration Complete!',
+                                text: 'Please login to continue',
+                                showConfirmButton: true,
+                                confirmButtonColor: '#ff9800'
+                            }).then(() => {
                                 window.location.href = '?lang=' + currentLang;
-                            }
-                        });
+                            });
+                        }
                     } else {
                         $('#loading-overlay').removeClass('active');
                         

@@ -33,7 +33,7 @@ if (!$decoded) {
     exit();
 }
 
-$user_id = $decoded['user_id'];
+$user_id = requireAuth();
 $companion_id = intval($_GET['companion_id'] ?? 0);
 
 if (!$companion_id) {

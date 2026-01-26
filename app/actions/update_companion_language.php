@@ -39,7 +39,7 @@ if (!$decoded) {
     exit();
 }
 
-$user_id = $decoded['user_id'];
+$user_id = requireAuth();
 $companion_id = intval($_POST['companion_id'] ?? 0);
 $preferred_language = $_POST['preferred_language'] ?? '';
 
