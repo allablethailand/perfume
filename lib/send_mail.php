@@ -56,9 +56,9 @@ function sendEmail($to, $type_mes, $id, $otp)
         );
 
         // Recipients
-        $mail->setFrom('apisit@origami.life', 'PERFUME');
+        $mail->setFrom('std.nk36116@gmail.com', 'PERFUME');
         $mail->addAddress($to);
-        $mail->addReplyTo('apisit@origami.life', 'PERFUME Support');
+        $mail->addReplyTo('std.nk36116@gmail.com', 'PERFUME Support');
 
         // Content
         $mail->isHTML(true);
