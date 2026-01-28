@@ -24,29 +24,36 @@ function sendEmail($to, $type_mes, $id, $otp)
     $mail = new PHPMailer(true);
 
     try {
-        // Server settings
+        // ========================================
+        // SMTP Configuration
+        // ========================================
         $mail->isSMTP();
-        $mail->SMTPAuth   = true;
-        $mail->SMTPDebug  = 0; // 0 = ปิด, 1 = errors only, 2 = full debug
+        $mail->SMTPAuth = true;
         
-        // ตั้งค่า SMTP
-        $mail->Host       = 'smtp.gmail.com';
-        $mail->Username   = 'apisit@origami.life';
-        $mail->Password   = 'lswx qgcg iicc ykiv'; // App Password จาก Google
+        // 🔧 แก้: เปลี่ยน SMTPDebug เป็น 0 บน production (ไม่ต้องแสดง debug)
+        // เปลี่ยนเป็น 2 ถ้าอยากดู debug log
+        $mail->SMTPDebug = 0;
         
-        // ลอง SSL (port 465) ก่อน
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-        $mail->Port       = 465;
+        // ========================================
+        // SMTP Settings - Gmail
+        // ========================================
+        $mail->Host = 'smtp.gmail.com';
+        $mail->Username = 'apisit@origami.life'; // หรือใช้ email ที่ต้องการ
+        $mail->Password = 'mckr ncsd omuz fkfa'; // App Password จาก Google
         
-        // เพิ่ม timeout และ options
-        $mail->Timeout    = 30; // 30 seconds
+        // 🔧 แก้: ลอง TLS ก่อน (Port 587) เพราะ production บางที่บล็อก SSL (Port 465)
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = 587;
+        
+        // ถ้า TLS ไม่ผ่าน ลอง SSL (uncomment 2 บรรทัดด้านล่าง)
+        // $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+        // $mail->Port = 465;
+        
+        // 🔧 แก้: เพิ่ม timeout และ options สำหรับ production
+        $mail->Timeout = 60; // เพิ่มเป็น 60 วินาที
         $mail->SMTPKeepAlive = true;
         
-        // ถ้า SSL ไม่ผ่าน ให้ลอง TLS (uncomment บรรทัดด้านล่าง)
-        // $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        // $mail->Port       = 587;
-        
-        // สำหรับ production ที่มีปัญหา SSL verification
+        // 🔧 แก้: SSL Options - สำคัญมากสำหรับ production
         $mail->SMTPOptions = array(
             'ssl' => array(
                 'verify_peer' => false,
@@ -55,31 +62,45 @@ function sendEmail($to, $type_mes, $id, $otp)
             )
         );
 
+        // ========================================
         // Recipients
-        $mail->setFrom('std.nk36116@gmail.com', 'PERFUME');
+        // ========================================
+        $mail->setFrom('apisit@origami.life', 'PERFUME');
         $mail->addAddress($to);
-        $mail->addReplyTo('std.nk36116@gmail.com', 'PERFUME Support');
+        $mail->addReplyTo('apisit@origami.life', 'PERFUME Support');
 
+        // ========================================
         // Content
+        // ========================================
         $mail->isHTML(true);
         $mail->CharSet = 'UTF-8';
         $mail->Subject = messageSubject($type_mes);
-        $mail->Body    = messageBody($type_mes, $id, $otp);
-        $mail->AltBody = strip_tags(messageBody($type_mes, $id, $otp)); // Plain text version
+        $mail->Body = messageBody($type_mes, $id, $otp);
+        $mail->AltBody = strip_tags(messageBody($type_mes, $id, $otp));
 
-        // ส่งอีเมล
-        $mail->send();
+        // ========================================
+        // Send Email
+        // ========================================
+        $result = $mail->send();
         
-        error_log("✅ Email sent successfully to: " . $to . " (Type: " . $type_mes . ")");
-        return true;
+        if ($result) {
+            error_log("✅ Email sent successfully to: " . $to . " (Type: " . $type_mes . ")");
+            return true;
+        } else {
+            error_log("❌ Email send failed to: " . $to);
+            return false;
+        }
         
     } catch (Exception $e) {
+        // 🔧 แก้: ปรับ error logging ให้ละเอียดขึ้น
         $errorMsg = "❌ Mail Error to {$to}: {$mail->ErrorInfo}";
         error_log($errorMsg);
         error_log("Exception Message: " . $e->getMessage());
         error_log("Exception Code: " . $e->getCode());
         error_log("Exception File: " . $e->getFile() . " (Line: " . $e->getLine() . ")");
-        error_log("Stack Trace: " . $e->getTraceAsString());
+        
+        // 🔧 แก้: ไม่ต้อง log stack trace ทั้งหมด (ทำให้ log ยาวเกินไป)
+        // error_log("Stack Trace: " . $e->getTraceAsString());
         
         return false;
     }
@@ -95,117 +116,12 @@ function sendEmail($to, $type_mes, $id, $otp)
 function sendSMS($phone, $otp)
 {
     // ========================================
-    // Option 1: ใช้ Twilio (ต้อง install twilio/sdk ก่อน)
-    // ========================================
-    /*
-    try {
-        require_once __DIR__ . '/../vendor/autoload.php';
-        
-        $sid = "your_twilio_account_sid";
-        $token = "your_twilio_auth_token";
-        $twilioPhone = "your_twilio_phone_number";
-        
-        $client = new \Twilio\Rest\Client($sid, $token);
-        
-        $message = $client->messages->create(
-            $phone,
-            [
-                "from" => $twilioPhone,
-                "body" => "Your PERFUME verification code is: " . $otp . ". Valid for 10 minutes."
-            ]
-        );
-        
-        error_log("✅ SMS sent successfully to: " . $phone . " (SID: " . $message->sid . ")");
-        return true;
-        
-    } catch (Exception $e) {
-        error_log("❌ SMS Error to {$phone}: " . $e->getMessage());
-        return false;
-    }
-    */
-    
-    // ========================================
-    // Option 2: ใช้ Thai SMS Gateway (เช่น ThaiBulkSMS)
-    // ========================================
-    /*
-    try {
-        $apiKey = "your_api_key";
-        $sender = "PERFUME";
-        $message = "Your PERFUME verification code is: " . $otp . ". Valid for 10 minutes.";
-        
-        $url = "https://api.thaibulksms.com/sms";
-        $data = [
-            'apikey' => $apiKey,
-            'sender' => $sender,
-            'msisdn' => $phone,
-            'message' => $message
-        ];
-        
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_POST, 1);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($data));
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        
-        if ($httpCode == 200) {
-            error_log("✅ SMS sent successfully to: " . $phone);
-            return true;
-        } else {
-            error_log("❌ SMS Error to {$phone}: HTTP {$httpCode} - {$response}");
-            return false;
-        }
-        
-    } catch (Exception $e) {
-        error_log("❌ SMS Exception to {$phone}: " . $e->getMessage());
-        return false;
-    }
-    */
-    
-    // ========================================
-    // Option 3: ใช้ AWS SNS
-    // ========================================
-    /*
-    try {
-        require_once __DIR__ . '/../vendor/autoload.php';
-        
-        $sns = new \Aws\Sns\SnsClient([
-            'version' => 'latest',
-            'region'  => 'ap-southeast-1',
-            'credentials' => [
-                'key'    => 'your_aws_access_key',
-                'secret' => 'your_aws_secret_key',
-            ]
-        ]);
-        
-        $message = "Your PERFUME verification code is: " . $otp . ". Valid for 10 minutes.";
-        
-        $result = $sns->publish([
-            'Message' => $message,
-            'PhoneNumber' => $phone,
-        ]);
-        
-        error_log("✅ SMS sent successfully to: " . $phone . " (MessageId: " . $result['MessageId'] . ")");
-        return true;
-        
-    } catch (Exception $e) {
-        error_log("❌ SMS Error to {$phone}: " . $e->getMessage());
-        return false;
-    }
-    */
-    
-    // ========================================
     // Temporary: Log เท่านั้น (สำหรับทดสอบ)
     // ========================================
     error_log("📱 SMS Mock: Send to {$phone}, OTP: {$otp}");
     error_log("⚠️ SMS feature is not configured. Please set up SMS gateway in send_mail.php");
     
     // Return true เพื่อไม่ให้บล็อกการลงทะเบียน
-    // เปลี่ยนเป็น false ถ้าต้องการให้ระบบแจ้งเตือนเมื่อส่ง SMS ไม่สำเร็จ
     return true;
 }
 
