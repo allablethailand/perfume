@@ -29,31 +29,24 @@ function sendEmail($to, $type_mes, $id, $otp)
         // ========================================
         $mail->isSMTP();
         $mail->SMTPAuth = true;
-        
-        // 🔧 แก้: เปลี่ยน SMTPDebug เป็น 0 บน production (ไม่ต้องแสดง debug)
-        // เปลี่ยนเป็น 2 ถ้าอยากดู debug log
-        $mail->SMTPDebug = 0;
+        $mail->SMTPDebug = 0; // ปิด debug บน production
         
         // ========================================
         // SMTP Settings - Gmail
         // ========================================
         $mail->Host = 'smtp.gmail.com';
-        $mail->Username = 'std.nk36116@gmail.com'; // หรือใช้ email ที่ต้องการ
-        $mail->Password = 'xkde obhl qmbz wzvp'; // App Password จาก Google
+        $mail->Username = 'std.nk36116@gmail.com'; // Gmail account
+        $mail->Password = 'xkde obhl qmbz wzvp'; // App Password
         
-        // 🔧 แก้: ลอง TLS ก่อน (Port 587) เพราะ production บางที่บล็อก SSL (Port 465)
+        // ⚠️ FIX 1: Port 587 สำหรับ STARTTLS (ไม่ใช่ 465!)
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = 465;
+        $mail->Port = 587;
         
-        // ถ้า TLS ไม่ผ่าน ลอง SSL (uncomment 2 บรรทัดด้านล่าง)
-        // $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-        // $mail->Port = 465;
-        
-        // 🔧 แก้: เพิ่ม timeout และ options สำหรับ production
-        $mail->Timeout = 60; // เพิ่มเป็น 60 วินาที
+        // Timeout settings
+        $mail->Timeout = 60;
         $mail->SMTPKeepAlive = true;
         
-        // 🔧 แก้: SSL Options - สำคัญมากสำหรับ production
+        // SSL Options
         $mail->SMTPOptions = array(
             'ssl' => array(
                 'verify_peer' => false,
@@ -65,9 +58,10 @@ function sendEmail($to, $type_mes, $id, $otp)
         // ========================================
         // Recipients
         // ========================================
-        $mail->setFrom('apisit@origami.life', 'PERFUME');
+        // ⚠️ FIX 2: setFrom ต้องใช้ email เดียวกับ Username
+        $mail->setFrom('std.nk36116@gmail.com', 'PERFUME');
         $mail->addAddress($to);
-        $mail->addReplyTo('apisit@origami.life', 'PERFUME Support');
+        $mail->addReplyTo('std.nk36116@gmail.com', 'PERFUME Support');
 
         // ========================================
         // Content
@@ -92,15 +86,11 @@ function sendEmail($to, $type_mes, $id, $otp)
         }
         
     } catch (Exception $e) {
-        // 🔧 แก้: ปรับ error logging ให้ละเอียดขึ้น
         $errorMsg = "❌ Mail Error to {$to}: {$mail->ErrorInfo}";
         error_log($errorMsg);
         error_log("Exception Message: " . $e->getMessage());
         error_log("Exception Code: " . $e->getCode());
         error_log("Exception File: " . $e->getFile() . " (Line: " . $e->getLine() . ")");
-        
-        // 🔧 แก้: ไม่ต้อง log stack trace ทั้งหมด (ทำให้ log ยาวเกินไป)
-        // error_log("Stack Trace: " . $e->getTraceAsString());
         
         return false;
     }
@@ -115,13 +105,9 @@ function sendEmail($to, $type_mes, $id, $otp)
  */
 function sendSMS($phone, $otp)
 {
-    // ========================================
-    // Temporary: Log เท่านั้น (สำหรับทดสอบ)
-    // ========================================
     error_log("📱 SMS Mock: Send to {$phone}, OTP: {$otp}");
     error_log("⚠️ SMS feature is not configured. Please set up SMS gateway in send_mail.php");
     
-    // Return true เพื่อไม่ให้บล็อกการลงทะเบียน
     return true;
 }
 
