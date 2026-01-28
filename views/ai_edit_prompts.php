@@ -672,331 +672,700 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const lang = urlParams.get('lang') || 'th';
-        let companionId = null;
-        let currentPreferredLang = 'th';
+        // ========== Global Variables ==========
+const urlParams = new URLSearchParams(window.location.search);
+const lang = urlParams.get('lang') || 'th';
+const aiCodeFromURL = urlParams.get('ai_code') || '';
 
-        const jwt = sessionStorage.getItem('jwt');
-        if (!jwt) {
-            Swal.fire('Error!', 'Please login first', 'error').then(() => {
-                window.location.href = '?';
-            });
+let companionId = null;
+let currentPreferredLang = 'th';
+
+const jwt = sessionStorage.getItem('jwt');
+let isGuestMode = !jwt; // ✅ ถ้าไม่มี JWT = Guest Mode
+
+// ========== Initialize ==========
+$(document).ready(function() {
+    console.log('🚀 Initializing Edit Preferences...');
+    console.log('Guest Mode:', isGuestMode);
+    console.log('AI Code:', aiCodeFromURL);
+    console.log('JWT:', jwt ? 'Found' : 'Not found');
+
+    // ✅ ลอง companionId และข้อมูล AI จาก sessionStorage
+    const storedCompanionId = sessionStorage.getItem('user_companion_id');
+    const storedAIName = sessionStorage.getItem('ai_name');
+    const storedAIAvatar = sessionStorage.getItem('ai_avatar_url');
+    // const storedLanguage = sessionStorage.getItem('preferred_language');
+    
+    if (storedCompanionId) {
+        companionId = parseInt(storedCompanionId);
+        console.log('✅ Found stored companionId:', companionId);
+        
+        // ✅ ถ้ามีข้อมูล AI ใน sessionStorage ให้แสดงเลย
+        if (storedAIName) {
+            $('#aiNameSidebar').text(storedAIName);
+            console.log('✅ Set AI name from storage:', storedAIName);
         }
-
-        $(document).ready(function() {
-            loadCompanionInfo();
-            loadQuestionsAndAnswers();
-
-            $('#backButton').on('click', function(e) {
-                e.preventDefault();
-                window.location.href = '?ai_chat_3d&lang=' + lang;
+        
+        if (storedAIAvatar) {
+            $('#aiAvatarSidebar').attr('src', storedAIAvatar).on('error', function() {
+                console.warn('⚠️ Avatar failed, use placeholder');
+                $(this).attr('src', 'https://via.placeholder.com/280x280/7877c6/ffffff?text=AI');
             });
+            console.log('✅ Set AI avatar from storage:', storedAIAvatar);
+        } else {
+            // ใช้รูป placeholder
+            $('#aiAvatarSidebar').attr('src', 'https://via.placeholder.com/280x280/7877c6/ffffff?text=AI');
+        }
+        
+        // if (storedLanguage) {
+        //     currentPreferredLang = storedLanguage;
+        //     $('.language-option').removeClass('selected');
+        //     $(`.language-option[data-lang="${storedLanguage}"]`).addClass('selected');
+        //     console.log('✅ Set language from storage:', storedLanguage);
+        // }
+    }
 
-            // Language selection
-            $('.language-option').on('click', function() {
-                const selectedLang = $(this).data('lang');
-                updatePreferredLanguage(selectedLang);
-            });
+    // ✅ เช็คแบบผ่อนปรน
+    if (!aiCodeFromURL && !jwt && !companionId) {
+        Swal.fire({
+            title: 'Access Denied',
+            text: 'Please provide AI code or login',
+            icon: 'error',
+            background: '#1a1a1a',
+            color: '#fff'
+        }).then(() => {
+            window.location.href = '?';
         });
+        return;
+    }
 
-        function loadCompanionInfo() {
-            $.ajax({
-                url: 'app/actions/check_ai_companion_status.php',
-                type: 'GET',
-                headers: { 'Authorization': 'Bearer ' + jwt },
-                dataType: 'json',
-                success: function(response) {
-                    if (response.status === 'success' && response.has_companion) {
-                        companionId = response.data.user_companion_id;
-                        currentPreferredLang = response.data.preferred_language || 'th';
-                        
-                        // Set selected language
-                        $('.language-option').removeClass('selected');
-                        $(`.language-option[data-lang="${currentPreferredLang}"]`).addClass('selected');
-                        
-                        const langCol = 'ai_name_' + lang;
-                        $('#aiNameSidebar').text(response.data[langCol] || response.data.ai_name_th);
-                        
-                        if (response.data.ai_avatar_url) {
-                            $('#aiAvatarSidebar').attr('src', response.data.ai_avatar_url);
-                        }
-                    } else {
-                        Swal.fire('Error!', 'No AI companion found', 'error').then(() => {
-                            window.location.href = '?';
-                        });
-                    }
-                }
-            });
+    // ✅ ถ้ามี companionId และข้อมูล AI ครบ -> ข้ามการโหลด AI info
+    if (companionId && storedAIName && storedAIAvatar && !aiCodeFromURL && !jwt) {
+        console.log('⚠️ Has all data from storage, skip loadCompanionInfo');
+        loadQuestionsAndAnswers();
+    } 
+    // ถ้ามี companionId แต่ไม่มีข้อมูล AI -> โหลดจาก API
+    else if (companionId && !aiCodeFromURL && !jwt) {
+        console.log('⚠️ Has companionId but missing AI data, try loadCompanionInfo');
+        loadCompanionInfo();
+    }
+    // กรณีปกติ -> โหลดตามปกติ
+    else {
+        loadCompanionInfo();
+    }
+
+    $('#backButton').on('click', function(e) {
+        e.preventDefault();
+        
+        // ✅ ลองหา ai_code จาก URL ก่อน ถ้าไม่มีลอง sessionStorage
+        let aiCode = aiCodeFromURL;
+        
+        if (!aiCode) {
+            aiCode = sessionStorage.getItem('ai_code');
         }
-
-        function updatePreferredLanguage(selectedLang) {
-            if (selectedLang === currentPreferredLang) {
-                return; // No change
-            }
-
-            const cId = companionId || urlParams.get('companion_id');
-
-            $('#loadingOverlay .loading-text').text('Updating language...');
-            $('#loadingOverlay').addClass('active');
-
-            $.ajax({
-                url: 'app/actions/update_preferred_language.php',
-                type: 'POST',
-                headers: { 'Authorization': 'Bearer ' + jwt },
-                data: {
-                    user_companion_id: cId,
-                    preferred_language: selectedLang
-                },
-                dataType: 'json',
-                success: function(response) {
-                    $('#loadingOverlay').removeClass('active');
-                    $('#loadingOverlay .loading-text').text('Saving changes...');
-                    
-                    if (response.status === 'success') {
-                        currentPreferredLang = selectedLang;
-                        $('.language-option').removeClass('selected');
-                        $(`.language-option[data-lang="${selectedLang}"]`).addClass('selected');
-                        
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Updated!',
-                            text: 'Language preference updated successfully',
-                            timer: 1500,
-                            showConfirmButton: false,
-                            background: '#1a1a1a',
-                            color: '#fff'
-                        });
-                    } else {
-                        Swal.fire('Error!', response.message || 'Failed to update language', 'error');
-                        // Revert selection
-                        $('.language-option').removeClass('selected');
-                        $(`.language-option[data-lang="${currentPreferredLang}"]`).addClass('selected');
-                    }
-                },
-                error: function() {
-                    $('#loadingOverlay').removeClass('active');
-                    $('#loadingOverlay .loading-text').text('Saving changes...');
-                    Swal.fire('Error!', 'Failed to update language', 'error');
-                    // Revert selection
-                    $('.language-option').removeClass('selected');
-                    $(`.language-option[data-lang="${currentPreferredLang}"]`).addClass('selected');
-                }
-            });
+        
+        // สร้าง URL กลับ
+        let backUrl = '?ai_chat_3d&lang=' + lang;
+        
+        if (aiCode) {
+            backUrl = '?ai_chat_3d&ai_code=' + aiCode + '&lang=' + lang;
         }
+        
+        console.log('🔙 Going back to:', backUrl);
+        window.location.href = backUrl;
+    });
 
-        function loadQuestionsAndAnswers() {
-            if (!companionId && !urlParams.has('companion_id')) {
-                // Wait for companionId from loadCompanionInfo
-                setTimeout(loadQuestionsAndAnswers, 500);
-                return;
-            }
+    // Language selection
+    $('.language-option').on('click', function() {
+        const selectedLang = $(this).data('lang');
+        updatePreferredLanguage(selectedLang);
+    });
+});
 
-            const cId = companionId || urlParams.get('companion_id');
+/**
+ * ✅ Load Companion Info (Guest Mode Support)
+ */
+function loadCompanionInfo() {
+    let url = '';
+    const headers = {};
+    let canLoadInfo = false;
 
-            $.ajax({
-                url: 'app/actions/get_user_answers.php',
-                type: 'GET',
-                headers: { 'Authorization': 'Bearer ' + jwt },
-                data: { user_companion_id: cId, lang: lang },
-                dataType: 'json',
-                success: function(response) {
-                    if (response.status === 'success') {
-                        displayQuestionsAndAnswers(response.data);
-                    } else {
-                        Swal.fire('Error!', 'Failed to load questions', 'error');
-                    }
-                },
-                error: function() {
-                    Swal.fire('Error!', 'Failed to load questions', 'error');
-                }
-            });
-        }
+    // ✅ เลือก endpoint ตาม mode
+    if (isGuestMode && aiCodeFromURL) {
+        // Guest Mode: ใช้ get_ai_data.php
+        url = 'app/actions/get_ai_data.php?ai_code=' + aiCodeFromURL;
+        canLoadInfo = true;
+        console.log('🔓 Guest Mode: Using ai_code');
+    } else if (jwt) {
+        // Login Mode: ใช้ check_ai_companion_status.php
+        url = 'app/actions/check_ai_companion_status.php';
+        headers['Authorization'] = 'Bearer ' + jwt;
+        canLoadInfo = true;
+        console.log('🔐 Login Mode: Using JWT');
+    } else if (companionId) {
+        // ✅ มี companionId แต่ไม่มี auth - ลองดึงข้อมูลจาก companion_id
+        url = 'app/actions/get_companion_info_by_id.php?user_companion_id=' + companionId;
+        canLoadInfo = true;
+        console.log('⚠️ Using companionId without auth');
+    }
 
-        function displayQuestionsAndAnswers(data) {
-            $('#questionsList').empty();
+    if (!canLoadInfo) {
+        console.log('⚠️ No auth method, skip loadCompanionInfo');
+        setTimeout(function() {
+            loadQuestionsAndAnswers();
+        }, 100);
+        return;
+    }
 
-            data.forEach(item => {
-                const questionHtml = createQuestionItem(item);
-                $('#questionsList').append(questionHtml);
-            });
-
-            // Attach event listeners
-            $('.edit-button').on('click', function() {
-                const questionId = $(this).data('question-id');
-                toggleEditForm(questionId);
-            });
-
-            $('.choice-option').on('click', function() {
-                const questionId = $(this).data('question-id');
-                $(`.choice-option[data-question-id="${questionId}"]`).removeClass('selected');
-                $(this).addClass('selected');
-            });
-
-            $('.scale-option').on('click', function() {
-                const questionId = $(this).data('question-id');
-                $(`.scale-option[data-question-id="${questionId}"]`).removeClass('selected');
-                $(this).addClass('selected');
-            });
-
-            $('.btn-cancel').on('click', function() {
-                const questionId = $(this).data('question-id');
-                toggleEditForm(questionId);
-            });
-
-            $('.btn-save').on('click', function() {
-                const questionId = $(this).data('question-id');
-                saveAnswer(questionId);
-            });
-        }
-
-        function createQuestionItem(item) {
-            const langCol = 'question_text_' + lang;
-            const questionText = item[langCol] || item.question_text_th;
+    $.ajax({
+        url: url,
+        type: 'GET',
+        headers: headers,
+        dataType: 'json',
+        success: function(response) {
+            console.log('✅ Companion response:', response);
             
-            let currentAnswerHtml = '';
-            if (item.question_type === 'choice' && item.choice_text) {
-                const choiceCol = 'choice_text_' + lang;
-                currentAnswerHtml = item[choiceCol] || item.choice_text;
-            } else if (item.question_type === 'text' && item.text_answer) {
-                currentAnswerHtml = item.text_answer;
-            } else if (item.question_type === 'scale' && item.scale_value) {
-                currentAnswerHtml = `Scale: ${item.scale_value}/5`;
-            }
+            if (response.status === 'success') {
+                // Handle both response formats
+                const data = response.ai_data || response.companion || response.data;
+                
+                if (!data) {
+                    console.error('❌ No data in response');
+                    // ไม่แสดง error แต่ให้ทำงานต่อไป
+                    loadQuestionsAndAnswers();
+                    return;
+                }
+                
+                // ✅ เก็บ companionId
+                if (isGuestMode && response.companion_id) {
+                    companionId = response.companion_id;
+                    sessionStorage.setItem('user_companion_id', companionId);
+                    console.log('✅ Stored companion_id from guest mode:', companionId);
+                } else if (response.has_companion && data.user_companion_id) {
+                    companionId = data.user_companion_id;
+                    sessionStorage.setItem('user_companion_id', companionId);
+                    console.log('✅ Stored companion_id from login mode:', companionId);
+                }
 
-            let inputHtml = '';
-            if (item.question_type === 'choice') {
-                inputHtml = '<div class="choices-container">';
-                if (item.choices && item.choices.length > 0) {
-                    item.choices.forEach(choice => {
-                        const choiceTextCol = 'choice_text_' + lang;
-                        const isSelected = choice.choice_id === item.selected_choice_id ? 'selected' : '';
-                        inputHtml += `
-                            <div class="choice-option ${isSelected}" data-question-id="${item.question_id}" data-choice-id="${choice.choice_id}">
-                                <div class="choice-radio"></div>
-                                <span>${choice[choiceTextCol] || choice.choice_text_th}</span>
-                            </div>
-                        `;
+                // ✅ เก็บ preferred language
+                currentPreferredLang = data.preferred_language || 'th';
+                
+                // Set selected language
+                $('.language-option').removeClass('selected');
+                $(`.language-option[data-lang="${currentPreferredLang}"]`).addClass('selected');
+                
+                // ✅ แสดงชื่อ AI (ลองหลายรูปแบบ)
+                const langCol = 'ai_name_' + lang;
+                const aiName = data[langCol] || data.ai_name_th || data.ai_name || data.name || 'AI Companion';
+                $('#aiNameSidebar').text(aiName);
+                
+                // ✅ เก็บลง sessionStorage
+                sessionStorage.setItem('ai_name', aiName);
+                sessionStorage.setItem('preferred_language', currentPreferredLang);
+                
+                // ✅ แสดงรูป Avatar (ลองหลายรูปแบบ)
+                let avatarUrl = data.ai_avatar_url || data.avatar_url || data.image_url || data.idle_video_url || '';
+                
+                if (avatarUrl) {
+                    $('#aiAvatarSidebar').attr('src', avatarUrl).on('error', function() {
+                        console.warn('⚠️ Avatar image failed to load:', avatarUrl);
+                        // ใช้รูป default
+                        $(this).attr('src', 'https://via.placeholder.com/280x280/7877c6/ffffff?text=AI');
                     });
-                }
-                inputHtml += '</div>';
-            } else if (item.question_type === 'text') {
-                inputHtml = `
-                    <textarea class="text-input" id="text_${item.question_id}" placeholder="Type your answer...">${item.text_answer || ''}</textarea>
-                `;
-            } else if (item.question_type === 'scale') {
-                inputHtml = `
-                    <div class="scale-container">
-                        <div class="scale-options">
-                `;
-                for (let i = 1; i <= 5; i++) {
-                    const isSelected = i === parseInt(item.scale_value) ? 'selected' : '';
-                    inputHtml += `<div class="scale-option ${isSelected}" data-question-id="${item.question_id}" data-value="${i}">${i}</div>`;
-                }
-                inputHtml += `
-                        </div>
-                    </div>
-                `;
-            }
-
-            return `
-                <div class="question-item" id="question_${item.question_id}">
-                    <div class="question-header">
-                        <div class="question-title">${questionText}</div>
-                        <button class="edit-button" data-question-id="${item.question_id}">
-                            <i class="fas fa-edit"></i> Edit
-                        </button>
-                    </div>
-                    <div>
-                        <div class="answer-label">Current Answer:</div>
-                        <div class="current-answer">${currentAnswerHtml}</div>
-                    </div>
-                    <div class="edit-form" id="edit_form_${item.question_id}">
-                        ${inputHtml}
-                        <div class="form-buttons">
-                            <button class="btn btn-cancel" data-question-id="${item.question_id}">
-                                <i class="fas fa-times"></i> Cancel
-                            </button>
-                            <button class="btn btn-save" data-question-id="${item.question_id}">
-                                <i class="fas fa-check"></i> Save
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        function toggleEditForm(questionId) {
-            $(`#edit_form_${questionId}`).toggleClass('active');
-        }
-
-        function saveAnswer(questionId) {
-            const cId = companionId || urlParams.get('companion_id');
-            const question = $(`#question_${questionId}`);
-            const questionType = question.find('.choice-option').length > 0 ? 'choice' : 
-                                 question.find('.text-input').length > 0 ? 'text' : 'scale';
-
-            let answerData = {
-                user_companion_id: cId,
-                question_id: questionId
-            };
-
-            if (questionType === 'choice') {
-                const selectedChoice = question.find('.choice-option.selected');
-                if (!selectedChoice.length) {
-                    Swal.fire('Warning!', 'Please select an answer', 'warning');
-                    return;
-                }
-                answerData.choice_id = selectedChoice.data('choice-id');
-            } else if (questionType === 'text') {
-                const textValue = question.find('.text-input').val().trim();
-                if (!textValue) {
-                    Swal.fire('Warning!', 'Please enter an answer', 'warning');
-                    return;
-                }
-                answerData.text_answer = textValue;
-            } else if (questionType === 'scale') {
-                const selectedScale = question.find('.scale-option.selected');
-                if (!selectedScale.length) {
-                    Swal.fire('Warning!', 'Please select a scale value', 'warning');
-                    return;
-                }
-                answerData.scale_value = selectedScale.data('value');
-            }
-
-            $('#loadingOverlay').addClass('active');
-
-            $.ajax({
-                url: 'app/actions/update_single_answer.php',
-                type: 'POST',
-                headers: { 'Authorization': 'Bearer ' + jwt },
-                data: answerData,
-                dataType: 'json',
-                success: function(response) {
-                    $('#loadingOverlay').removeClass('active');
+                    console.log('✅ Avatar URL set:', avatarUrl);
                     
-                    if (response.status === 'success') {
-                        Swal.fire({
-                            icon: 'success',
-                            title: 'Saved!',
-                            text: 'Your answer has been updated',
-                            timer: 1500,
-                            showConfirmButton: false,
-                            background: '#1a1a1a',
-                            color: '#fff'
-                        }).then(() => {
-                            loadQuestionsAndAnswers(); // Reload to show updated answer
-                        });
-                    } else {
-                        Swal.fire('Error!', response.message || 'Failed to save answer', 'error');
-                    }
-                },
-                error: function() {
-                    $('#loadingOverlay').removeClass('active');
-                    Swal.fire('Error!', 'Failed to save answer', 'error');
+                    // ✅ เก็บลง sessionStorage
+                    sessionStorage.setItem('ai_avatar_url', avatarUrl);
+                } else {
+                    console.warn('⚠️ No avatar URL found');
+                    $('#aiAvatarSidebar').attr('src', 'https://via.placeholder.com/280x280/7877c6/ffffff?text=AI');
                 }
+
+                console.log('✅ Companion loaded:', {
+                    companion_id: companionId,
+                    language: currentPreferredLang,
+                    name: aiName,
+                    avatar: avatarUrl
+                });
+
+                // โหลดคำถามต่อ
+                loadQuestionsAndAnswers();
+                
+            } else {
+                console.error('❌ API returned error:', response.message);
+                // ไม่แสดง error แต่ให้ทำงานต่อไป
+                loadQuestionsAndAnswers();
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('❌ Error loading companion:', {
+                status: status,
+                error: error,
+                response: xhr.responseText
+            });
+            
+            // ✅ ไม่แสดง error แต่ให้ทำงานต่อไป
+            if (companionId) {
+                console.log('⚠️ Error but has companionId, try to continue...');
+                loadQuestionsAndAnswers();
+            } else {
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'Failed to load companion info',
+                    icon: 'error',
+                    background: '#1a1a1a',
+                    color: '#fff'
+                }).then(() => {
+                    window.location.href = '?';
+                });
+            }
+        }
+    });
+}
+
+/**
+ * ✅ Update Preferred Language (Guest Mode Support)
+ */
+function updatePreferredLanguage(selectedLang) {
+    if (selectedLang === currentPreferredLang) {
+        return;
+    }
+
+    if (!companionId) {
+        Swal.fire({
+            title: 'Error!',
+            text: 'Companion ID not found',
+            icon: 'error',
+            background: '#1a1a1a',
+            color: '#fff'
+        });
+        return;
+    }
+
+    $('#loadingOverlay .loading-text').text('Updating language...');
+    $('#loadingOverlay').addClass('active');
+
+    const headers = { 'Content-Type': 'application/json' };
+    const requestData = {
+        user_companion_id: companionId,
+        preferred_language: selectedLang
+    };
+
+    // ✅ เพิ่ม ai_code ถ้าเป็น Guest Mode
+    if (isGuestMode && aiCodeFromURL) {
+        requestData.ai_code = aiCodeFromURL;
+    } else if (jwt) {
+        headers['Authorization'] = 'Bearer ' + jwt;
+    }
+
+    $.ajax({
+        url: 'app/actions/update_preferred_language.php',
+        type: 'POST',
+        headers: headers,
+        data: JSON.stringify(requestData),
+        dataType: 'json',
+        success: function(response) {
+            $('#loadingOverlay').removeClass('active');
+            $('#loadingOverlay .loading-text').text('Saving changes...');
+            
+            if (response.status === 'success') {
+                currentPreferredLang = selectedLang;
+                $('.language-option').removeClass('selected');
+                $(`.language-option[data-lang="${selectedLang}"]`).addClass('selected');
+                
+                // ✅ อัพเดท sessionStorage
+                sessionStorage.setItem('preferred_language', selectedLang);
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Updated!',
+                    text: 'Language preference updated successfully',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    background: '#1a1a1a',
+                    color: '#fff'
+                });
+            } else {
+                Swal.fire({
+                    title: 'Error!',
+                    text: response.message || 'Failed to update language',
+                    icon: 'error',
+                    background: '#1a1a1a',
+                    color: '#fff'
+                });
+                // Revert selection
+                $('.language-option').removeClass('selected');
+                $(`.language-option[data-lang="${currentPreferredLang}"]`).addClass('selected');
+            }
+        },
+        error: function(xhr, status, error) {
+            $('#loadingOverlay').removeClass('active');
+            $('#loadingOverlay .loading-text').text('Saving changes...');
+            console.error('❌ Error updating language:', error);
+            Swal.fire({
+                title: 'Error!',
+                text: 'Failed to update language',
+                icon: 'error',
+                background: '#1a1a1a',
+                color: '#fff'
+            });
+            // Revert selection
+            $('.language-option').removeClass('selected');
+            $(`.language-option[data-lang="${currentPreferredLang}"]`).addClass('selected');
+        }
+    });
+}
+
+/**
+ * ✅ Load Questions and Answers (Guest Mode Support)
+ */
+function loadQuestionsAndAnswers() {
+    if (!companionId) {
+        setTimeout(loadQuestionsAndAnswers, 500);
+        return;
+    }
+
+    let url = 'app/actions/get_user_answers.php?user_companion_id=' + companionId + '&lang=' + lang;
+    const headers = {};
+
+    if (isGuestMode && aiCodeFromURL) {
+        url += '&ai_code=' + aiCodeFromURL;
+    } else if (jwt) {
+        headers['Authorization'] = 'Bearer ' + jwt;
+    }
+
+    console.log('📡 Loading questions:', {
+        isGuestMode: isGuestMode,
+        companionId: companionId,
+        aiCode: aiCodeFromURL,
+        url: url
+    });
+
+    $.ajax({
+        url: url,
+        type: 'GET',
+        headers: headers,
+        dataType: 'json',
+        success: function(response) {
+            console.log('✅ Questions response:', response);
+            
+            if (response.status === 'success') {
+                console.log('📋 Questions data:', response.data);
+                console.log('📊 Number of questions:', response.data.length);
+                
+                displayQuestionsAndAnswers(response.data);
+            } else {
+                console.error('❌ Failed:', response.message);
+                Swal.fire({
+                    title: 'Error!',
+                    text: 'Failed to load questions: ' + response.message,
+                    icon: 'error',
+                    background: '#1a1a1a',
+                    color: '#fff'
+                });
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('❌ Error loading questions:', {
+                status: status,
+                error: error,
+                response: xhr.responseText
+            });
+            Swal.fire({
+                title: 'Error!',
+                text: 'Failed to load questions',
+                icon: 'error',
+                background: '#1a1a1a',
+                color: '#fff'
             });
         }
+    });
+}
+
+/**
+ * Display Questions and Answers
+ */
+function displayQuestionsAndAnswers(data) {
+    console.log('🎨 Displaying questions...', data);
+    
+    const $questionsList = $('#questionsList');
+    $questionsList.empty();
+
+    if (!data || data.length === 0) {
+        console.warn('⚠️ No questions to display');
+        $questionsList.html(`
+            <div style="text-align: center; padding: 60px 20px; color: rgba(255,255,255,0.5);">
+                <i class="fas fa-inbox" style="font-size: 48px; margin-bottom: 20px;"></i>
+                <p style="font-size: 16px;">No questions available</p>
+            </div>
+        `);
+        return;
+    }
+
+    console.log('✅ Processing', data.length, 'questions');
+
+    data.forEach(item => {
+        console.log('📝 Creating question item:', item.question_id);
+        const questionHtml = createQuestionItem(item);
+        $questionsList.append(questionHtml);
+    });
+
+    console.log('✅ All questions displayed');
+
+    // Attach event listeners
+    $('.edit-button').on('click', function() {
+        const questionId = $(this).data('question-id');
+        toggleEditForm(questionId);
+    });
+
+    $('.choice-option').on('click', function() {
+        const questionId = $(this).data('question-id');
+        $(`.choice-option[data-question-id="${questionId}"]`).removeClass('selected');
+        $(this).addClass('selected');
+    });
+
+    $('.scale-option').on('click', function() {
+        const questionId = $(this).data('question-id');
+        $(`.scale-option[data-question-id="${questionId}"]`).removeClass('selected');
+        $(this).addClass('selected');
+    });
+
+    $('.btn-cancel').on('click', function() {
+        const questionId = $(this).data('question-id');
+        toggleEditForm(questionId);
+    });
+
+    $('.btn-save').on('click', function() {
+        const questionId = $(this).data('question-id');
+        saveAnswer(questionId);
+    });
+}
+
+/**
+ * สร้าง HTML สำหรับแต่ละคำถาม
+ */
+function createQuestionItem(item) {
+    const langCol = 'question_text_' + lang;
+    const questionText = item[langCol] || item.question_text_th;
+    
+    // สร้าง Current Answer
+    let currentAnswerHtml = '';
+    if (item.question_type === 'choice' && item.choice_text_th) {
+        const choiceCol = 'choice_text_' + lang;
+        currentAnswerHtml = item[choiceCol] || item.choice_text_th;
+    } else if (item.question_type === 'text' && item.text_answer) {
+        currentAnswerHtml = item.text_answer;
+    } else if (item.question_type === 'scale' && item.scale_value) {
+        currentAnswerHtml = `Scale: ${item.scale_value}/5`;
+    } else {
+        currentAnswerHtml = '<em style="color: rgba(255,255,255,0.4);">Not answered yet</em>';
+    }
+
+    // สร้าง Edit Form Input
+    let inputHtml = '';
+    
+    if (item.question_type === 'choice') {
+        inputHtml = '<div class="choices-container">';
+        if (item.choices && item.choices.length > 0) {
+            item.choices.forEach(choice => {
+                const choiceTextCol = 'choice_text_' + lang;
+                const choiceText = choice[choiceTextCol] || choice.choice_text_th;
+                const isSelected = choice.choice_id === item.selected_choice_id ? 'selected' : '';
+                inputHtml += `
+                    <div class="choice-option ${isSelected}" data-question-id="${item.question_id}" data-choice-id="${choice.choice_id}">
+                        <div class="choice-radio"></div>
+                        <span>${choiceText}</span>
+                    </div>
+                `;
+            });
+        } else {
+            inputHtml += '<p style="color: rgba(255,255,255,0.5);">No choices available</p>';
+        }
+        inputHtml += '</div>';
+    } 
+    else if (item.question_type === 'text') {
+        const textValue = item.text_answer || '';
+        inputHtml = `
+            <textarea class="text-input" id="text_${item.question_id}" placeholder="Type your answer...">${textValue}</textarea>
+        `;
+    } 
+    else if (item.question_type === 'scale') {
+        inputHtml = `
+            <div class="scale-container">
+                <div class="scale-labels">
+                    <span>Strongly Disagree</span>
+                    <span>Strongly Agree</span>
+                </div>
+                <div class="scale-options">
+        `;
+        for (let i = 1; i <= 5; i++) {
+            const isSelected = i === parseInt(item.scale_value) ? 'selected' : '';
+            inputHtml += `<div class="scale-option ${isSelected}" data-question-id="${item.question_id}" data-value="${i}">${i}</div>`;
+        }
+        inputHtml += `
+                </div>
+            </div>
+        `;
+    }
+
+    // สร้าง HTML ทั้งหมด
+    return `
+        <div class="question-item" id="question_${item.question_id}">
+            <div class="question-header">
+                <div class="question-title">${questionText}</div>
+                <button class="edit-button" data-question-id="${item.question_id}">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+            </div>
+            <div>
+                <div class="answer-label">Current Answer:</div>
+                <div class="current-answer">${currentAnswerHtml}</div>
+            </div>
+            <div class="edit-form" id="edit_form_${item.question_id}">
+                ${inputHtml}
+                <div class="form-buttons">
+                    <button class="btn btn-cancel" data-question-id="${item.question_id}">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button class="btn btn-save" data-question-id="${item.question_id}">
+                        <i class="fas fa-check"></i> Save
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Toggle Edit Form
+ */
+function toggleEditForm(questionId) {
+    $(`#edit_form_${questionId}`).toggleClass('active');
+}
+
+/**
+ * ✅ Save Answer (Guest Mode Support)
+ */
+function saveAnswer(questionId) {
+    if (!companionId) {
+        Swal.fire({
+            title: 'Error!',
+            text: 'Companion ID not found',
+            icon: 'error',
+            background: '#1a1a1a',
+            color: '#fff'
+        });
+        return;
+    }
+
+    const question = $(`#question_${questionId}`);
+    const questionType = question.find('.choice-option').length > 0 ? 'choice' : 
+                         question.find('.text-input').length > 0 ? 'text' : 'scale';
+
+    let answerData = {
+        user_companion_id: companionId,
+        question_id: questionId
+    };
+
+    if (questionType === 'choice') {
+        const selectedChoice = question.find('.choice-option.selected');
+        if (!selectedChoice.length) {
+            Swal.fire({
+                title: 'Warning!',
+                text: 'Please select an answer',
+                icon: 'warning',
+                background: '#1a1a1a',
+                color: '#fff'
+            });
+            return;
+        }
+        answerData.choice_id = selectedChoice.data('choice-id');
+    } else if (questionType === 'text') {
+        const textValue = question.find('.text-input').val().trim();
+        if (!textValue) {
+            Swal.fire({
+                title: 'Warning!',
+                text: 'Please enter an answer',
+                icon: 'warning',
+                background: '#1a1a1a',
+                color: '#fff'
+            });
+            return;
+        }
+        answerData.text_answer = textValue;
+    } else if (questionType === 'scale') {
+        const selectedScale = question.find('.scale-option.selected');
+        if (!selectedScale.length) {
+            Swal.fire({
+                title: 'Warning!',
+                text: 'Please select a scale value',
+                icon: 'warning',
+                background: '#1a1a1a',
+                color: '#fff'
+            });
+            return;
+        }
+        answerData.scale_value = selectedScale.data('value');
+    }
+
+    // ✅ เพิ่ม ai_code ถ้าเป็น Guest Mode
+    if (isGuestMode && aiCodeFromURL) {
+        answerData.ai_code = aiCodeFromURL;
+    }
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (!isGuestMode && jwt) {
+        headers['Authorization'] = 'Bearer ' + jwt;
+    }
+
+    console.log('💾 Saving answer:', answerData);
+
+    $('#loadingOverlay').addClass('active');
+
+    $.ajax({
+        url: 'app/actions/update_single_answer.php',
+        type: 'POST',
+        headers: headers,
+        data: JSON.stringify(answerData),
+        dataType: 'json',
+        success: function(response) {
+            $('#loadingOverlay').removeClass('active');
+            
+            if (response.status === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Saved!',
+                    text: 'Your answer has been updated',
+                    timer: 1500,
+                    showConfirmButton: false,
+                    background: '#1a1a1a',
+                    color: '#fff'
+                }).then(() => {
+                    loadQuestionsAndAnswers();
+                });
+            } else {
+                Swal.fire({
+                    title: 'Error!',
+                    text: response.message || 'Failed to save answer',
+                    icon: 'error',
+                    background: '#1a1a1a',
+                    color: '#fff'
+                });
+            }
+        },
+        error: function(xhr, status, error) {
+            $('#loadingOverlay').removeClass('active');
+            console.error('❌ Error saving answer:', error);
+            Swal.fire({
+                title: 'Error!',
+                text: 'Failed to save answer',
+                icon: 'error',
+                background: '#1a1a1a',
+                color: '#fff'
+            });
+        }
+    });
+}
     </script>
 </body>
 </html>

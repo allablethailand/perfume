@@ -1,11 +1,25 @@
 <?php
+/**
+ * Get User Answers (Guest Mode Supported)
+ * ✅ รองรับทั้ง JWT และ Guest Mode
+ */
+
 header('Content-Type: application/json');
 require_once('../../lib/connect.php');
 require_once('../../lib/jwt_helper.php');
 
 global $conn;
 
-// Get JWT token
+// ========== รับพารามิเตอร์ ==========
+$user_companion_id = $_GET['user_companion_id'] ?? null;
+$ai_code = isset($_GET['ai_code']) ? strtoupper(trim($_GET['ai_code'])) : '';
+$lang = $_GET['lang'] ?? 'th';
+
+// ========== ระบุตัวตน: JWT หรือ Guest Mode ==========
+$user_id = null;
+$is_guest_mode = false;
+
+// ลอง JWT ก่อน
 $headers = getallheaders();
 $jwt = null;
 
@@ -15,61 +29,100 @@ if (isset($headers['Authorization'])) {
     $jwt = $headers['X-Auth-Token'];
 }
 
-if (!$jwt) {
-    echo json_encode([
-        'status' => 'error',
-        'message' => 'No token provided'
-    ]);
-    exit;
+// ถ้ามี JWT ให้ verify
+if ($jwt) {
+    try {
+        $decoded = verifyJWT($jwt);
+        if ($decoded && isset($decoded->data->user_id)) {
+            $user_id = intval($decoded->data->user_id);
+        }
+    } catch (Exception $e) {
+        // JWT ไม่ valid, ลอง guest mode
+    }
 }
 
-// Verify JWT
-$decoded = verifyJWT($jwt);
-if (!$decoded) {
-    echo json_encode([
-        'status' => 'error',
-        'message' => 'Invalid token'
-    ]);
-    exit;
+// ถ้าไม่มี JWT = Guest Mode
+if (!$user_id) {
+    $is_guest_mode = true;
+    
+    // ✅ ต้องมี user_companion_id หรือ ai_code
+    if (!$user_companion_id && !$ai_code) {
+        echo json_encode([
+            'status' => 'error',
+            'message' => 'Please provide user_companion_id or ai_code',
+            'require_login' => false
+        ]);
+        exit;
+    }
+    
+    // ถ้ามี ai_code ให้หา companion
+    if ($ai_code && !$user_companion_id) {
+        // ลอง session ก่อน
+        session_start();
+        if (isset($_SESSION['user_companion_id'])) {
+            $user_companion_id = $_SESSION['user_companion_id'];
+        }
+    }
 }
 
-// แก้ไข: ใช้ $decoded->data->user_id เหมือนในไฟล์ที่คุณแก้
-$user_id = isset($decoded->data->user_id) ? intval($decoded->data->user_id) : null;
-$user_companion_id = $_GET['user_companion_id'] ?? null;
-$lang = $_GET['lang'] ?? 'th';
-
+// ตรวจสอบว่ามี user_companion_id แล้ว
 if (!$user_companion_id) {
     echo json_encode([
         'status' => 'error',
-        'message' => 'Missing user_companion_id'
+        'message' => 'user_companion_id is required',
+        'require_login' => false
     ]);
     exit;
 }
 
 try {
-    // ตรวจสอบว่า user_companion นี้เป็นของ user ที่ login อยู่หรือไม่
-    $stmt = $conn->prepare("
-        SELECT user_companion_id 
-        FROM user_ai_companions 
-        WHERE user_companion_id = ? 
-        AND user_id = ? 
-        AND status = '1' 
-        AND del = 0
-    ");
-    $stmt->bind_param("ii", $user_companion_id, $user_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    
-    if ($result->num_rows === 0) {
-        echo json_encode([
-            'status' => 'error',
-            'message' => 'Unauthorized access'
-        ]);
-        exit;
+    // ✅ ถ้าเป็น Login Mode ให้เช็คสิทธิ์
+    if (!$is_guest_mode && $user_id) {
+        $stmt = $conn->prepare("
+            SELECT user_companion_id 
+            FROM user_ai_companions 
+            WHERE user_companion_id = ? 
+            AND user_id = ? 
+            AND status = '1' 
+            AND del = 0
+        ");
+        $stmt->bind_param("ii", $user_companion_id, $user_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows === 0) {
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Unauthorized access'
+            ]);
+            exit;
+        }
+        $stmt->close();
     }
-    $stmt->close();
+    // ✅ Guest Mode ไม่ต้องเช็คสิทธิ์ แต่ต้องเช็คว่า companion มีอยู่จริง
+    else {
+        $stmt = $conn->prepare("
+            SELECT user_companion_id 
+            FROM user_ai_companions 
+            WHERE user_companion_id = ? 
+            AND status = '1' 
+            AND del = 0
+        ");
+        $stmt->bind_param("i", $user_companion_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows === 0) {
+            echo json_encode([
+                'status' => 'error',
+                'message' => 'Companion not found'
+            ]);
+            exit;
+        }
+        $stmt->close();
+    }
 
-    // แก้ไข: ใช้ชื่อตารางที่ถูกต้อง ai_personality_questions และ ai_question_choices
+    // ดึงข้อมูลคำถามและคำตอบ
     $stmt = $conn->prepare("
         SELECT 
             q.question_id,
@@ -117,7 +170,7 @@ try {
                 'question_text_jp' => $row['question_text_jp'],
                 'question_text_kr' => $row['question_text_kr'],
                 'question_type' => $row['question_type'],
-                'answer_id' => $row['answer_id'], // เปลี่ยนจาก user_answer_id
+                'answer_id' => $row['answer_id'],
                 'selected_choice_id' => $row['selected_choice_id'],
                 'text_answer' => $row['text_answer'],
                 'scale_value' => $row['scale_value'],
@@ -134,7 +187,6 @@ try {
     // ดึง choices สำหรับแต่ละคำถาม
     foreach ($questions as $question_id => &$question) {
         if ($question['question_type'] === 'choice') {
-            // แก้ไข: ใช้ตาราง ai_question_choices
             $stmt_choices = $conn->prepare("
                 SELECT 
                     choice_id,
@@ -170,6 +222,7 @@ try {
     
     echo json_encode([
         'status' => 'success',
+        'guest_mode' => $is_guest_mode,
         'data' => $questions
     ]);
     
