@@ -43,7 +43,7 @@ function sendEmail($to, $type_mes, $id, $otp)
         
         // 🔧 แก้: ลอง TLS ก่อน (Port 587) เพราะ production บางที่บล็อก SSL (Port 465)
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = 587;
+        $mail->Port = 465;
         
         // ถ้า TLS ไม่ผ่าน ลอง SSL (uncomment 2 บรรทัดด้านล่าง)
         // $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
