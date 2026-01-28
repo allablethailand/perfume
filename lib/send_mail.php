@@ -35,8 +35,8 @@ function sendEmail($to, $type_mes, $id, $otp)
         // SMTP Settings - Gmail
         // ========================================
         $mail->Host = 'smtp.gmail.com';
-        $mail->Username = 'std.nk36116@gmail.com'; // Gmail account
-        $mail->Password = 'xkde obhl qmbz wzvp'; // App Password
+        $mail->Username = 'apisit@origami.life'; // Gmail account
+        $mail->Password = 'mckr ncsd omuz fkfa'; // App Password
         
         // ⚠️ FIX 1: Port 587 สำหรับ STARTTLS (ไม่ใช่ 465!)
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
@@ -59,9 +59,9 @@ function sendEmail($to, $type_mes, $id, $otp)
         // Recipients
         // ========================================
         // ⚠️ FIX 2: setFrom ต้องใช้ email เดียวกับ Username
-        $mail->setFrom('std.nk36116@gmail.com', 'PERFUME');
+        $mail->setFrom('apisit@origami.life', 'PERFUME');
         $mail->addAddress($to);
-        $mail->addReplyTo('std.nk36116@gmail.com', 'PERFUME Support');
+        $mail->addReplyTo('apisit@origami.life', 'PERFUME Support');
 
         // ========================================
         // Content
