@@ -141,21 +141,50 @@ try {
             error_log("No valid AI code provided");
         }
         
-        // Send OTP via email
-        sendEmail($email, 'register', $user_id, $otp);
-        error_log("OTP email sent to: " . $email);
+        // 🔧 แก้: ส่ง OTP via email พร้อม error handling
+        error_log("Attempting to send OTP email to: " . $email);
+        $emailSent = false;
         
+        try {
+            $emailSent = sendEmail($email, 'register', $user_id, $otp);
+            
+            if ($emailSent) {
+                error_log("✅ OTP email sent successfully to: " . $email);
+            } else {
+                error_log("⚠️ OTP email send returned false to: " . $email);
+            }
+            
+        } catch (Exception $emailException) {
+            // 🔧 แก้: ถ้าส่ง email ไม่สำเร็จ ให้ log error แต่ไม่ rollback transaction
+            error_log("❌ Email send exception: " . $emailException->getMessage());
+            error_log("Email exception file: " . $emailException->getFile() . " (Line: " . $emailException->getLine() . ")");
+        }
+        
+        // 🔧 แก้: Commit transaction แม้ว่าอีเมลจะส่งไม่สำเร็จ (ให้ user register ได้)
         $conn->commit();
         error_log("Transaction committed successfully");
         
-        $response = [
-            'status' => 'success',
-            'message' => 'Registration successful. Please check your email for OTP code.',
-            'user_id' => $user_id,
-            'method' => 'email'
-        ];
+        // 🔧 แก้: ปรับ response ตามสถานะการส่งอีเมล
+        if ($emailSent) {
+            $response = [
+                'status' => 'success',
+                'message' => 'Registration successful. Please check your email for OTP code.',
+                'user_id' => $user_id,
+                'method' => 'email'
+            ];
+        } else {
+            // ถ้าส่งอีเมลไม่สำเร็จ ให้แจ้งว่าสามารถใช้ OTP จาก log ได้ (dev mode)
+            // หรือให้ติดต่อ admin
+            $response = [
+                'status' => 'success',
+                'message' => 'Registration successful, but email send failed. Please contact support.',
+                'user_id' => $user_id,
+                'method' => 'email',
+                'email_sent' => false
+            ];
+        }
         
-        // ⚠️ FIX: ส่ง companion_id กลับไปด้วย (ถ้ามี)
+        // ส่ง companion_id กลับไปด้วย (ถ้ามี)
         if ($companion_id) {
             $response['companion_id'] = $companion_id;
         }
@@ -177,6 +206,7 @@ try {
         'message' => $e->getMessage()
     ];
     error_log("ERROR in register_user.php: " . $e->getMessage());
+    error_log("Error file: " . $e->getFile() . " (Line: " . $e->getLine() . ")");
 }
 
 error_log("Response: " . json_encode($response));
