@@ -1,14 +1,20 @@
 /**
- * AI Chat 3D - Enhanced with Dynamic Video URLs from Database
- * ✅ ดึง idle_video_url และ talking_video_url จาก database ตาม ai_id
- * ✅ รองรับวิดีโอ 2 ไฟล์แยก: ไม่พูด กับ พูด
- * ✅ Smooth transition ไม่มี AbortError
- * ✅ Welcome message อัตโนมัติ
- * ✅ แก้ไขภาษาจีน ญี่ปุ่น เกาหลี ให้ใช้ cn, jp, kr
+ * AI Chat 3D - Guest Mode Support + Full Audio (5 Languages)
+ * ✅ รองรับ Guest Mode (ไม่ต้อง JWT)
+ * ✅ รองรับ 5 ภาษา: th, en, cn, jp, kr
+ * ✅ มี TTS ครบถ้วน (ResponsiveVoice + Google TTS + Web Speech API)
+ * ✅ Video avatar support
  */
 
+// ========== Global Variables ==========
+const urlParams = new URLSearchParams(window.location.search);
+const aiCodeFromURL = urlParams.get('ai_code') || '';
+const langFromURL = urlParams.get('lang') || 'th';
+
 let currentConversationId = 0;
-const jwt = sessionStorage.getItem("jwt");
+let companionId = null;
+let jwt = sessionStorage.getItem("jwt");
+let isGuestMode = !jwt;
 
 let scene, camera, renderer, avatar, mouth, leftEye, rightEye, leftEyePupil, rightEyePupil;
 let isSpeaking = false;
@@ -18,18 +24,18 @@ let waveIntensity = 0;
 let videoAvatar = null;
 let useVideoAvatar = true;
 
-// ⭐ URL วิดีโอจะดึงจาก database
+// Video URLs from database
 let IDLE_VIDEO_URL = '';
 let SPEAKING_VIDEO_URL = '';
 let currentVideoState = 'idle';
 let isTransitioning = false;
 let preloadedSpeakingVideo = null;
 
-// Global variables
+// Global variables for wave animation
 window.isSpeaking = false;
 window.waveIntensity = 0;
 
-// 🎉 Welcome Messages (5 ภาษา) - ใช้ cn, jp, kr
+// Welcome Messages (5 languages)
 const WELCOME_MESSAGES = {
     th: "ยินดีต้อนรับกลับมานะเพื่อน",
     en: "Welcome back, my friend",
@@ -40,25 +46,50 @@ const WELCOME_MESSAGES = {
 
 let userPreferredLanguage = 'th';
 let isWelcomeMessagePlayed = false;
-let aiCompanionData = null; // เก็บข้อมูล AI companion
+let aiCompanionData = null;
 
+// ========== Initialize ==========
 $(document).ready(function() {
-    if (!jwt) {
-        window.location.href = '?';
+    console.log('🚀 Initializing AI Chat 3D...');
+    console.log('AI Code:', aiCodeFromURL);
+    console.log('Guest Mode:', isGuestMode);
+    
+    if (!aiCodeFromURL && !jwt) {
+        Swal.fire({
+            title: 'Access Denied',
+            text: 'Please provide AI code or login',
+            icon: 'error'
+        }).then(() => {
+            window.location.href = '?';
+        });
         return;
     }
     
-    // ✅ ดึงข้อมูล AI companion ก่อน (รวม video URLs)
+    const storedCompanionId = sessionStorage.getItem('user_companion_id');
+    if (storedCompanionId) {
+        companionId = parseInt(storedCompanionId);
+        console.log('✅ Found stored companionId:', companionId);
+    }
+    
+    // Fetch AI companion data
     fetchAICompanionData().then(() => {
+        console.log('📊 After fetch:', {
+            idle: IDLE_VIDEO_URL ? '✅' : '❌',
+            speaking: SPEAKING_VIDEO_URL ? '✅' : '❌',
+            useVideo: useVideoAvatar,
+            language: userPreferredLanguage
+        });
+        
         if (useVideoAvatar && IDLE_VIDEO_URL && SPEAKING_VIDEO_URL) {
             initVideoAvatar();
         } else {
+            console.warn('⚠️ No video URLs, using 3D avatar');
             init3DAvatar();
         }
         
         loadConversations();
         
-        // เล่น Welcome Message
+        // Play Welcome Message
         setTimeout(() => {
             playWelcomeMessage();
         }, 800);
@@ -68,52 +99,108 @@ $(document).ready(function() {
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
     });
+    
+    $('#menuToggle').on('click', function(e) {
+        e.stopPropagation();
+        $('#dropdownMenu').toggleClass('show');
+        $(this).toggleClass('active');
+    });
+    
+    $(document).on('click', function(event) {
+        if (!$(event.target).closest('#menuToggle, #dropdownMenu').length) {
+            $('#dropdownMenu').removeClass('show');
+            $('#menuToggle').removeClass('active');
+        }
+    });
+    
+    $('#dropdownMenu').on('click', function(e) {
+        e.stopPropagation();
+    });
 });
 
 /**
- * 🔍 Fetch AI Companion Data (รวม video URLs และ preferred_language)
+ * ✅ Fetch AI Companion Data (Guest Mode Support)
  */
 function fetchAICompanionData() {
     return new Promise((resolve, reject) => {
+        let url = '';
+        const headers = {};
+        
+        if (isGuestMode && aiCodeFromURL) {
+            url = 'app/actions/get_ai_data.php?ai_code=' + aiCodeFromURL;
+            console.log('🔓 Guest Mode: Using ai_code');
+        } else if (jwt) {
+            url = 'app/actions/get_ai_companion_info.php';
+            headers['Authorization'] = 'Bearer ' + jwt;
+            console.log('🔐 Login Mode: Using JWT');
+        } else {
+            reject(new Error('No authentication method available'));
+            return;
+        }
+        
         $.ajax({
-            url: 'app/actions/get_ai_companion_info.php',
+            url: url,
             type: 'GET',
-            headers: { 'Authorization': 'Bearer ' + jwt },
+            headers: headers,
             dataType: 'json',
             success: function(response) {
+                console.log('📡 API Response:', response);
+                
                 if (response.status === 'success') {
-                    aiCompanionData = response.companion;
+                    aiCompanionData = response.ai_data || response.companion;
                     
-                    // ✅ ดึง video URLs จาก database
-                    IDLE_VIDEO_URL = response.companion.idle_video_url || '';
-                    SPEAKING_VIDEO_URL = response.companion.talking_video_url || '';
+                    if (!aiCompanionData) {
+                        console.error('❌ No AI data found');
+                        useVideoAvatar = false;
+                        resolve();
+                        return;
+                    }
                     
-                    // ✅ ดึงภาษาที่ user เลือก
-                    userPreferredLanguage = response.companion.preferred_language || 'th';
+                    // ✅ ดึง video URLs
+                    IDLE_VIDEO_URL = aiCompanionData.idle_video_url || '';
+                    SPEAKING_VIDEO_URL = aiCompanionData.talking_video_url || '';
+                    
+                    // ✅ ดึงภาษา
+                    userPreferredLanguage = aiCompanionData.preferred_language || 'th';
+                    console.log('🌐 Language from database:', userPreferredLanguage);
+                    
+                    // เก็บ ai_code
+                    if (aiCompanionData.ai_code) {
+                        sessionStorage.setItem('ai_code', aiCompanionData.ai_code);
+                    }
+                    
+                    // เก็บ companionId
+                    if (response.companion_id) {
+                        companionId = response.companion_id;
+                        sessionStorage.setItem('user_companion_id', companionId);
+                    }
                     
                     console.log('✅ AI Companion loaded:', {
-                        ai_id: response.companion.ai_id,
-                        ai_name: response.companion.ai_name,
+                        ai_id: aiCompanionData.ai_id,
+                        companion_id: companionId,
                         language: userPreferredLanguage,
                         idle_video: IDLE_VIDEO_URL,
                         talking_video: SPEAKING_VIDEO_URL
                     });
                     
-                    // ✅ ตรวจสอบว่ามี video URLs หรือไม่
                     if (!IDLE_VIDEO_URL || !SPEAKING_VIDEO_URL) {
-                        console.warn('⚠️ Video URLs not found, switching to 3D avatar');
+                        console.warn('⚠️ Video URLs missing');
                         useVideoAvatar = false;
                     }
                     
                     resolve();
                 } else {
-                    console.error('❌ Failed to fetch AI companion data');
+                    console.error('❌ API Error:', response.message);
                     useVideoAvatar = false;
                     resolve();
                 }
             },
             error: function(xhr, status, error) {
-                console.error('❌ Error fetching AI companion:', error);
+                console.error('❌ AJAX Error:', {
+                    status: xhr.status,
+                    error: error,
+                    response: xhr.responseText
+                });
                 useVideoAvatar = false;
                 resolve();
             }
@@ -126,7 +213,7 @@ function fetchAICompanionData() {
  */
 function playWelcomeMessage() {
     if (isWelcomeMessagePlayed) {
-        console.log('⏭️ Welcome message already played');
+        console.log('⏭️ Welcome already played');
         return;
     }
     
@@ -134,11 +221,11 @@ function playWelcomeMessage() {
     
     const welcomeText = WELCOME_MESSAGES[userPreferredLanguage] || WELCOME_MESSAGES.th;
     
-    console.log(`🎉 Playing welcome message in ${userPreferredLanguage}: ${welcomeText}`);
+    console.log(`🎉 Playing welcome in ${userPreferredLanguage}: "${welcomeText}"`);
     
     if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
         videoAvatar.play().catch(e => {
-            console.warn('⚠️ Autoplay blocked, will play on user interaction');
+            console.warn('⚠️ Autoplay blocked');
         });
     }
     
@@ -154,7 +241,6 @@ function initVideoAvatar() {
     
     videoAvatar = document.createElement('video');
     videoAvatar.id = 'videoAvatar';
-    
     videoAvatar.style.cssText = `
         position: absolute;
         max-width: 80%;
@@ -163,16 +249,12 @@ function initVideoAvatar() {
         z-index: 5;
         opacity: 1;
         transition: opacity 0.3s ease;
-        background: transparent !important;
-        mix-blend-mode: normal;
     `;
     
     videoAvatar.muted = true;
     videoAvatar.playsInline = true;
     videoAvatar.loop = true;
     videoAvatar.preload = 'auto';
-    
-    // ✅ ใช้ URL จาก database
     videoAvatar.src = IDLE_VIDEO_URL;
     currentVideoState = 'idle';
     
@@ -180,18 +262,7 @@ function initVideoAvatar() {
     
     const loadTimeout = setTimeout(() => {
         if (videoAvatar.readyState < 2) {
-            console.warn('Video loading timeout. Switching to 3D avatar...');
-            
-            Swal.fire({
-                icon: 'info',
-                title: 'Loading 3D Avatar',
-                text: 'Video taking too long. Using 3D model instead.',
-                toast: true,
-                position: 'top-end',
-                showConfirmButton: false,
-                timer: 3000
-            });
-            
+            console.warn('Video timeout, switching to 3D');
             useVideoAvatar = false;
             container.removeChild(videoAvatar);
             init3DAvatar();
@@ -200,33 +271,22 @@ function initVideoAvatar() {
     
     videoAvatar.addEventListener('loadeddata', function() {
         clearTimeout(loadTimeout);
-        console.log('✅ Idle video loaded from database');
-        console.log('Video dimensions:', videoAvatar.videoWidth, 'x', videoAvatar.videoHeight);
-        
-        videoAvatar.play().catch(e => {
-            console.log('⏸️ Autoplay prevented, waiting for user interaction');
-        });
+        console.log('✅ Idle video loaded');
+        videoAvatar.play().catch(e => console.log('Autoplay prevented'));
     });
     
     videoAvatar.addEventListener('error', function(e) {
         clearTimeout(loadTimeout);
-        console.error('❌ Video error:', videoAvatar.error);
-        console.error('Error code:', videoAvatar.error ? videoAvatar.error.code : 'unknown');
-        
+        console.error('❌ Video error');
         useVideoAvatar = false;
         container.removeChild(videoAvatar);
         init3DAvatar();
     });
     
     videoAvatar.load();
-    
-    // Preload speaking video
     setTimeout(() => preloadSpeakingVideo(), 1000);
 }
 
-/**
- * 📥 Preload speaking video
- */
 function preloadSpeakingVideo() {
     if (preloadedSpeakingVideo || !SPEAKING_VIDEO_URL) return;
     
@@ -238,35 +298,24 @@ function preloadSpeakingVideo() {
     preloadedSpeakingVideo.src = SPEAKING_VIDEO_URL;
     
     preloadedSpeakingVideo.addEventListener('loadeddata', function() {
-        console.log('✅ Speaking video preloaded from database');
+        console.log('✅ Speaking video preloaded');
     });
     
     preloadedSpeakingVideo.load();
 }
 
-/**
- * 🎭 Play idle animation
- */
 function playIdleAnimation() {
     if (!videoAvatar || isTransitioning || !IDLE_VIDEO_URL) return;
     if (currentVideoState === 'idle') return;
-    
     switchToVideo(IDLE_VIDEO_URL, 'idle');
 }
 
-/**
- * 🗣️ Play speaking animation
- */
 function playSpeakingAnimation() {
     if (!videoAvatar || isTransitioning || !SPEAKING_VIDEO_URL) return;
     if (currentVideoState === 'speaking') return;
-    
     switchToVideo(SPEAKING_VIDEO_URL, 'speaking');
 }
 
-/**
- * 🔄 Switch video smoothly
- */
 function switchToVideo(videoUrl, newState) {
     if (isTransitioning || !videoUrl) return;
     
@@ -296,8 +345,7 @@ function switchToVideo(videoUrl, newState) {
                 videoAvatar = newVideo;
                 currentVideoState = newState;
                 isTransitioning = false;
-                
-                console.log(`✅ Switched to ${newState} video`);
+                console.log(`✅ Switched to ${newState}`);
             }, 300);
         }).catch(e => {
             console.error('Play error:', e);
@@ -309,21 +357,15 @@ function switchToVideo(videoUrl, newState) {
     newVideo.load();
 }
 
-/**
- * 🤐 Stop speaking animation
- */
 function stopSpeakingAnimation() {
     playIdleAnimation();
 }
 
-/**
- * 🎨 Original 3D Avatar initialization (fallback)
- */
 function init3DAvatar() {
     const canvas = document.getElementById('avatarCanvas');
     
     scene = new THREE.Scene();
-    scene.background = null; 
+    scene.background = null;
     
     camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
     camera.position.z = 7;
@@ -427,17 +469,39 @@ function onWindowResize() {
 }
 
 function loadConversations() {
+    console.log('📡 Loading conversations...');
+    
+    let url = 'app/actions/get_chat_data.php?action=list_conversations';
+    const headers = {};
+    
+    if (isGuestMode) {
+        if (companionId) {
+            url += '&user_companion_id=' + companionId;
+        } else if (aiCodeFromURL) {
+            url += '&ai_code=' + aiCodeFromURL;
+        }
+    } else if (jwt) {
+        headers['Authorization'] = 'Bearer ' + jwt;
+    }
+    
     $.ajax({
-        url: 'app/actions/get_chat_data.php?action=list_conversations',
+        url: url,
         type: 'GET',
-        headers: { 'Authorization': 'Bearer ' + jwt },
+        headers: headers,
         dataType: 'json',
         success: function(response) {
             if (response.status === 'success') {
+                if (response.user_companion_id) {
+                    companionId = response.user_companion_id;
+                    sessionStorage.setItem('user_companion_id', companionId);
+                }
                 displayConversations(response.conversations);
-            } else if (response.require_login) {
-                window.location.href = '?';
+            } else if (response.require_login === false) {
+                displayConversations([]);
             }
+        },
+        error: function(xhr, status, error) {
+            console.error('❌ Error loading conversations:', error);
         }
     });
 }
@@ -458,7 +522,7 @@ function displayConversations(conversations) {
         const $item = $(`
             <div class="conversation-item ${isActive}" data-id="${conv.conversation_id}">
                 <div class="conversation-title">${escapeHtml(conv.title)}</div>
-                <div class="conversation-preview">${escapeHtml(conv.last_message)}</div>
+                <div class="conversation-preview">${escapeHtml(conv.last_message || '')}</div>
                 <div class="conversation-time">${timeAgo}</div>
                 <button class="delete-conv-btn" onclick="deleteConversation(${conv.conversation_id}, event)">
                     <i class="fas fa-trash"></i>
@@ -480,10 +544,19 @@ function loadConversation(conversationId) {
     $('.conversation-item').removeClass('active');
     $(`.conversation-item[data-id="${conversationId}"]`).addClass('active');
     
+    let url = 'app/actions/get_chat_data.php?action=get_history&conversation_id=' + conversationId;
+    const headers = {};
+    
+    if (isGuestMode && companionId) {
+        url += '&user_companion_id=' + companionId;
+    } else if (jwt) {
+        headers['Authorization'] = 'Bearer ' + jwt;
+    }
+    
     $.ajax({
-        url: 'app/actions/get_chat_data.php?action=get_history&conversation_id=' + conversationId,
+        url: url,
         type: 'GET',
-        headers: { 'Authorization': 'Bearer ' + jwt },
+        headers: headers,
         dataType: 'json',
         success: function(response) {
             if (response.status === 'success' && response.messages.length > 0) {
@@ -494,12 +567,20 @@ function loadConversation(conversationId) {
             }
         }
     });
+    
+    $('#dropdownMenu').removeClass('show');
+    $('#menuToggle').removeClass('active');
 }
 
 function sendMessage() {
     const message = $('#messageInput').val().trim();
     
     if (!message) return;
+    
+    if (!companionId && !aiCodeFromURL) {
+        Swal.fire('Error', 'Missing companion or AI code', 'error');
+        return;
+    }
     
     if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
         videoAvatar.play().catch(e => console.log('Play on interaction'));
@@ -511,17 +592,44 @@ function sendMessage() {
     
     updateStatus('Thinking...', false);
     
+    const headers = { 'Content-Type': 'application/json' };
+    
+    // ✅ เพิ่มการส่ง preferred_language
+    const requestData = {
+    conversation_id: currentConversationId,
+    message: message,
+    // ✅ ส่งภาษาจาก database เท่านั้น (ไม่ fallback ไป URL)
+    preferred_language: userPreferredLanguage || 'th'
+};
+
+console.log('📤 Sending with language from DB:', requestData.preferred_language);
+    
+    if (isGuestMode) {
+        if (companionId) {
+            requestData.user_companion_id = companionId;
+        }
+        if (aiCodeFromURL) {
+            requestData.ai_code = aiCodeFromURL;
+        }
+    } else if (jwt) {
+        headers['Authorization'] = 'Bearer ' + jwt;
+    }
+    
+    // ✅ Debug log
+    console.log('📤 Sending message:', {
+        conversation_id: currentConversationId,
+        language: requestData.preferred_language,
+        message_length: message.length,
+        has_companion: !!companionId,
+        has_ai_code: !!aiCodeFromURL,
+        mode: isGuestMode ? 'guest' : 'login'
+    });
+    
     $.ajax({
         url: 'app/actions/ai_chat.php',
         type: 'POST',
-        headers: {
-            'Authorization': 'Bearer ' + jwt,
-            'Content-Type': 'application/json'
-        },
-        data: JSON.stringify({
-            conversation_id: currentConversationId,
-            message: message
-        }),
+        headers: headers,
+        data: JSON.stringify(requestData),
         dataType: 'json',
         success: function(response) {
             if (response.status === 'success') {
@@ -530,8 +638,20 @@ function sendMessage() {
                     loadConversations();
                 }
                 
+                if (response.user_companion_id) {
+                    companionId = response.user_companion_id;
+                    sessionStorage.setItem('user_companion_id', companionId);
+                }
+                
+                // ✅ Debug log ภาษาที่ AI ใช้ตอบ
+                console.log('✅ AI Response:', {
+                    language_used: response.language_used,
+                    requested_language: requestData.preferred_language,
+                    match: response.language_used === requestData.preferred_language ? '✅' : '❌'
+                });
+                
                 showMessage(response.ai_message);
-                speakText(response.ai_message);
+                speakText(response.ai_message, response.language_used || requestData.preferred_language);
             } else {
                 Swal.fire('Error', response.message, 'error');
                 updateStatus('Ready to chat', false);
@@ -540,7 +660,8 @@ function sendMessage() {
             $('#messageInput').prop('disabled', false).focus();
             $('#sendBtn').prop('disabled', false);
         },
-        error: function() {
+        error: function(xhr, status, error) {
+            console.error('❌ Chat error:', xhr.responseText);
             Swal.fire('Error', 'Failed to send message', 'error');
             updateStatus('Ready to chat', false);
             $('#messageInput').prop('disabled', false).focus();
@@ -555,32 +676,30 @@ function showMessage(text) {
 }
 
 /**
- * 🗣️ Speak text with language detection (ใช้ cn, jp, kr)
+ * 🗣️ Speak text with language detection (5 languages: th, en, cn, jp, kr)
  */
 function speakText(text, forceLangCode = null) {
     let langCode = forceLangCode;
     let detectedLang = 'Thai';
     
     if (!langCode) {
-        // ตรวจจับภาษาอัตโนมัติ
         if (/[\u0E00-\u0E7F]/.test(text)) {
             langCode = 'th';
             detectedLang = 'Thai';
         } else if (/[\u4E00-\u9FFF]/.test(text)) {
-            langCode = 'cn'; // ✅ เปลี่ยนจาก zh เป็น cn
+            langCode = 'cn';
             detectedLang = 'Chinese';
         } else if (/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) {
-            langCode = 'jp'; // ✅ เปลี่ยนจาก ja เป็น jp
+            langCode = 'jp';
             detectedLang = 'Japanese';
         } else if (/[\uAC00-\uD7AF]/.test(text)) {
-            langCode = 'kr'; // ✅ เปลี่ยนจาก ko เป็น kr
+            langCode = 'kr';
             detectedLang = 'Korean';
         } else {
             langCode = 'en';
             detectedLang = 'English';
         }
     } else {
-        // ✅ แปลงรหัสภาษาเป็นชื่อภาษา
         const langMap = {
             'th': 'Thai',
             'en': 'English',
@@ -590,6 +709,8 @@ function speakText(text, forceLangCode = null) {
         };
         detectedLang = langMap[langCode] || 'English';
     }
+    
+    console.log(`🔊 Speaking in ${detectedLang}: "${text.substring(0, 50)}..."`);
     
     isSpeaking = true;
     window.isSpeaking = true;
@@ -625,7 +746,7 @@ function speakText(text, forceLangCode = null) {
 let currentAudio = null;
 
 /**
- * 🔊 Play TTS chunks with correct language codes (cn, jp, kr)
+ * 🔊 Play TTS chunks (ResponsiveVoice for Thai, Google TTS for others)
  */
 function playTTSChunks(chunks, index, langCode) {
     if (index >= chunks.length) {
@@ -635,11 +756,9 @@ function playTTSChunks(chunks, index, langCode) {
         $('#currentMessage').fadeOut();
         
         if (mouth) mouth.scale.y = 1;
+        if (useVideoAvatar) stopSpeakingAnimation();
         
-        if (useVideoAvatar) {
-            stopSpeakingAnimation();
-        }
-        
+        console.log('✅ TTS completed');
         return;
     }
     
@@ -652,9 +771,8 @@ function playTTSChunks(chunks, index, langCode) {
     if (langCode === 'th') {
         ttsUrl = `https://code.responsivevoice.org/getvoice.php?t=${encodedText}&tl=th&sv=&vn=&pitch=0.5&rate=0.5&vol=1`;
     } 
-    // ✅ ใช้ Google Translate TTS สำหรับภาษาอื่นๆ (cn, jp, kr, en)
+    // ✅ ใช้ Google Translate TTS สำหรับภาษาอื่นๆ
     else {
-        // แปลงรหัสภาษาให้ตรงกับที่ Google TTS ต้องการ
         let googleLangCode = langCode;
         if (langCode === 'cn') googleLangCode = 'zh-CN';
         if (langCode === 'jp') googleLangCode = 'ja';
@@ -662,6 +780,8 @@ function playTTSChunks(chunks, index, langCode) {
         
         ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${googleLangCode}&client=tw-ob&q=${encodedText}`;
     }
+    
+    console.log(`🔊 Playing chunk ${index + 1}/${chunks.length}`);
     
     if (currentAudio) {
         currentAudio.pause();
@@ -678,18 +798,20 @@ function playTTSChunks(chunks, index, langCode) {
     };
     
     currentAudio.onplay = function() {
+        console.log('▶️ Audio playing');
         isSpeaking = true;
         window.isSpeaking = true;
     };
     
     currentAudio.onended = function() {
+        console.log('⏹️ Chunk ended');
         setTimeout(() => {
             playTTSChunks(chunks, index + 1, langCode);
         }, 300);
     };
     
     currentAudio.onerror = function(e) {
-        console.error('TTS error:', e);
+        console.error('❌ TTS error, trying fallback');
         fallbackToWebSpeech(chunks.join(' '), langCode);
     };
     
@@ -698,7 +820,7 @@ function playTTSChunks(chunks, index, langCode) {
 }
 
 /**
- * 🔄 Fallback to Web Speech API (ใช้ cn, jp, kr)
+ * 🔄 Fallback to Web Speech API
  */
 function fallbackToWebSpeech(text, langCode) {
     if (!window.speechSynthesis) {
@@ -722,11 +844,13 @@ function fallbackToWebSpeech(text, langCode) {
         return;
     }
     
+    console.log('🔄 Using Web Speech API fallback');
+    
     window.speechSynthesis.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
     
-    // ✅ แปลงรหัสภาษาให้ตรงกับ Web Speech API
+    // แปลงรหัสภาษาให้ตรงกับ Web Speech API
     if (langCode === 'th') {
         utterance.lang = 'th-TH';
     } else if (langCode === 'cn') {
@@ -761,6 +885,7 @@ function fallbackToWebSpeech(text, langCode) {
     };
     
     utterance.onerror = function(event) {
+        console.error('Web Speech error:', event);
         isSpeaking = false;
         window.isSpeaking = false;
         updateStatus('Ready to chat', false);
@@ -805,6 +930,11 @@ function createNewChat() {
     if (useVideoAvatar) {
         playIdleAnimation();
     }
+    
+    $('#dropdownMenu').removeClass('show');
+    $('#menuToggle').removeClass('active');
+    
+    console.log('➕ New chat created');
 }
 
 function deleteConversation(conversationId, event) {
@@ -820,10 +950,19 @@ function deleteConversation(conversationId, event) {
         cancelButtonText: 'Cancel'
     }).then((result) => {
         if (result.isConfirmed) {
+            let url = 'app/actions/get_chat_data.php?action=delete_conversation&conversation_id=' + conversationId;
+            const headers = {};
+            
+            if (isGuestMode && companionId) {
+                url += '&user_companion_id=' + companionId;
+            } else if (jwt) {
+                headers['Authorization'] = 'Bearer ' + jwt;
+            }
+            
             $.ajax({
-                url: 'app/actions/get_chat_data.php?action=delete_conversation&conversation_id=' + conversationId,
+                url: url,
                 type: 'GET',
-                headers: { 'Authorization': 'Bearer ' + jwt },
+                headers: headers,
                 dataType: 'json',
                 success: function(response) {
                     if (response.status === 'success') {
@@ -864,6 +1003,8 @@ function formatTimeAgo(timestamp) {
 }
 
 function escapeHtml(text) {
+    if (!text) return '';
+    
     const map = {
         '&': '&amp;',
         '<': '&lt;',
@@ -873,3 +1014,33 @@ function escapeHtml(text) {
     };
     return text.replace(/[&<>"']/g, m => map[m]);
 }
+
+function goTo2DMode() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const lang = urlParams.get('lang') || 'th';
+    const aiCode = urlParams.get('ai_code') || '';
+    
+    let url = '?ai_chat&lang=' + lang;
+    if (aiCode) {
+        url += '&ai_code=' + aiCode;
+    }
+    
+    console.log('🔄 Switching to 2D Mode:', url);
+    window.location.href = url;
+}
+
+function goToPreferences() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const lang = urlParams.get('lang') || 'th';
+    const aiCode = urlParams.get('ai_code') || '';
+    
+    let url = '?ai_edit_prompts&lang=' + lang;
+    if (aiCode) {
+        url += '&ai_code=' + aiCode;
+    }
+    
+    console.log('⚙️ Opening Preferences:', url);
+    window.location.href = url;
+}
+
+console.log('✅ AI Chat 3D with Guest Mode + Full Audio loaded');

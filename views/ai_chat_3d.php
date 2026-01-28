@@ -24,7 +24,6 @@ if (session_status() == PHP_SESSION_NONE) {
         .chat-container-3d {
             display: flex;
             height: 100vh;
-            /* margin-top: 70px; */
             overflow: hidden;
             position: relative;
         }
@@ -62,10 +61,10 @@ if (session_status() == PHP_SESSION_NONE) {
         /* ========== Dropdown Menu ========== */
         .dropdown-menu {
             position: fixed;
-            top: 160px;
+            top: 90px;
             left: 20px;
             width: 320px;
-            max-height: calc(100vh - 180px);
+            max-height: calc(100vh - 120px);
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(20px);
             border-radius: 16px;
@@ -160,7 +159,7 @@ if (session_status() == PHP_SESSION_NONE) {
             background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
         }
 
-        /* ========== 3D Canvas Area (Full Screen) ========== */
+        /* ========== 3D Canvas Area ========== */
         .chat-main-3d {
             flex: 1;
             display: flex;
@@ -171,7 +170,7 @@ if (session_status() == PHP_SESSION_NONE) {
             position: relative;
         }
 
-        /* Audio Wave Background - Water Wave Style */
+        /* Audio Wave Background */
         .audio-wave-bg {
             position: absolute;
             top: 0;
@@ -204,9 +203,9 @@ if (session_status() == PHP_SESSION_NONE) {
 
         .wave-path {
             fill: none;
-            stroke-width: 3; /* เพิ่มความหนาของเส้นนิดหน่อย */
-            transition: stroke 0.5s ease; /* ให้สีเปลี่ยนนุ่มๆ */
-            filter: blur(2px); /* เพิ่ม Blur ให้ดูเหมือนแสงเรืองๆ (Neon Wave) */
+            stroke-width: 3;
+            transition: stroke 0.5s ease;
+            filter: blur(2px);
         }
 
         .wave-path-1 {
@@ -511,7 +510,6 @@ if (session_status() == PHP_SESSION_NONE) {
             }
         }
     </style>
-
 </head>
 <body>
     <!-- Floating Menu Button -->
@@ -527,20 +525,24 @@ if (session_status() == PHP_SESSION_NONE) {
                 <i class="fas fa-plus"></i> New Chat
             </button>
         </div>
-        <div class="conversations-list" id="conversationsList"></div>
+        <div class="conversations-list" id="conversationsList">
+            <p style="text-align: center; color: #666; padding: 20px; font-size: 13px;">Loading...</p>
+        </div>
         <div class="dropdown-footer">
-            <button class="menu-action-btn" onclick="window.location.href='?ai_chat&lang=<?php echo $_GET['lang'] ?? 'th'; ?>'">
-                <i class="fas fa-comments"></i> 2D Mode
-            </button>
-            <button class="menu-action-btn secondary" onclick="window.location.href='?ai_edit_prompts&lang=<?php echo $_GET['lang'] ?? 'th'; ?>'">
-                <i class="fas fa-cog"></i> Preferences
-            </button>
+            <div class="dropdown-footer">
+    <button class="menu-action-btn" onclick="goTo2DMode()">
+        <i class="fas fa-comments"></i> 2D Mode
+    </button>
+    <button class="menu-action-btn secondary" onclick="goToPreferences()">
+        <i class="fas fa-cog"></i> Preferences
+    </button>
+</div>
         </div>
     </div>
 
     <div class="chat-container-3d">
         <div class="chat-main-3d">
-            <!-- Audio Wave Background - Water Wave -->
+            <!-- Audio Wave Background -->
             <div class="audio-wave-bg">
                 <div class="wave-container">
                     <svg class="wave-svg" viewBox="0 0 1200 300" preserveAspectRatio="none">
@@ -592,24 +594,7 @@ if (session_status() == PHP_SESSION_NONE) {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="app/js/ai_chat_3d.js?v=<?php echo time(); ?>"></script>
     <script>
-        // Toggle dropdown menu
-        const menuToggle = document.getElementById('menuToggle');
-        const dropdownMenu = document.getElementById('dropdownMenu');
-        
-        menuToggle.addEventListener('click', function() {
-            dropdownMenu.classList.toggle('show');
-            menuToggle.classList.toggle('active');
-        });
-
-        // Close menu when clicking outside
-        document.addEventListener('click', function(event) {
-            if (!menuToggle.contains(event.target) && !dropdownMenu.contains(event.target)) {
-                dropdownMenu.classList.remove('show');
-                menuToggle.classList.remove('active');
-            }
-        });
-
-        // Create water wave animation with dynamic intensity based on speaking
+        // Water wave animation
         let waveAnimationFrame;
         let waveOffset = 0;
 
@@ -617,11 +602,9 @@ if (session_status() == PHP_SESSION_NONE) {
             const paths = document.querySelectorAll('.wave-path');
             
             function animateWaves() {
-                // 1. ความเร็วพื้นฐาน
                 const speed = window.isSpeaking ? 0.08 : 0.015; 
                 waveOffset += speed;
                 
-                // 2. ปรับ Intensity ของการสั่นสะเทือน
                 if (!window.waveIntensity) window.waveIntensity = 0;
                 if (window.isSpeaking) {
                     window.waveIntensity = Math.min(window.waveIntensity + 0.1, 1);
@@ -632,30 +615,21 @@ if (session_status() == PHP_SESSION_NONE) {
                 paths.forEach((path, index) => {
                     const points = [];
                     const baseAmplitude = 10 + (index * 5); 
-                    
-                    // เพิ่ม 'ความปั่นป่วน' ของเสียง (Frequency Jitter)
-                    // ถ้ากำลังพูด จะมีการคูณค่า random เล็กๆ เข้าไปเพื่อให้เส้นหยักเหมือนคลื่นไฟฟ้า
                     const noise = window.isSpeaking ? (Math.random() * 15 * window.waveIntensity) : 0;
                     const amplitude = baseAmplitude + (50 * window.waveIntensity) + noise;
-                    
                     const frequency = 0.006 + (index * 0.002);
                     const offset = waveOffset * (1 + index * 0.3);
                     
-                    for (let x = 0; x <= 1200; x += 15) { // ลด step x เพื่อให้เส้นหยักละเอียดขึ้น
-                        // Main Sine
+                    for (let x = 0; x <= 1200; x += 15) {
                         let wave = Math.sin(x * frequency + offset);
                         
-                        // Secondary "Noise" Wave: จะทำงานหนักขึ้นเมื่อ AI พูด
                         if (window.isSpeaking) {
-                            // ใช้ Sine ความถี่สูงมาซ้อนเพื่อให้เกิดรอยหยัก (Harmonics)
                             wave += Math.sin(x * 0.05 + offset * 2) * 0.2 * window.waveIntensity;
-                            wave += (Math.random() - 0.5) * 0.1 * window.waveIntensity; // เพิ่มความสั่นเล็กน้อย
+                            wave += (Math.random() - 0.5) * 0.1 * window.waveIntensity;
                         }
                         
-                        // คำนวณค่า Y โดยให้จุดกึ่งกลางมีการสวิงแรงกว่าขอบ (Bell Curve Effect)
-                        const edgeSoftener = Math.sin((x / 1200) * Math.PI); // ขอบซ้ายขวาจะนิ่งกว่าตรงกลาง
+                        const edgeSoftener = Math.sin((x / 1200) * Math.PI);
                         const y = 200 + (wave * amplitude * edgeSoftener);
-                        
                         points.push(`${x},${y}`);
                     }
                     
@@ -673,7 +647,34 @@ if (session_status() == PHP_SESSION_NONE) {
             animateWaves();
         }
 
-        // Create floating particles with dynamic behavior
+        function goTo2DMode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const lang = urlParams.get('lang') || 'th';
+            const aiCode = urlParams.get('ai_code') || '';
+            
+            let url = '?ai_chat&lang=' + lang;
+            if (aiCode) {
+                url += '&ai_code=' + aiCode;
+            }
+            
+            console.log('🔄 Switching to 2D Mode:', url);
+            window.location.href = url;
+        }
+        
+        function goToPreferences() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const lang = urlParams.get('lang') || 'th';
+            const aiCode = urlParams.get('ai_code') || '';
+            
+            let url = '?ai_edit_prompts&lang=' + lang;
+            if (aiCode) {
+                url += '&ai_code=' + aiCode;
+            }
+            
+            console.log('⚙️ Opening Preferences:', url);
+            window.location.href = url;
+        }
+
         function createParticles() {
             const container = document.getElementById('particlesContainer');
             for (let i = 0; i < 25; i++) {
@@ -689,7 +690,6 @@ if (session_status() == PHP_SESSION_NONE) {
                 container.appendChild(particle);
             }
             
-            // อัพเดตความเร็วของ particles เมื่อพูด
             setInterval(() => {
                 const particles = document.querySelectorAll('.particle');
                 particles.forEach(particle => {

@@ -544,25 +544,41 @@ if (session_status() == PHP_SESSION_NONE) {
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="app/js/ai_chat.js?v=<?php echo time(); ?>"></script>
     <script>
-        // Add click events (ใช้ตัวแปร currentLang ที่มีอยู่แล้วใน ai_chat.js)
+        // ✅ Setup ปุ่มสลับหน้าพร้อม Guest Mode Support
         document.addEventListener('DOMContentLoaded', function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const lang = urlParams.get('lang') || 'th';
+            const aiCode = urlParams.get('ai_code') || '';
+            
+            console.log('🎯 Button handlers setup:', {
+                lang: lang,
+                aiCode: aiCode,
+                hasJWT: !!sessionStorage.getItem('jwt')
+            });
+            
             // ปุ่มสลับไป 3D Mode
             const switch3DBtn = document.getElementById('switch3DBtn');
             if (switch3DBtn) {
                 switch3DBtn.addEventListener('click', function() {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const lang = urlParams.get('lang') || 'th';
-                    window.location.href = '?ai_chat_3d&lang=' + lang;
+                    let url = '?ai_chat_3d&lang=' + lang;
+                    if (aiCode) {
+                        url += '&ai_code=' + aiCode;
+                    }
+                    console.log('🔄 Switching to 3D Mode:', url);
+                    window.location.href = url;
                 });
             }
             
-            // ปุ่ม Edit Preferences (เดิมมีอยู่แล้ว แต่เพิ่มเช็ค)
+            // ปุ่ม Edit Preferences
             const editPromptsBtn = document.getElementById('editPromptsBtn');
-            if (editPromptsBtn && !editPromptsBtn.onclick) {
+            if (editPromptsBtn) {
                 editPromptsBtn.addEventListener('click', function() {
-                    const urlParams = new URLSearchParams(window.location.search);
-                    const lang = urlParams.get('lang') || 'th';
-                    window.location.href = '?ai_edit_prompts&lang=' + lang;
+                    let url = '?ai_edit_prompts&lang=' + lang;
+                    if (aiCode) {
+                        url += '&ai_code=' + aiCode;
+                    }
+                    console.log('⚙️ Opening Preferences:', url);
+                    window.location.href = url;
                 });
             }
         });
