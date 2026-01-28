@@ -238,6 +238,27 @@ try {
             ");
             $stmt->bind_param('i', $user_companion_id);
         } else {
+            // ✅ Login mode: หา user_companion_id ก่อน
+            if (!$user_companion_id) {
+                $comp_stmt = $conn->prepare("
+                    SELECT user_companion_id, ai_id 
+                    FROM user_ai_companions 
+                    WHERE user_id = ? AND status = 1 AND del = 0
+                    ORDER BY last_active_at DESC
+                    LIMIT 1
+                ");
+                $comp_stmt->bind_param('i', $user_id);
+                $comp_stmt->execute();
+                $comp_result = $comp_stmt->get_result();
+                
+                if ($comp_result->num_rows > 0) {
+                    $comp_data = $comp_result->fetch_assoc();
+                    $user_companion_id = $comp_data['user_companion_id'];
+                    $ai_id = $comp_data['ai_id'];
+                }
+                $comp_stmt->close();
+            }
+            
             // Login mode: ดึงตาม user_id
             $stmt = $conn->prepare("
                 SELECT 
@@ -285,7 +306,7 @@ try {
         echo json_encode([
             'status' => 'success',
             'guest_mode' => $is_guest_mode,
-            'user_companion_id' => $user_companion_id,
+            'user_companion_id' => $user_companion_id, // ✅ ส่ง companion_id กลับไป
             'conversations' => $conversations,
             'total' => count($conversations)
         ]);

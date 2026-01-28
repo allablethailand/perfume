@@ -164,30 +164,32 @@ function fetchAICompanionData() {
                     userPreferredLanguage = aiCompanionData.preferred_language || 'th';
                     console.log('🌐 Language from database:', userPreferredLanguage);
                     
+                    // ✅ เก็บ companionId - รองรับทั้ง 2 format
+                    if (response.companion_id) {
+                        companionId = response.companion_id;
+                    } else if (aiCompanionData.user_companion_id) {
+                        companionId = aiCompanionData.user_companion_id;
+                    }
+                    
+                    // ✅ เก็บใน sessionStorage
+                    if (companionId) {
+                        sessionStorage.setItem('user_companion_id', companionId);
+                        console.log('✅ Stored companionId:', companionId);
+                    }
+                    
                     // เก็บ ai_code
                     if (aiCompanionData.ai_code) {
                         sessionStorage.setItem('ai_code', aiCompanionData.ai_code);
-                    }
-                    
-                    // เก็บ companionId
-                    if (response.companion_id) {
-                        companionId = response.companion_id;
-                        sessionStorage.setItem('user_companion_id', companionId);
                     }
                     
                     console.log('✅ AI Companion loaded:', {
                         ai_id: aiCompanionData.ai_id,
                         companion_id: companionId,
                         language: userPreferredLanguage,
-                        idle_video: IDLE_VIDEO_URL,
-                        talking_video: SPEAKING_VIDEO_URL
+                        idle_video: IDLE_VIDEO_URL ? '✅' : '❌',
+                        talking_video: SPEAKING_VIDEO_URL ? '✅' : '❌'
                     });
-                    
-                    if (!IDLE_VIDEO_URL || !SPEAKING_VIDEO_URL) {
-                        console.warn('⚠️ Video URLs missing');
-                        useVideoAvatar = false;
-                    }
-                    
+                                
                     resolve();
                 } else {
                     console.error('❌ API Error:', response.message);
@@ -490,10 +492,14 @@ function loadConversations() {
         headers: headers,
         dataType: 'json',
         success: function(response) {
+            console.log('📡 Conversations response:', response); // ✅ Debug log
+            
             if (response.status === 'success') {
+                // ✅ บันทึก companion_id ถ้ามี
                 if (response.user_companion_id) {
                     companionId = response.user_companion_id;
                     sessionStorage.setItem('user_companion_id', companionId);
+                    console.log('✅ Updated companionId from conversations:', companionId);
                 }
                 displayConversations(response.conversations);
             } else if (response.require_login === false) {
@@ -577,10 +583,41 @@ function sendMessage() {
     
     if (!message) return;
     
-    if (!companionId && !aiCodeFromURL) {
-        Swal.fire('Error', 'Missing companion or AI code', 'error');
+    // ✅ ลองดึง companionId จาก sessionStorage ถ้ายังไม่มี
+    if (!companionId) {
+        const storedCompanionId = sessionStorage.getItem('user_companion_id');
+        if (storedCompanionId) {
+            companionId = parseInt(storedCompanionId);
+            console.log('📥 Retrieved companionId from sessionStorage:', companionId);
+        }
+    }
+    
+    // ✅ เช็คว่ามี companionId หรือ aiCodeFromURL
+    const hasCompanion = companionId && companionId > 0;
+    const hasAICode = aiCodeFromURL && aiCodeFromURL.trim() !== '';
+    
+    if (!hasCompanion && !hasAICode) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Cannot Send Message',
+            text: 'Missing companion or AI code. Please reload the page.',
+        });
+        console.error('❌ Missing data:', {
+            companionId: companionId,
+            aiCodeFromURL: aiCodeFromURL,
+            sessionStorage: sessionStorage.getItem('user_companion_id')
+        });
         return;
     }
+    
+    // ✅ Debug log
+    console.log('📤 Sending message:', {
+        hasCompanion: hasCompanion,
+        companionId: companionId,
+        hasAICode: hasAICode,
+        aiCode: aiCodeFromURL,
+        isGuest: isGuestMode
+    });
     
     if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
         videoAvatar.play().catch(e => console.log('Play on interaction'));
@@ -594,36 +631,29 @@ function sendMessage() {
     
     const headers = { 'Content-Type': 'application/json' };
     
-    // ✅ เพิ่มการส่ง preferred_language
     const requestData = {
-    conversation_id: currentConversationId,
-    message: message,
-    // ✅ ส่งภาษาจาก database เท่านั้น (ไม่ fallback ไป URL)
-    preferred_language: userPreferredLanguage || 'th'
-};
-
-console.log('📤 Sending with language from DB:', requestData.preferred_language);
+        conversation_id: currentConversationId,
+        message: message,
+        preferred_language: userPreferredLanguage || 'th'
+    };
     
+    console.log('📤 Sending with language from DB:', requestData.preferred_language);
+    
+    // ✅ ส่งข้อมูลตาม mode
     if (isGuestMode) {
-        if (companionId) {
+        if (hasCompanion) {
             requestData.user_companion_id = companionId;
         }
-        if (aiCodeFromURL) {
+        if (hasAICode) {
             requestData.ai_code = aiCodeFromURL;
         }
     } else if (jwt) {
         headers['Authorization'] = 'Bearer ' + jwt;
+        // ใน login mode ส่ง companionId ไปด้วย (ถ้ามี)
+        if (hasCompanion) {
+            requestData.user_companion_id = companionId;
+        }
     }
-    
-    // ✅ Debug log
-    console.log('📤 Sending message:', {
-        conversation_id: currentConversationId,
-        language: requestData.preferred_language,
-        message_length: message.length,
-        has_companion: !!companionId,
-        has_ai_code: !!aiCodeFromURL,
-        mode: isGuestMode ? 'guest' : 'login'
-    });
     
     $.ajax({
         url: 'app/actions/ai_chat.php',
@@ -643,7 +673,6 @@ console.log('📤 Sending with language from DB:', requestData.preferred_languag
                     sessionStorage.setItem('user_companion_id', companionId);
                 }
                 
-                // ✅ Debug log ภาษาที่ AI ใช้ตอบ
                 console.log('✅ AI Response:', {
                     language_used: response.language_used,
                     requested_language: requestData.preferred_language,
