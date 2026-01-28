@@ -11,8 +11,8 @@ echo public/img/uploads/ >> .gitignore
 หรือสร้างไฟล์ `.gitignore` ด้วย text editor แล้วใส่:
 ```
 # Dependencies
-vendor/
-node_modules/
+# vendor/
+# node_modules/
 
 # Environment variables
 .env
