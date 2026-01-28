@@ -1,30 +1,34 @@
 /**
- * AI Setup Avatar - Voice & Animation System
- * ✅ แสดง Video Avatar พร้อม Animation (Idle & Speaking)
- * ✅ พูดเสียงตามบริบท (Register, Login, Questions)
- * ✅ รองรับ 5 ภาษา: th, en, cn, jp, kr
+ * AI Setup Avatar - Improved Voice & Animation System
+ * ✅ Video Avatar (No Circle Border - Minimal Design)
+ * ✅ Centered Intro → Move to Sidebar
+ * ✅ Speaking/Idle Video Switching
+ * ✅ Multi-language Voice (th, en, cn, jp, kr)
  */
 
 // ========== Global Avatar Variables ==========
-let setupVideoAvatar = null;
+let introVideoAvatar = null;
+let sidebarVideoAvatar = null;
 let isSetupSpeaking = false;
 let setupIdleVideoUrl = '';
 let setupSpeakingVideoUrl = '';
-let currentSetupVideoState = 'idle';
-let isSetupTransitioning = false;
-let preloadedSetupSpeakingVideo = null;
+let currentIntroVideoState = 'idle';
+let currentSidebarVideoState = 'idle';
+let isIntroTransitioning = false;
+let isSidebarTransitioning = false;
 let currentSetupAudio = null;
 
 // ========== Voice Messages (5 Languages) ==========
 const setupVoiceMessages = {
-    // Welcome & Language Selection
+    // Welcome & Intro
     welcome: {
-        th: "สวัสดีค่ะ ยินดีต้อนรับสู่การตั้งค่า AI Companion ของคุณ",
-        en: "Hello! Welcome to your AI Companion setup",
-        cn: "您好！欢迎设置您的AI伴侣",
-        jp: "こんにちは！AIコンパニオンのセットアップへようこそ",
-        kr: "안녕하세요! AI 컴패니언 설정에 오신 것을 환영합니다"
+        th: "ยินดีที่ได้รู้จัก ก่อนอื่นผมอยากรู้จักคุณมากขึ้น โปรดตอบคำถามให้ครบก่อนนะ",
+        en: "Nice to meet you. First, I'd like to know you better. Please answer all questions",
+        cn: "很高兴认识你。首先，我想更好地了解你。请回答所有问题",
+        jp: "お会いできて嬉しいです。まず、あなたのことをもっと知りたいです。すべての質問に答えてください",
+        kr: "만나서 반가워요. 먼저 당신을 더 잘 알고 싶어요. 모든 질문에 답해주세요"
     },
+    
     choose_language: {
         th: "กรุณาเลือกภาษาที่คุณต้องการใช้งาน",
         en: "Please choose your preferred language",
@@ -35,11 +39,11 @@ const setupVoiceMessages = {
     
     // Register Screen
     please_register: {
-        th: "คุณยังไม่มีบัญชี กรุณากรอกข้อมูลเพื่อสมัครสมาชิก",
-        en: "You don't have an account yet. Please fill in the registration form",
-        cn: "您还没有账户。请填写注册表",
-        jp: "まだアカウントをお持ちではありません。登録フォームに記入してください",
-        kr: "아직 계정이 없습니다. 등록 양식을 작성하세요"
+        th: "ตอนนี้มาลงทะเบียนเพื่อเริ่มต้นกันเลย",
+        en: "Now let's register to get started",
+        cn: "现在让我们注册开始吧",
+        jp: "それでは登録して始めましょう",
+        kr: "이제 등록하여 시작해요"
     },
     
     // Login Screen
@@ -119,7 +123,8 @@ function initSetupAvatar() {
     // Load AI data to get video URLs
     loadSetupAIData().then(() => {
         if (setupIdleVideoUrl && setupSpeakingVideoUrl) {
-            createSetupVideoAvatar();
+            createIntroVideoAvatar();
+            createSidebarVideoAvatar();
             
             // Play welcome message after 1 second
             setTimeout(() => {
@@ -156,122 +161,120 @@ async function loadSetupAIData() {
     }
 }
 
-// ========== Create Video Avatar ==========
-function createSetupVideoAvatar() {
-    const avatarContainer = $('.ai-avatar-circle');
+// ========== Create Intro Video Avatar (Center Screen) ==========
+function createIntroVideoAvatar() {
+    const container = $('#introVideoAvatar')[0];
+    if (!container) return;
     
-    // Remove existing image
-    avatarContainer.find('img').remove();
+    introVideoAvatar = container;
+    introVideoAvatar.muted = true;
+    introVideoAvatar.playsInline = true;
+    introVideoAvatar.loop = true;
+    introVideoAvatar.preload = 'auto';
+    introVideoAvatar.src = setupIdleVideoUrl;
+    currentIntroVideoState = 'idle';
     
-    // Create video element
-    setupVideoAvatar = document.createElement('video');
-    setupVideoAvatar.id = 'setupVideoAvatar';
-    setupVideoAvatar.style.cssText = `
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        opacity: 1;
-        transition: opacity 0.3s ease;
-    `;
-    
-    setupVideoAvatar.muted = true;
-    setupVideoAvatar.playsInline = true;
-    setupVideoAvatar.loop = true;
-    setupVideoAvatar.preload = 'auto';
-    setupVideoAvatar.src = setupIdleVideoUrl;
-    currentSetupVideoState = 'idle';
-    
-    avatarContainer.append(setupVideoAvatar);
-    
-    setupVideoAvatar.addEventListener('loadeddata', function() {
-        console.log('✅ Setup idle video loaded');
-        setupVideoAvatar.play().catch(e => console.log('Autoplay prevented'));
+    introVideoAvatar.addEventListener('loadeddata', function() {
+        console.log('✅ Intro idle video loaded');
+        introVideoAvatar.play().catch(e => console.log('Autoplay prevented'));
     });
     
-    setupVideoAvatar.addEventListener('error', function(e) {
-        console.error('❌ Setup video error:', e);
+    introVideoAvatar.addEventListener('error', function(e) {
+        console.error('❌ Intro video error:', e);
     });
     
-    setupVideoAvatar.load();
-    
-    // Preload speaking video
-    setTimeout(() => preloadSetupSpeakingVideo(), 1000);
+    introVideoAvatar.load();
 }
 
-// ========== Preload Speaking Video ==========
-function preloadSetupSpeakingVideo() {
-    if (preloadedSetupSpeakingVideo || !setupSpeakingVideoUrl) return;
+// ========== Create Sidebar Video Avatar ==========
+function createSidebarVideoAvatar() {
+    const container = $('#sidebarVideoAvatar')[0];
+    if (!container) return;
     
-    preloadedSetupSpeakingVideo = document.createElement('video');
-    preloadedSetupSpeakingVideo.muted = true;
-    preloadedSetupSpeakingVideo.playsInline = true;
-    preloadedSetupSpeakingVideo.loop = true;
-    preloadedSetupSpeakingVideo.preload = 'auto';
-    preloadedSetupSpeakingVideo.src = setupSpeakingVideoUrl;
+    sidebarVideoAvatar = container;
+    sidebarVideoAvatar.muted = true;
+    sidebarVideoAvatar.playsInline = true;
+    sidebarVideoAvatar.loop = true;
+    sidebarVideoAvatar.preload = 'auto';
+    sidebarVideoAvatar.src = setupIdleVideoUrl;
+    currentSidebarVideoState = 'idle';
     
-    preloadedSetupSpeakingVideo.addEventListener('loadeddata', function() {
-        console.log('✅ Setup speaking video preloaded');
+    sidebarVideoAvatar.addEventListener('loadeddata', function() {
+        console.log('✅ Sidebar idle video loaded');
+        sidebarVideoAvatar.play().catch(e => console.log('Autoplay prevented'));
     });
     
-    preloadedSetupSpeakingVideo.load();
+    sidebarVideoAvatar.addEventListener('error', function(e) {
+        console.error('❌ Sidebar video error:', e);
+    });
+    
+    sidebarVideoAvatar.load();
 }
 
 // ========== Play Speaking Animation ==========
 function playSetupSpeakingAnimation() {
-    if (!setupVideoAvatar || isSetupTransitioning || !setupSpeakingVideoUrl) return;
-    if (currentSetupVideoState === 'speaking') return;
+    // Switch intro video to speaking if visible
+    if ($('#introScreen').hasClass('active') && introVideoAvatar) {
+        if (currentIntroVideoState !== 'speaking') {
+            switchVideoSource(introVideoAvatar, setupSpeakingVideoUrl, 'intro', 'speaking');
+        }
+    }
     
-    switchSetupVideo(setupSpeakingVideoUrl, 'speaking');
+    // Switch sidebar video to speaking if visible
+    if ($('#aiSidebar').hasClass('show') && sidebarVideoAvatar) {
+        if (currentSidebarVideoState !== 'speaking') {
+            switchVideoSource(sidebarVideoAvatar, setupSpeakingVideoUrl, 'sidebar', 'speaking');
+        }
+    }
 }
 
 // ========== Play Idle Animation ==========
 function playSetupIdleAnimation() {
-    if (!setupVideoAvatar || isSetupTransitioning || !setupIdleVideoUrl) return;
-    if (currentSetupVideoState === 'idle') return;
+    // Switch intro video to idle if visible
+    if ($('#introScreen').hasClass('active') && introVideoAvatar) {
+        if (currentIntroVideoState !== 'idle') {
+            switchVideoSource(introVideoAvatar, setupIdleVideoUrl, 'intro', 'idle');
+        }
+    }
     
-    switchSetupVideo(setupIdleVideoUrl, 'idle');
+    // Switch sidebar video to idle if visible
+    if ($('#aiSidebar').hasClass('show') && sidebarVideoAvatar) {
+        if (currentSidebarVideoState !== 'idle') {
+            switchVideoSource(sidebarVideoAvatar, setupIdleVideoUrl, 'sidebar', 'idle');
+        }
+    }
 }
 
-// ========== Switch Video ==========
-function switchSetupVideo(videoUrl, newState) {
-    if (isSetupTransitioning || !videoUrl) return;
+// ========== Switch Video Source ==========
+function switchVideoSource(videoElement, newSrc, videoType, newState) {
+    if (!videoElement || !newSrc) return;
     
-    isSetupTransitioning = true;
-    const container = setupVideoAvatar.parentElement;
+    // Smooth transition
+    videoElement.style.opacity = '0.3';
     
-    const newVideo = document.createElement('video');
-    newVideo.id = 'setupVideoAvatar';
-    newVideo.style.cssText = setupVideoAvatar.style.cssText;
-    newVideo.style.opacity = '0';
-    newVideo.muted = true;
-    newVideo.playsInline = true;
-    newVideo.loop = true;
-    newVideo.src = videoUrl;
-    
-    container.append(newVideo);
-    
-    newVideo.addEventListener('canplay', function playNew() {
-        newVideo.removeEventListener('canplay', playNew);
+    setTimeout(() => {
+        videoElement.src = newSrc;
+        videoElement.load();
         
-        newVideo.play().then(() => {
-            setupVideoAvatar.style.opacity = '0';
-            newVideo.style.opacity = '1';
+        videoElement.addEventListener('canplay', function onCanPlay() {
+            videoElement.removeEventListener('canplay', onCanPlay);
             
-            setTimeout(() => {
-                $(setupVideoAvatar).remove();
-                setupVideoAvatar = newVideo;
-                currentSetupVideoState = newState;
-                isSetupTransitioning = false;
-                console.log(`✅ Switched to ${newState}`);
-            }, 300);
-        }).catch(e => {
-            console.error('Play error:', e);
-            $(newVideo).remove();
-            isSetupTransitioning = false;
+            videoElement.play().then(() => {
+                videoElement.style.opacity = '1';
+                
+                if (videoType === 'intro') {
+                    currentIntroVideoState = newState;
+                } else if (videoType === 'sidebar') {
+                    currentSidebarVideoState = newState;
+                }
+                
+                console.log(`✅ ${videoType} switched to ${newState}`);
+            }).catch(e => {
+                console.error('Play error:', e);
+                videoElement.style.opacity = '1';
+            });
         });
-    });
-    
-    newVideo.load();
+    }, 300);
 }
 
 // ========== Play Voice Message ==========
@@ -303,7 +306,7 @@ function speakSetupText(text) {
     playSetupSpeakingAnimation();
     
     // Update status
-    $('.ai-status span:last-child').text('Speaking...');
+    $('#statusText').text('Speaking...');
     
     const encodedText = encodeURIComponent(text);
     let ttsUrl;
@@ -385,7 +388,7 @@ function fallbackSetupWebSpeech(text) {
 function stopSetupSpeaking() {
     isSetupSpeaking = false;
     playSetupIdleAnimation();
-    $('.ai-status span:last-child').text('Setting Up');
+    $('#statusText').text('Setting Up');
 }
 
 // ========== Show AI Speech Bubble ==========
@@ -430,4 +433,4 @@ window.stopSetupSpeaking = stopSetupSpeaking;
 window.showAISpeechBubble = showAISpeechBubble;
 window.hideAISpeechBubble = hideAISpeechBubble;
 
-console.log('✅ AI Setup Avatar System Loaded');
+console.log('✅ AI Setup Avatar System (Improved) Loaded');
