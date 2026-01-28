@@ -1,11 +1,33 @@
+<?php
+require_once('lib/connect.php');
+global $conn;
+
+if (session_status() == PHP_SESSION_NONE) {
+    session_start();
+}
+
+// รับ parameters
+$ai_code = $_GET['ai_code'] ?? $_SESSION['pending_ai_code'] ?? '';
+$lang = $_GET['lang'] ?? $_SESSION['pending_ai_lang'] ?? 'th';
+
+// Validate AI code
+if (empty($ai_code) || !preg_match('/^AI-[A-Z0-9]{8,}$/i', $ai_code)) {
+    header("Location: ?lang=$lang");
+    exit;
+}
+
+$ai_code = strtoupper($ai_code);
+$_SESSION['pending_ai_code'] = $ai_code;
+$_SESSION['pending_ai_lang'] = $lang;
+?>
 <!DOCTYPE html>
-<html lang="th">
+<html lang="<?= $lang ?>">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Personality Quiz - AI Companion</title>
+    <title>AI Companion Setup</title>
     
-    <link rel="icon" type="image/x-icon" href="/perfume//public/product_images/696089dc2eba5_1767934428.jpg">
+    <link rel="icon" type="image/x-icon" href="public/product_images/696089dc2eba5_1767934428.jpg">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css">
     
@@ -38,146 +60,31 @@
             left: 0;
             top: 0;
             height: 100vh;
-        }
-
-        .ai-avatar-container {
-            position: relative;
-            margin-bottom: 30px;
+            z-index: 100;
         }
 
         .ai-avatar-circle {
-            width: 280px;
-            height: 280px;
+            width: 200px;
+            height: 200px;
             border-radius: 50%;
             overflow: hidden;
             border: 4px solid rgba(120, 119, 198, 0.3);
             box-shadow: 0 20px 60px rgba(120, 119, 198, 0.4);
-            position: relative;
-        }
-
-        .ai-avatar-circle::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(45deg, transparent, rgba(120, 119, 198, 0.3), transparent);
-            animation: rotate 3s linear infinite;
-        }
-
-        @keyframes rotate {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            margin-bottom: 30px;
         }
 
         .ai-avatar-circle img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            position: relative;
-            z-index: 1;
-        }
-
-        /* Speech Bubble */
-        .speech-bubble {
-            position: absolute;
-            left: 50%;
-            bottom: 100%;
-            transform: translateX(-50%);
-            margin-bottom: 30px;
-            background: linear-gradient(135deg, rgba(120, 119, 198, 0.2) 0%, rgba(168, 167, 229, 0.15) 100%);
-            backdrop-filter: blur(20px);
-            border: 2px solid rgba(120, 119, 198, 0.4);
-            border-radius: 20px;
-            padding: 20px 24px;
-            min-width: 320px;
-            max-width: 350px;
-            box-shadow: 0 10px 40px rgba(120, 119, 198, 0.3);
-            opacity: 0;
-            animation: bubbleIn 0.5s ease forwards;
-            animation-delay: 0.3s;
-            z-index: 10;
-        }
-
-        @keyframes bubbleIn {
-            from {
-                opacity: 0;
-                transform: translateX(-50%) translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateX(-50%) translateY(0);
-            }
-        }
-
-        .speech-bubble::before {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 15px solid transparent;
-            border-right: 15px solid transparent;
-            border-top: 20px solid rgba(120, 119, 198, 0.4);
-        }
-
-        .speech-bubble::after {
-            content: '';
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            margin-top: -2px;
-            width: 0;
-            height: 0;
-            border-left: 13px solid transparent;
-            border-right: 13px solid transparent;
-            border-top: 18px solid rgba(120, 119, 198, 0.15);
-        }
-
-        .speech-bubble-text {
-            font-size: 15px;
-            line-height: 1.6;
-            color: #fff;
-            font-weight: 500;
-        }
-
-        .speech-bubble-icon {
-            display: inline-block;
-            margin-right: 8px;
-            font-size: 16px;
-            color: #7877c6;
-        }
-
-        /* Question Change Animation */
-        .speech-bubble.changing {
-            animation: bubbleOut 0.3s ease forwards;
-        }
-
-        @keyframes bubbleOut {
-            from {
-                opacity: 1;
-                transform: translateX(-50%) translateY(0);
-            }
-            to {
-                opacity: 0;
-                transform: translateX(-50%) translateY(-10px);
-            }
-        }
-
-        .ai-info {
-            text-align: center;
         }
 
         .ai-name-sidebar {
-            font-size: 28px;
+            font-size: 24px;
             font-weight: 700;
             color: #fff;
             margin-bottom: 12px;
-            letter-spacing: -0.5px;
+            text-align: center;
         }
 
         .ai-status {
@@ -186,7 +93,6 @@
             display: flex;
             align-items: center;
             gap: 8px;
-            justify-content: center;
         }
 
         .status-dot {
@@ -208,60 +114,21 @@
             flex: 1;
             padding: 60px 80px;
             display: flex;
-            flex-direction: column;
+            align-items: center;
             justify-content: center;
             min-height: 100vh;
         }
 
-        /* Progress Bar */
-        .progress-container {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 20px;
-            padding: 24px 32px;
-            margin-bottom: 40px;
-        }
-
-        .progress-text {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 16px;
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 14px;
-            font-weight: 600;
-        }
-
-        .progress-numbers {
-            font-size: 18px;
-            color: #7877c6;
-        }
-
-        .progress-bar {
+        /* Screens */
+        .screen {
+            display: none;
             width: 100%;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #7877c6 0%, #a8a7e5 100%);
-            transition: width 0.4s ease;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(120, 119, 198, 0.6);
-        }
-
-        /* Question Card */
-        .question-card {
-            background: rgba(255, 255, 255, 0.03);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
-            padding: 50px 60px;
+            max-width: 700px;
             animation: fadeInUp 0.6s ease;
+        }
+
+        .screen.active {
+            display: block;
         }
 
         @keyframes fadeInUp {
@@ -275,6 +142,122 @@
             }
         }
 
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 50px;
+        }
+
+        .screen-title {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            text-align: center;
+        }
+
+        .screen-subtitle {
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 40px;
+            text-align: center;
+            line-height: 1.6;
+        }
+
+        /* Language Selection */
+        .language-options {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+            margin: 30px 0;
+        }
+
+        .language-option {
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+        }
+
+        .language-option:hover {
+            border-color: #7877c6;
+            background: rgba(120, 119, 198, 0.1);
+        }
+
+        .language-option.selected {
+            border-color: #7877c6;
+            background: rgba(120, 119, 198, 0.2);
+            box-shadow: 0 8px 24px rgba(120, 119, 198, 0.3);
+        }
+
+        .language-flag {
+            font-size: 32px;
+            margin-bottom: 8px;
+        }
+
+        .language-name {
+            font-size: 13px;
+            color: #fff;
+            font-weight: 500;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 15px;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #7877c6;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
+        /* OTP Inputs */
+        .otp-inputs {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin: 30px 0;
+        }
+
+        .otp-input {
+            width: 50px;
+            height: 50px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            padding: 0;
+        }
+
+        /* Questions */
         .question-number {
             font-size: 13px;
             color: #7877c6;
@@ -285,102 +268,42 @@
         }
 
         .question-text {
-            font-size: 28px;
+            font-size: 24px;
             font-weight: 600;
             color: #fff;
-            margin-bottom: 40px;
+            margin-bottom: 30px;
             line-height: 1.4;
-            letter-spacing: -0.5px;
         }
 
-        /* Choices */
         .choices-container {
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 12px;
         }
 
         .choice-option {
-            padding: 22px 28px;
+            padding: 18px 24px;
             background: rgba(255, 255, 255, 0.03);
             border: 2px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
+            border-radius: 12px;
             cursor: pointer;
             transition: all 0.3s;
-            font-size: 16px;
             color: rgba(255, 255, 255, 0.8);
-            display: flex;
-            align-items: center;
-            gap: 18px;
+            text-align: left;
         }
 
         .choice-option:hover {
             border-color: #7877c6;
             background: rgba(120, 119, 198, 0.1);
-            transform: translateX(8px);
         }
 
         .choice-option.selected {
             border-color: #7877c6;
             background: rgba(120, 119, 198, 0.2);
             color: #fff;
-            box-shadow: 0 8px 24px rgba(120, 119, 198, 0.3);
         }
 
-        .choice-radio {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            position: relative;
-            flex-shrink: 0;
-            transition: all 0.3s;
-        }
-
-        .choice-option.selected .choice-radio {
-            border-color: #7877c6;
-            background: #7877c6;
-        }
-
-        .choice-option.selected .choice-radio::after {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: white;
-        }
-
-        /* Text Input */
-        .text-input {
-            width: 100%;
-            padding: 20px 24px;
-            background: rgba(255, 255, 255, 0.03);
-            border: 2px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            font-size: 16px;
-            font-family: 'Inter', sans-serif;
-            color: #fff;
-            transition: all 0.3s;
-            resize: vertical;
-            min-height: 140px;
-        }
-
-        .text-input:focus {
-            outline: none;
-            border-color: #7877c6;
-            background: rgba(255, 255, 255, 0.05);
-            box-shadow: 0 0 0 4px rgba(120, 119, 198, 0.1);
-        }
-
-        .text-input::placeholder {
-            color: rgba(255, 255, 255, 0.3);
-        }
-
-        /* Scale */
+        /* Scale Input */
         .scale-container {
             padding: 24px 0;
         }
@@ -429,30 +352,55 @@
             box-shadow: 0 8px 24px rgba(120, 119, 198, 0.4);
         }
 
-        /* Navigation */
-        .nav-buttons {
-            display: flex;
-            gap: 16px;
-            margin-top: 40px;
+        /* Progress Bar */
+        .progress-container {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 30px;
         }
 
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #7877c6 0%, #a8a7e5 100%);
+            transition: width 0.4s ease;
+            border-radius: 10px;
+        }
+
+        /* Buttons */
         .btn {
-            flex: 1;
-            padding: 18px;
+            padding: 14px 32px;
             border: none;
-            border-radius: 16px;
-            font-size: 16px;
+            border-radius: 12px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s;
             text-transform: uppercase;
-            letter-spacing: 1.5px;
+            letter-spacing: 1px;
         }
 
         .btn-primary {
             background: linear-gradient(135deg, #7877c6 0%, #a8a7e5 100%);
             color: white;
-            box-shadow: 0 8px 24px rgba(120, 119, 198, 0.3);
+            width: 100%;
         }
 
         .btn-primary:hover:not(:disabled) {
@@ -461,20 +409,36 @@
         }
 
         .btn-secondary {
-            background: rgba(255, 255, 255, 0.05);
-            color: rgba(255, 255, 255, 0.8);
-            border: 2px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .btn-secondary:hover:not(:disabled) {
             background: rgba(255, 255, 255, 0.1);
-            border-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            flex: 1;
         }
 
         .btn:disabled {
-            opacity: 0.4;
+            opacity: 0.5;
             cursor: not-allowed;
             transform: none;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .text-link {
+            color: #7877c6;
+            text-decoration: none;
+            font-size: 14px;
+            margin-top: 15px;
+            display: inline-block;
+            text-align: center;
+            width: 100%;
+        }
+
+        .text-link:hover {
+            text-decoration: underline;
         }
 
         /* Loading */
@@ -488,26 +452,19 @@
             display: none;
             align-items: center;
             justify-content: center;
-            z-index: 9999;
-            backdrop-filter: blur(10px);
+            z-index: 99999;
         }
 
         .loading-overlay.active {
             display: flex;
         }
 
-        .loading-content {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            padding: 60px;
-            border-radius: 24px;
-            text-align: center;
-        }
-
-        .loading-content i {
-            font-size: 56px;
-            color: #7877c6;
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #7877c6;
+            border-radius: 50%;
             animation: spin 1s linear infinite;
         }
 
@@ -517,35 +474,12 @@
         }
 
         .loading-text {
-            margin-top: 24px;
-            font-size: 18px;
             color: #fff;
-            font-weight: 500;
+            margin-top: 20px;
+            font-size: 16px;
         }
 
         /* Responsive */
-        @media (max-width: 1200px) {
-            .ai-sidebar {
-                width: 320px;
-            }
-
-            .main-content {
-                margin-left: 320px;
-                padding: 40px 60px;
-            }
-
-            .ai-avatar-circle {
-                width: 220px;
-                height: 220px;
-            }
-
-            .speech-bubble {
-                min-width: 280px;
-                max-width: 300px;
-                margin-bottom: 20px;
-            }
-        }
-
         @media (max-width: 992px) {
             body {
                 flex-direction: column;
@@ -561,36 +495,8 @@
             }
 
             .ai-avatar-circle {
-                width: 180px;
-                height: 180px;
-                margin-bottom: 20px;
-            }
-
-            .ai-name-sidebar {
-                font-size: 24px;
-            }
-
-            .speech-bubble {
-                position: static;
-                transform: none;
-                margin: 20px auto 0;
-                animation: bubbleInMobile 0.5s ease forwards;
-            }
-
-            @keyframes bubbleInMobile {
-                from {
-                    opacity: 0;
-                    transform: translateY(-10px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-
-            .speech-bubble::before,
-            .speech-bubble::after {
-                display: none;
+                width: 150px;
+                height: 150px;
             }
 
             .main-content {
@@ -598,200 +504,559 @@
                 padding: 40px 30px;
             }
 
-            .question-card {
-                padding: 40px 30px;
-            }
-
-            .question-text {
-                font-size: 24px;
+            .language-options {
+                grid-template-columns: repeat(3, 1fr);
             }
         }
 
         @media (max-width: 600px) {
-            .question-card {
+            .card {
                 padding: 30px 24px;
             }
 
-            .question-text {
-                font-size: 20px;
-            }
-
-            .choice-option {
-                padding: 18px 20px;
-                font-size: 15px;
-            }
-
-            .scale-option {
-                font-size: 20px;
-            }
-
-            .speech-bubble {
-                min-width: auto;
-                width: 100%;
-                padding: 16px 20px;
-            }
-
-            .speech-bubble-text {
-                font-size: 14px;
+            .language-options {
+                grid-template-columns: repeat(2, 1fr);
             }
         }
+        /* Text Input */
+#textAnswerInput {
+    width: 100%;
+    padding: 16px 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 15px;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.3s;
+    margin-bottom: 20px;
+}
+
+#textAnswerInput:focus {
+    outline: none;
+    border-color: #7877c6;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 4px rgba(120, 119, 198, 0.1);
+}
+
+#textAnswerInput::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
     </style>
 </head>
 <body>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div style="text-align: center;">
+            <div class="spinner"></div>
+            <div class="loading-text" id="loadingText">Processing...</div>
+        </div>
+    </div>
+
     <!-- AI Avatar Sidebar -->
     <div class="ai-sidebar">
-        <div class="ai-avatar-container">
-            <div class="ai-avatar-circle">
-                <img src="" alt="AI Avatar" id="aiAvatarSidebar">
-            </div>
-            <!-- Speech Bubble -->
-            <div class="speech-bubble" id="speechBubble">
-                <div class="speech-bubble-text">
-                    <i class="fas fa-comment-dots speech-bubble-icon"></i>
-                    <span id="speechBubbleText">กำลังโหลดคำถาม...</span>
-                </div>
-            </div>
+        <div class="ai-avatar-circle">
+            <img src="" alt="AI Avatar" id="aiAvatar">
         </div>
-        <div class="ai-info">
-            <h2 class="ai-name-sidebar" id="aiNameSidebar">AI Companion</h2>
-            <div class="ai-status">
-                <span class="status-dot"></span>
-                <span>Active</span>
-            </div>
+        <h2 class="ai-name-sidebar" id="aiName">AI Companion</h2>
+        <div class="ai-status">
+            <span class="status-dot"></span>
+            <span>Setting Up</span>
         </div>
     </div>
 
     <!-- Main Content -->
     <div class="main-content">
-        <!-- Progress -->
-        <div class="progress-container">
-            <div class="progress-text">
-                <span>Progress</span>
-                <span class="progress-numbers">
-                    <span id="currentQuestion">1</span> / <span id="totalQuestions">10</span>
-                </span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill" style="width: 10%;"></div>
-            </div>
-        </div>
 
-        <!-- Question Card -->
-        <div class="question-card" id="questionCard">
-            <div class="question-number" id="questionNumber">Question 1</div>
-            <div class="question-text" id="questionText">Loading...</div>
-            
-            <div class="choices-container" id="choicesContainer"></div>
-            <textarea class="text-input" id="textInput" style="display: none;" placeholder="Type your answer here..."></textarea>
-            
-            <div class="scale-container" id="scaleContainer" style="display: none;">
-                <div class="scale-labels">
-                    <span>Strongly Disagree</span>
-                    <span>Strongly Agree</span>
+        <!-- 1. Language Selection Screen -->
+        <div class="screen" id="languageScreen">
+            <div class="card">
+                <h2 class="screen-title">Choose Your Language</h2>
+                <p class="screen-subtitle">เลือกภาษา / 选择语言 / 言語を選択 / 언어 선택</p>
+                
+                <div class="language-options">
+                    <div class="language-option" data-lang="th">
+                        <div class="language-flag">🇹🇭</div>
+                        <div class="language-name">ไทย</div>
+                    </div>
+                    <div class="language-option" data-lang="en">
+                        <div class="language-flag">🇺🇸</div>
+                        <div class="language-name">English</div>
+                    </div>
+                    <div class="language-option" data-lang="cn">
+                        <div class="language-flag">🇨🇳</div>
+                        <div class="language-name">中文</div>
+                    </div>
+                    <div class="language-option" data-lang="jp">
+                        <div class="language-flag">🇯🇵</div>
+                        <div class="language-name">日本語</div>
+                    </div>
+                    <div class="language-option" data-lang="kr">
+                        <div class="language-flag">🇰🇷</div>
+                        <div class="language-name">한국어</div>
+                    </div>
                 </div>
-                <div class="scale-options" id="scaleOptions"></div>
-            </div>
 
-            <div class="nav-buttons">
-                <button class="btn btn-secondary" id="btnPrevious" disabled>
-                    <i class="fas fa-arrow-left"></i> Previous
-                </button>
-                <button class="btn btn-primary" id="btnNext" disabled>
-                    Next <i class="fas fa-arrow-right"></i>
+                <button class="btn btn-primary" id="btnConfirmLanguage" disabled>
+                    <i class="fas fa-check"></i> Confirm Language
                 </button>
             </div>
         </div>
-    </div>
 
-    <!-- Loading -->
-    <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-content">
-            <i class="fas fa-spinner"></i>
-            <div class="loading-text">Saving your answers...</div>
+        <!-- 2. Register Screen -->
+        <div class="screen" id="registerScreen">
+            <div class="card">
+                <h2 class="screen-title">Create Account</h2>
+                <p class="screen-subtitle">Please register to continue with your AI companion</p>
+                
+                <form id="registerForm">
+                    <div class="form-group">
+                        <label for="regName">Full Name</label>
+                        <input type="text" id="regName" class="form-control" placeholder="John Doe" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regEmail">Email</label>
+                        <input type="email" id="regEmail" class="form-control" placeholder="john@example.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regPhone">Phone Number</label>
+                        <input type="tel" id="regPhone" class="form-control" placeholder="+66812345678" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="regPassword">Password (min. 6 characters)</label>
+                        <input type="password" id="regPassword" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-user-plus"></i> Register
+                    </button>
+                </form>
+                
+                <a href="#" class="text-link" id="linkToLogin">Already have an account? Login</a>
+            </div>
         </div>
+
+        <!-- 3. OTP Screen -->
+        <div class="screen" id="otpScreen">
+            <div class="card">
+                <h2 class="screen-title">Enter OTP Code</h2>
+                <p class="screen-subtitle">We sent a 6-digit code to<br><strong id="otpContact"></strong></p>
+                
+                <div class="otp-inputs">
+                    <input type="text" class="form-control otp-input" maxlength="1" id="otp1">
+                    <input type="text" class="form-control otp-input" maxlength="1" id="otp2">
+                    <input type="text" class="form-control otp-input" maxlength="1" id="otp3">
+                    <input type="text" class="form-control otp-input" maxlength="1" id="otp4">
+                    <input type="text" class="form-control otp-input" maxlength="1" id="otp5">
+                    <input type="text" class="form-control otp-input" maxlength="1" id="otp6">
+                </div>
+
+                <button class="btn btn-primary" id="btnVerifyOTP">
+                    <i class="fas fa-check-circle"></i> Verify OTP
+                </button>
+                <a href="#" class="text-link" id="linkResendOTP">Resend OTP</a>
+            </div>
+        </div>
+
+        <!-- 4. Login Screen -->
+        <div class="screen" id="loginScreen">
+            <div class="card">
+                <h2 class="screen-title">Welcome Back</h2>
+                <p class="screen-subtitle">Please login to continue</p>
+                
+                <form id="loginForm">
+                    <div class="form-group">
+                        <label for="loginUsername">Email or Phone</label>
+                        <input type="text" id="loginUsername" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <input type="password" id="loginPassword" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </button>
+                </form>
+                
+                <a href="#" class="text-link" id="linkToRegister">Don't have an account? Register</a>
+            </div>
+        </div>
+
+        <!-- 5. Questions Screen -->
+        <div class="screen" id="questionsScreen">
+            <div class="progress-container">
+                <div class="progress-text">
+                    <span>Progress</span>
+                    <span><span id="currentQ">1</span> / <span id="totalQ">10</span></span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 10%;"></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="question-number" id="questionNumber">Question 1</div>
+                <div class="question-text" id="questionText">Loading...</div>
+                <div class="choices-container" id="choicesContainer"></div>
+                
+                <!-- Scale Container (for scale type questions) -->
+                <div class="scale-container" id="scaleContainer" style="display: none;">
+                    <div class="scale-labels">
+                        <span>Strongly Disagree</span>
+                        <span>Strongly Agree</span>
+                    </div>
+                    <div class="scale-options" id="scaleOptions"></div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-secondary" id="btnPrevQuestion" disabled>
+                        <i class="fas fa-arrow-left"></i> Previous
+                    </button>
+                    <button class="btn btn-primary" id="btnNextQuestion" disabled>
+                        Next <i class="fas fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const companionId = urlParams.get('companion_id');
-        const lang = urlParams.get('lang') || 'th';
-
+        // ========== Global Variables ==========
+        const aiCode = '<?= $ai_code ?>';
+        let selectedLanguage = '<?= $lang ?>';
+        let jwt = sessionStorage.getItem('jwt');
+        let companionId = null;
+        let userId = null;
+        let aiCompanionData = null;
         let questions = [];
         let currentQuestionIndex = 0;
         let answers = {};
 
-        const jwt = sessionStorage.getItem('jwt');
-        if (!jwt || !companionId) {
-            Swal.fire('Error!', 'Invalid access', 'error').then(() => {
-                window.location.href = '?';
-            });
-        }
+        // Voice Messages
+        const voiceMessages = {
+            choose_language: {
+                th: 'สวัสดีค่ะ กรุณาเลือกภาษาที่คุณต้องการใช้งาน',
+                en: 'Hello! Please choose your preferred language'
+            },
+            please_register: {
+                th: 'คุณยังไม่มีบัญชี กรุณาสมัครสมาชิกก่อนนะคะ',
+                en: 'You do not have an account yet. Please register first'
+            },
+            please_login: {
+                th: 'กรุณาเข้าสู่ระบบเพื่อเริ่มใช้งาน',
+                en: 'Please log in to continue'
+            },
+            answer_questions: {
+                th: 'ตอนนี้กรุณาตอบคำถามเพื่อให้ฉันรู้จักคุณมากขึ้น',
+                en: 'Now please answer some questions so I can get to know you better'
+            }
+        };
 
+        // ========== Initialize ==========
         $(document).ready(function() {
-            loadAIInfo();
-            loadQuestions();
+            console.log('🚀 Starting AI Setup Flow...');
+            console.log('AI Code:', aiCode);
+            console.log('Language:', selectedLanguage);
+            console.log('JWT:', jwt ? 'Present' : 'Missing');
+
+            loadAIData();
+            startSetupFlow();
         });
 
-        function loadAIInfo() {
-            $.ajax({
-                url: 'app/actions/get_companion_info.php',
-                type: 'GET',
-                headers: { 'Authorization': 'Bearer ' + jwt },
-                data: { companion_id: companionId },
-                dataType: 'json',
-                success: function(response) {
-                    if (response.status === 'success') {
-                        const ai = response.data;
-                        const langCol = 'ai_name_' + lang;
-                        $('#aiNameSidebar').text(ai[langCol] || ai.ai_name_th);
-                        
-                        if (ai.ai_avatar_url) {
-                            $('#aiAvatarSidebar').attr('src', ai.ai_avatar_url);
-                        }
+        // ========== Load AI Data ==========
+        async function loadAIData() {
+            try {
+                const response = await $.ajax({
+                    url: 'app/actions/get_ai_data.php',
+                    type: 'GET',
+                    data: { ai_code: aiCode },
+                    dataType: 'json'
+                });
+
+                if (response.status === 'success') {
+                    aiCompanionData = response.ai_data;
+                    
+                    const langCol = 'ai_name_' + selectedLanguage;
+                    $('#aiName').text(aiCompanionData[langCol] || aiCompanionData.ai_name_th);
+                    
+                    if (aiCompanionData.ai_avatar_url) {
+                        $('#aiAvatar').attr('src', aiCompanionData.ai_avatar_url);
                     }
                 }
-            });
+            } catch (error) {
+                console.error('Failed to load AI data:', error);
+            }
         }
 
-        function loadQuestions() {
+        // ========== Start Setup Flow ==========
+        function startSetupFlow() {
+            // Check if user is logged in
+            if (!jwt) {
+                // Not logged in → Show language selection
+                showLanguageScreen();
+            } else {
+                // Logged in → Check if companion exists
+                checkCompanionExists();
+            }
+        }
+
+        async function checkCompanionExists() {
+            try {
+                showLoading('Checking setup status...');
+
+                const response = await $.ajax({
+                    url: 'app/actions/check_setup_status.php',
+                    type: 'GET',
+                    headers: { 'Authorization': 'Bearer ' + jwt },
+                    data: { ai_code: aiCode },
+                    dataType: 'json'
+                });
+
+                hideLoading();
+
+                if (response.status === 'success') {
+                    if (response.step === 'need_setup') {
+                        companionId = response.companion_id;
+                        sessionStorage.setItem('user_companion_id', companionId);
+                        await loadQuestions();
+                        showQuestionsScreen();
+                    } else if (response.step === 'ready_to_chat') {
+                        // Already complete → Go to chat
+                        window.location.href = '?ai_chat_3d&ai_code=' + aiCode + '&lang=' + selectedLanguage;
+                    } else {
+                        // Need register
+                        showLanguageScreen();
+                    }
+                }
+            } catch (error) {
+                hideLoading();
+                console.error('Check companion error:', error);
+                showLanguageScreen();
+            }
+        }
+
+        // ========== 1. Language Selection ==========
+        function showLanguageScreen() {
+            $('.screen').removeClass('active');
+            $('#languageScreen').addClass('active');
+            speakText(voiceMessages.choose_language[selectedLanguage]);
+        }
+
+        $('.language-option').on('click', function() {
+            $('.language-option').removeClass('selected');
+            $(this).addClass('selected');
+            selectedLanguage = $(this).data('lang');
+            $('#btnConfirmLanguage').prop('disabled', false);
+            speakText(voiceMessages.choose_language[selectedLanguage]);
+        });
+
+        $('#btnConfirmLanguage').on('click', function() {
+            $(this).prop('disabled', true);
+            showRegisterScreen();
+        });
+
+        // ========== 2. Register ==========
+        function showRegisterScreen() {
+            $('.screen').removeClass('active');
+            $('#registerScreen').addClass('active');
+            speakText(voiceMessages.please_register[selectedLanguage]);
+        }
+
+        $('#registerForm').on('submit', function(e) {
+            e.preventDefault();
+
+            const name = $('#regName').val().trim();
+            const email = $('#regEmail').val().trim();
+            const phone = $('#regPhone').val().trim();
+            const password = $('#regPassword').val();
+
+            if (password.length < 6) {
+                Swal.fire('Error', 'Password must be at least 6 characters', 'error');
+                return;
+            }
+
+            showLoading('Creating your account...');
+
             $.ajax({
-                url: 'app/actions/get_personality_questions.php',
-                type: 'GET',
-                data: { lang: lang },
+                url: 'app/actions/register_user.php',
+                type: 'POST',
+                data: {
+                    name: name,
+                    email: email,
+                    phone: phone,
+                    password: password,
+                    ai_code: aiCode,
+                    language: selectedLanguage
+                },
                 dataType: 'json',
                 success: function(response) {
+                    hideLoading();
+
                     if (response.status === 'success') {
-                        questions = response.data;
-                        $('#totalQuestions').text(questions.length);
-                        displayQuestion(0);
+                        userId = response.user_id;
+                        
+                        if (response.companion_id) {
+                            companionId = response.companion_id;
+                            sessionStorage.setItem('user_companion_id', companionId);
+                        }
+
+                        $('#otpContact').text(email);
+                        showOTPScreen();
                     } else {
-                        Swal.fire('Error!', 'Failed to load questions', 'error');
+                        Swal.fire('Error', response.message, 'error');
                     }
                 },
                 error: function() {
-                    Swal.fire('Error!', 'Failed to load questions', 'error');
+                    hideLoading();
+                    Swal.fire('Error', 'Registration failed', 'error');
                 }
             });
+        });
+
+        $('#linkToLogin').on('click', function(e) {
+            e.preventDefault();
+            showLoginScreen();
+        });
+
+        // ========== 3. OTP ==========
+        function showOTPScreen() {
+            $('.screen').removeClass('active');
+            $('#otpScreen').addClass('active');
+            $('.otp-input').val('');
+            $('#otp1').focus();
         }
 
-        function updateSpeechBubble(questionText) {
-            const bubble = $('#speechBubble');
-            const bubbleText = $('#speechBubbleText');
-            
-            // Add changing class to animate out
-            bubble.addClass('changing');
-            
-            // Wait for animation, then update text and animate in
-            setTimeout(function() {
-                bubbleText.text(questionText);
-                bubble.removeClass('changing');
-                
-                // Re-trigger animation by removing and re-adding element
-                const bubbleClone = bubble.clone(true);
-                bubble.replaceWith(bubbleClone);
-            }, 300);
+        $('.otp-input').on('input', function() {
+            if (this.value.length === 1) {
+                $(this).next('.otp-input').focus();
+            }
+        });
+
+        $('.otp-input').on('keydown', function(e) {
+            if (e.key === 'Backspace' && !this.value) {
+                $(this).prev('.otp-input').focus();
+            }
+        });
+
+        $('#btnVerifyOTP').on('click', function() {
+            const otp = $('#otp1').val() + $('#otp2').val() + $('#otp3').val() + 
+                        $('#otp4').val() + $('#otp5').val() + $('#otp6').val();
+
+            if (otp.length !== 6) {
+                Swal.fire('Error', 'Please enter all 6 digits', 'error');
+                return;
+            }
+
+            showLoading('Verifying OTP...');
+
+            $.ajax({
+                url: 'app/actions/otp_confirm_email.php',
+                type: 'POST',
+                data: {
+                    action: 'sendOTP',
+                    userId: userId,
+                    otpCode: otp,
+                    method: 'email'
+                },
+                dataType: 'json',
+                success: function(response) {
+                    hideLoading();
+
+                    if (response.status === 'succeed') {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Verified!',
+                            text: 'Account verified. Please login.',
+                            timer: 2000,
+                            showConfirmButton: false
+                        }).then(() => {
+                            showLoginScreen();
+                        });
+                    } else {
+                        Swal.fire('Error', 'Invalid OTP', 'error');
+                    }
+                },
+                error: function() {
+                    hideLoading();
+                    Swal.fire('Error', 'Verification failed', 'error');
+                }
+            });
+        });
+
+        // ========== 4. Login ==========
+        function showLoginScreen() {
+            $('.screen').removeClass('active');
+            $('#loginScreen').addClass('active');
+            speakText(voiceMessages.please_login[selectedLanguage]);
+        }
+
+        $('#loginForm').on('submit', function(e) {
+            e.preventDefault();
+
+            const username = $('#loginUsername').val().trim();
+            const password = $('#loginPassword').val();
+
+            showLoading('Logging in...');
+
+            $.ajax({
+                url: 'app/actions/check_login.php',
+                type: 'POST',
+                data: { username: username, password: password },
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success') {
+                        jwt = response.jwt;
+                        sessionStorage.setItem('jwt', jwt);
+
+                        checkCompanionExists();
+                    } else {
+                        hideLoading();
+                        Swal.fire('Error', response.message || 'Login failed', 'error');
+                    }
+                },
+                error: function() {
+                    hideLoading();
+                    Swal.fire('Error', 'Login failed', 'error');
+                }
+            });
+        });
+
+        $('#linkToRegister').on('click', function(e) {
+            e.preventDefault();
+            showRegisterScreen();
+        });
+
+        // ========== 5. Questions ==========
+        async function loadQuestions() {
+            try {
+                const response = await $.ajax({
+                    url: 'app/actions/get_personality_questions.php',
+                    type: 'GET',
+                    data: { lang: selectedLanguage },
+                    dataType: 'json'
+                });
+
+                if (response.status === 'success') {
+                    questions = response.data;
+                    $('#totalQ').text(questions.length);
+                    console.log('✅ Loaded', questions.length, 'questions');
+                }
+            } catch (error) {
+                console.error('Failed to load questions:', error);
+            }
+        }
+
+        function showQuestionsScreen() {
+            $('.screen').removeClass('active');
+            $('#questionsScreen').addClass('active');
+            speakText(voiceMessages.answer_questions[selectedLanguage]);
+
+            if (questions.length > 0) {
+                displayQuestion(0);
+            }
         }
 
         function displayQuestion(index) {
@@ -802,79 +1067,119 @@
 
             const progress = ((index + 1) / questions.length) * 100;
             $('#progressFill').css('width', progress + '%');
-            $('#currentQuestion').text(index + 1);
+            $('#currentQ').text(index + 1);
             $('#questionNumber').text(`Question ${index + 1}`);
 
-            const langCol = 'question_text_' + lang;
+            const langCol = 'question_text_' + selectedLanguage;
             const questionText = question[langCol] || question.question_text_th;
             $('#questionText').text(questionText);
 
-            // Update speech bubble with current question
-            updateSpeechBubble(questionText);
-
+            // Hide all input types first
             $('#choicesContainer').empty().hide();
-            $('#textInput').val('').hide();
             $('#scaleContainer').hide();
 
+            // Display based on question type
             if (question.question_type === 'choice') {
                 displayChoices(question);
+            } else if (question.question_type === 'scale') {
+                displayScale(question);
             } else if (question.question_type === 'text') {
                 displayTextInput(question);
-            } else if (question.question_type === 'scale') {
-                displayScaleInput(question);
             }
 
-            $('#btnPrevious').prop('disabled', index === 0);
-            
+            // Load previous answer if exists
             if (answers[question.question_id]) {
-                $('#btnNext').prop('disabled', false);
                 loadPreviousAnswer(question);
+                $('#btnNextQuestion').prop('disabled', false);
             } else {
-                $('#btnNext').prop('disabled', true);
+                $('#btnNextQuestion').prop('disabled', true);
             }
+
+            $('#btnPrevQuestion').prop('disabled', index === 0);
 
             if (index === questions.length - 1) {
-                $('#btnNext').html('<i class="fas fa-check"></i> Complete');
+                $('#btnNextQuestion').html('Complete <i class="fas fa-check"></i>');
             } else {
-                $('#btnNext').html('Next <i class="fas fa-arrow-right"></i>');
+                $('#btnNextQuestion').html('Next <i class="fas fa-arrow-right"></i>');
             }
         }
 
         function displayChoices(question) {
             $('#choicesContainer').show();
-            
-            if (!question.choices || question.choices.length === 0) return;
 
-            const langCol = 'choice_text_' + lang;
-            
-            question.choices.forEach(choice => {
-                const choiceHtml = `
-                    <div class="choice-option" data-choice-id="${choice.choice_id}">
-                        <div class="choice-radio"></div>
-                        <span>${choice[langCol] || choice.choice_text_th}</span>
-                    </div>
-                `;
-                $('#choicesContainer').append(choiceHtml);
-            });
+            if (question.choices) {
+                const choiceLangCol = 'choice_text_' + selectedLanguage;
 
-            $('.choice-option').on('click', function() {
-                $('.choice-option').removeClass('selected');
+                question.choices.forEach(choice => {
+                    const choiceText = choice[choiceLangCol] || choice.choice_text_th;
+                    const $choice = $(`
+                        <div class="choice-option" data-choice-id="${choice.choice_id}">
+                            ${choiceText}
+                        </div>
+                    `);
+                    $('#choicesContainer').append($choice);
+                });
+
+                $('.choice-option').on('click', function() {
+                    $('.choice-option').removeClass('selected');
+                    $(this).addClass('selected');
+
+                    const choiceId = $(this).data('choice-id');
+                    answers[question.question_id] = {
+                        question_id: question.question_id,
+                        choice_id: choiceId
+                    };
+
+                    $('#btnNextQuestion').prop('disabled', false);
+                });
+            }
+        }
+
+        function displayScale(question) {
+            $('#scaleContainer').show();
+            $('#scaleOptions').empty();
+
+            // Create scale options 1-5
+            for (let i = 1; i <= 5; i++) {
+                const $scale = $(`<div class="scale-option" data-value="${i}">${i}</div>`);
+                $('#scaleOptions').append($scale);
+            }
+
+            $('.scale-option').on('click', function() {
+                $('.scale-option').removeClass('selected');
                 $(this).addClass('selected');
-                
-                const choiceId = $(this).data('choice-id');
+
+                const value = $(this).data('value');
                 answers[question.question_id] = {
                     question_id: question.question_id,
-                    choice_id: choiceId
+                    scale_value: value
                 };
-                
-                $('#btnNext').prop('disabled', false);
+
+                $('#btnNextQuestion').prop('disabled', false);
             });
         }
 
         function displayTextInput(question) {
-            $('#textInput').show();
+            $('#choicesContainer').hide();
+            $('#scaleContainer').hide();
+            
+            // Create text input if not exists
+            if ($('#textAnswerInput').length === 0) {
+                const textInputHtml = `
+                    <textarea 
+                        id="textAnswerInput" 
+                        class="form-control" 
+                        rows="4" 
+                        placeholder="Type your answer here..."
+                        style="min-height: 120px; resize: vertical;"
+                    ></textarea>
+                `;
+                $('#scaleContainer').after(textInputHtml);
+            }
+            
+            $('#textAnswerInput').show().val('');
 
-            $('#textInput').on('input', function() {
+            $('#textAnswerInput').on('input', function() {
                 const text = $(this).val().trim();
                 
                 if (text.length > 0) {
@@ -882,54 +1187,31 @@
                         question_id: question.question_id,
                         text_answer: text
                     };
-                    $('#btnNext').prop('disabled', false);
+                    $('#btnNextQuestion').prop('disabled', false);
                 } else {
                     delete answers[question.question_id];
-                    $('#btnNext').prop('disabled', true);
+                    $('#btnNextQuestion').prop('disabled', true);
                 }
-            });
-        }
-
-        function displayScaleInput(question) {
-            $('#scaleContainer').show();
-            $('#scaleOptions').empty();
-
-            for (let i = 1; i <= 5; i++) {
-                const scaleHtml = `<div class="scale-option" data-value="${i}">${i}</div>`;
-                $('#scaleOptions').append(scaleHtml);
-            }
-
-            $('.scale-option').on('click', function() {
-                $('.scale-option').removeClass('selected');
-                $(this).addClass('selected');
-                
-                const value = $(this).data('value');
-                answers[question.question_id] = {
-                    question_id: question.question_id,
-                    scale_value: value
-                };
-                
-                $('#btnNext').prop('disabled', false);
             });
         }
 
         function loadPreviousAnswer(question) {
             const answer = answers[question.question_id];
-            
+
             if (question.question_type === 'choice' && answer.choice_id) {
                 $(`.choice-option[data-choice-id="${answer.choice_id}"]`).addClass('selected');
-            } else if (question.question_type === 'text' && answer.text_answer) {
-                $('#textInput').val(answer.text_answer);
             } else if (question.question_type === 'scale' && answer.scale_value) {
                 $(`.scale-option[data-value="${answer.scale_value}"]`).addClass('selected');
+            } else if (question.question_type === 'text' && answer.text_answer) {
+                $('#textAnswerInput').val(answer.text_answer);
             }
         }
 
-        $('#btnPrevious').on('click', function() {
+        $('#btnPrevQuestion').on('click', function() {
             displayQuestion(currentQuestionIndex - 1);
         });
 
-        $('#btnNext').on('click', function() {
+        $('#btnNextQuestion').on('click', function() {
             if (currentQuestionIndex === questions.length - 1) {
                 submitAnswers();
             } else {
@@ -938,7 +1220,7 @@
         });
 
         function submitAnswers() {
-            $('#loadingOverlay').addClass('active');
+            showLoading('Saving your answers...');
 
             const answersArray = Object.values(answers);
 
@@ -952,29 +1234,59 @@
                 },
                 dataType: 'json',
                 success: function(response) {
-                    $('#loadingOverlay').removeClass('active');
-                    
+                    hideLoading();
+
                     if (response.status === 'success') {
                         Swal.fire({
                             icon: 'success',
                             title: 'Complete!',
-                            text: 'Thank you for answering. You can now chat with your AI Companion!',
-                            confirmButtonText: 'Go to Chat',
-                            background: '#1a1a1a',
-                            color: '#fff'
+                            text: 'Setup completed! Ready to chat.',
+                            timer: 2000,
+                            showConfirmButton: false
                         }).then(() => {
-                            window.location.href = '?ai_chat_3d&companion_id=' + companionId + '&lang=' + lang;
+                            window.location.href = '?ai_chat_3d&ai_code=' + aiCode + '&lang=' + selectedLanguage;
                         });
                     } else {
-                        Swal.fire('Error!', response.message || 'Failed to save answers', 'error');
+                        Swal.fire('Error', 'Failed to save answers', 'error');
                     }
                 },
                 error: function() {
-                    $('#loadingOverlay').removeClass('active');
-                    Swal.fire('Error!', 'Failed to save answers', 'error');
+                    hideLoading();
+                    Swal.fire('Error', 'Failed to save answers', 'error');
                 }
             });
         }
+
+        // ========== Utils ==========
+        function speakText(text) {
+            console.log('🔊 Speaking:', text);
+            const encodedText = encodeURIComponent(text);
+            let ttsUrl;
+
+            if (selectedLanguage === 'th') {
+                ttsUrl = `https://code.responsivevoice.org/getvoice.php?t=${encodedText}&tl=th&sv=&vn=&pitch=0.5&rate=0.5&vol=1`;
+            } else {
+                let googleLang = selectedLanguage;
+                if (selectedLanguage === 'cn') googleLang = 'zh-CN';
+                if (selectedLanguage === 'jp') googleLang = 'ja';
+                if (selectedLanguage === 'kr') googleLang = 'ko';
+
+                ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${googleLang}&client=tw-ob&q=${encodedText}`;
+            }
+
+            const audio = new Audio(ttsUrl);
+            audio.play().catch(err => console.log('TTS error:', err));
+        }
+
+        function showLoading(text = 'Loading...') {
+            $('#loadingText').text(text);
+            $('#loadingOverlay').addClass('active');
+        }
+
+        function hideLoading() {
+            $('#loadingOverlay').removeClass('active');
+        }
+
     </script>
 </body>
 </html>
