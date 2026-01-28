@@ -1,4 +1,9 @@
 <?php
+// ⚠️ FIX 3: เพิ่ม error reporting เพื่อดู error
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // ไม่แสดง error บนหน้าจอ
+ini_set('log_errors', 1); // บันทึก error ใน log
+
 header('Content-Type: application/json');
 require_once(__DIR__ . '/../../lib/connect.php');
 require_once(__DIR__ . '/../../lib/send_mail.php');
@@ -20,6 +25,9 @@ try {
     $language = trim($_POST['language'] ?? $_SESSION['selected_language'] ?? 'th');
     
     error_log("=== REGISTER USER DEBUG ===");
+    error_log("Name: " . $name);
+    error_log("Email: " . $email);
+    error_log("Phone: " . $phone);
     error_log("AI Code: " . $ai_code);
     error_log("Language: " . $language);
     
@@ -38,6 +46,9 @@ try {
     
     // Check if email already exists
     $stmt = $conn->prepare("SELECT user_id FROM mb_user WHERE email = ? AND del = 0");
+    if (!$stmt) {
+        throw new Exception("Database prepare error: " . $conn->error);
+    }
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -49,6 +60,9 @@ try {
     
     // Check if phone already exists
     $stmt = $conn->prepare("SELECT user_id FROM mb_user WHERE phone_number = ? AND del = 0");
+    if (!$stmt) {
+        throw new Exception("Database prepare error: " . $conn->error);
+    }
     $stmt->bind_param("s", $phone);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -80,8 +94,17 @@ try {
              verify, phone_verified, email_verified, confirm_email, del, date_create, date_update)
             VALUES (?, ?, ?, ?, ?, ?, 'email', 0, 0, 0, 0, 0, NOW(), NOW())
         ");
+        
+        if (!$stmt) {
+            throw new Exception("Database prepare error: " . $conn->error);
+        }
+        
         $stmt->bind_param("ssssss", $first_name, $last_name, $email, $phone, $hashedPassword, $otp);
-        $stmt->execute();
+        
+        if (!$stmt->execute()) {
+            throw new Exception("Database execute error: " . $stmt->error);
+        }
+        
         $user_id = $conn->insert_id;
         $stmt->close();
         
@@ -93,8 +116,17 @@ try {
             INSERT INTO acc_user_roles (user_id, role_id)
             VALUES (?, ?)
         ");
+        
+        if (!$stmt) {
+            throw new Exception("Database prepare error (roles): " . $conn->error);
+        }
+        
         $stmt->bind_param("ii", $user_id, $role_id);
-        $stmt->execute();
+        
+        if (!$stmt->execute()) {
+            throw new Exception("Database execute error (roles): " . $stmt->error);
+        }
+        
         $stmt->close();
         
         $companion_id = null;
@@ -110,61 +142,81 @@ try {
                 WHERE ai_code = ? AND status = 1 AND del = 0
                 LIMIT 1
             ");
-            $stmt->bind_param("s", $ai_code);
-            $stmt->execute();
-            $result = $stmt->get_result();
-            $ai = $result->fetch_assoc();
-            $stmt->close();
             
-            if ($ai) {
-                $ai_id = $ai['ai_id'];
-                error_log("Found ai_id: " . $ai_id);
-                
-                // สร้าง companion
-                $stmt = $conn->prepare("
-                    INSERT INTO user_ai_companions 
-                    (ai_id, user_id, preferred_language, setup_completed, first_scan_at, last_active_at, status, del)
-                    VALUES (?, ?, ?, 0, NOW(), NOW(), 1, 0)
-                ");
-                $stmt->bind_param("iis", $ai_id, $user_id, $language);
+            if (!$stmt) {
+                error_log("Warning: Cannot prepare AI check query: " . $conn->error);
+            } else {
+                $stmt->bind_param("s", $ai_code);
                 $stmt->execute();
-                $companion_id = $conn->insert_id;
+                $result = $stmt->get_result();
+                $ai = $result->fetch_assoc();
                 $stmt->close();
                 
-                error_log("Created companion_id: " . $companion_id);
-                
-                $_SESSION['companion_id'] = $companion_id;
-            } else {
-                error_log("AI code not found: " . $ai_code);
+                if ($ai) {
+                    $ai_id = $ai['ai_id'];
+                    error_log("Found ai_id: " . $ai_id);
+                    
+                    // สร้าง companion
+                    $stmt = $conn->prepare("
+                        INSERT INTO user_ai_companions 
+                        (ai_id, user_id, preferred_language, setup_completed, first_scan_at, last_active_at, status, del)
+                        VALUES (?, ?, ?, 0, NOW(), NOW(), 1, 0)
+                    ");
+                    
+                    if (!$stmt) {
+                        error_log("Warning: Cannot prepare companion insert: " . $conn->error);
+                    } else {
+                        $stmt->bind_param("iis", $ai_id, $user_id, $language);
+                        
+                        if ($stmt->execute()) {
+                            $companion_id = $conn->insert_id;
+                            error_log("Created companion_id: " . $companion_id);
+                            $_SESSION['companion_id'] = $companion_id;
+                        } else {
+                            error_log("Warning: Cannot insert companion: " . $stmt->error);
+                        }
+                        
+                        $stmt->close();
+                    }
+                } else {
+                    error_log("AI code not found: " . $ai_code);
+                }
             }
         } else {
             error_log("No valid AI code provided");
         }
         
-        // 🔧 แก้: ส่ง OTP via email พร้อม error handling
+        // ⚠️ FIX 4: ส่ง OTP via email พร้อม try-catch แยก
         error_log("Attempting to send OTP email to: " . $email);
         $emailSent = false;
+        $emailError = null;
         
         try {
-            $emailSent = sendEmail($email, 'register', $user_id, $otp);
+            // ⚠️ สำคัญ: ใช้ @ เพื่อป้องกัน fatal error จากการส่งอีเมล
+            $emailSent = @sendEmail($email, 'register', $user_id, $otp);
             
             if ($emailSent) {
                 error_log("✅ OTP email sent successfully to: " . $email);
             } else {
                 error_log("⚠️ OTP email send returned false to: " . $email);
+                $emailError = "Email send failed but registration completed";
             }
             
         } catch (Exception $emailException) {
-            // 🔧 แก้: ถ้าส่ง email ไม่สำเร็จ ให้ log error แต่ไม่ rollback transaction
             error_log("❌ Email send exception: " . $emailException->getMessage());
             error_log("Email exception file: " . $emailException->getFile() . " (Line: " . $emailException->getLine() . ")");
+            $emailError = $emailException->getMessage();
+        } catch (Error $emailError) {
+            // จับ Fatal Error ด้วย (PHP 7+)
+            error_log("❌ Email fatal error: " . $emailError->getMessage());
+            $emailError = "Fatal error during email send: " . $emailError->getMessage();
         }
         
-        // 🔧 แก้: Commit transaction แม้ว่าอีเมลจะส่งไม่สำเร็จ (ให้ user register ได้)
+        // Commit transaction (ไม่ว่าอีเมลจะส่งสำเร็จหรือไม่)
         $conn->commit();
         error_log("Transaction committed successfully");
         
-        // 🔧 แก้: ปรับ response ตามสถานะการส่งอีเมล
+        // สร้าง response
         if ($emailSent) {
             $response = [
                 'status' => 'success',
@@ -173,14 +225,13 @@ try {
                 'method' => 'email'
             ];
         } else {
-            // ถ้าส่งอีเมลไม่สำเร็จ ให้แจ้งว่าสามารถใช้ OTP จาก log ได้ (dev mode)
-            // หรือให้ติดต่อ admin
             $response = [
                 'status' => 'success',
-                'message' => 'Registration successful, but email send failed. Please contact support.',
+                'message' => 'Registration successful, but email send failed. Please contact support for OTP.',
                 'user_id' => $user_id,
                 'method' => 'email',
-                'email_sent' => false
+                'email_sent' => false,
+                'email_error' => $emailError
             ];
         }
         
@@ -189,7 +240,7 @@ try {
             $response['companion_id'] = $companion_id;
         }
         
-        // ⚠️ DEVELOPMENT ONLY - Remove in production
+        // ⚠️ DEVELOPMENT ONLY - แสดง OTP ใน response
         if (defined('DEVELOPMENT_MODE') && DEVELOPMENT_MODE === true) {
             $response['dev_otp'] = $otp;
         }
@@ -206,6 +257,14 @@ try {
         'message' => $e->getMessage()
     ];
     error_log("ERROR in register_user.php: " . $e->getMessage());
+    error_log("Error file: " . $e->getFile() . " (Line: " . $e->getLine() . ")");
+} catch (Error $e) {
+    // จับ Fatal Error ด้วย
+    $response = [
+        'status' => 'error',
+        'message' => 'Fatal error: ' . $e->getMessage()
+    ];
+    error_log("FATAL ERROR in register_user.php: " . $e->getMessage());
     error_log("Error file: " . $e->getFile() . " (Line: " . $e->getLine() . ")");
 }
 
