@@ -8,7 +8,7 @@ if (session_status() == PHP_SESSION_NONE) {
 
 // รับ parameters
 $ai_code = $_GET['ai_code'] ?? $_SESSION['pending_ai_code'] ?? '';
-$lang = $_GET['lang'] ?? $_SESSION['pending_ai_lang'] ?? 'th';
+$lang = $_GET['lang'] ?? $_SESSION['pending_ai_lang'] ?? 'en'; // Default to English
 
 // Validate AI code
 if (empty($ai_code) || !preg_match('/^AI-[A-Z0-9]{8,}$/i', $ai_code)) {
@@ -40,10 +40,16 @@ $_SESSION['pending_ai_lang'] = $lang;
 
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+            background: #000;
             min-height: 100vh;
             color: #fff;
             display: flex;
+            overflow-x: hidden;
+        }
+        
+        /* Pure black background for intro */
+        body.intro-mode {
+            background: #000;
         }
 
         /* AI Avatar Sidebar */
@@ -61,22 +67,30 @@ $_SESSION['pending_ai_lang'] = $lang;
             top: 0;
             height: 100vh;
             z-index: 100;
+            opacity: 0;
+            transform: translateX(-100%);
+            transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
         }
 
-        .ai-avatar-circle {
-            width: 200px;
-            height: 200px;
-            border-radius: 50%;
-            overflow: hidden;
-            border: 4px solid rgba(120, 119, 198, 0.3);
-            box-shadow: 0 20px 60px rgba(120, 119, 198, 0.4);
-            margin-bottom: 30px;
+        .ai-sidebar.show {
+            opacity: 1;
+            transform: translateX(0);
         }
 
-        .ai-avatar-circle img {
+        /* Minimal Video Avatar - No Circle Border */
+        .ai-avatar-container {
             width: 100%;
-            height: 100%;
+            max-width: 280px;
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .ai-avatar-container video {
+            width: 100%;
+            height: auto;
             object-fit: cover;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
         }
 
         .ai-name-sidebar {
@@ -93,6 +107,19 @@ $_SESSION['pending_ai_lang'] = $lang;
             display: flex;
             align-items: center;
             gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
         
         /* AI Speech Bubble */
@@ -150,36 +177,90 @@ $_SESSION['pending_ai_lang'] = $lang;
             position: relative;
             z-index: 1;
         }
-        
-        /* Typing animation dots */
-        @keyframes typingDots {
-            0%, 20% { content: '.'; }
-            40% { content: '..'; }
-            60%, 100% { content: '...'; }
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #22c55e;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
 
         /* Main Content */
         .main-content {
-            margin-left: 400px;
+            margin-left: 0;
             flex: 1;
             padding: 60px 80px;
             display: flex;
             align-items: center;
             justify-content: center;
             min-height: 100vh;
+            background: #000;
+            transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .main-content.with-sidebar {
+            margin-left: 400px;
+            background: linear-gradient(135deg, #0f0f0f 0%, #1a1a1a 100%);
+        }
+
+        /* Intro Screen - Pure Black Background */
+        .intro-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            width: 100%;
+            max-width: 600px;
+            animation: fadeIn 0.8s ease;
+        }
+
+        .intro-screen.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .intro-video-container {
+            width: 350px;
+            height: 350px;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        .intro-video-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 20px;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8);
+        }
+
+        .intro-message {
+            font-size: 28px;
+            font-weight: 600;
+            line-height: 1.6;
+            margin-bottom: 50px;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .intro-loading {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .intro-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.4);
+            animation: dotBounce 1.4s infinite ease-in-out both;
+        }
+
+        .intro-dot:nth-child(1) { animation-delay: -0.32s; }
+        .intro-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes dotBounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
         }
 
         /* Screens */
@@ -211,6 +292,14 @@ $_SESSION['pending_ai_lang'] = $lang;
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 24px;
             padding: 50px;
+        }
+        
+        /* No card styling for intro screen */
+        .intro-screen .card {
+            background: transparent;
+            backdrop-filter: none;
+            border: none;
+            padding: 0;
         }
 
         .screen-title {
@@ -590,20 +679,22 @@ $_SESSION['pending_ai_lang'] = $lang;
                 padding: 30px;
                 border-right: none;
                 border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                transform: translateX(0);
             }
 
-            .ai-avatar-circle {
-                width: 150px;
-                height: 150px;
-            }
-
-            .main-content {
+            .main-content,
+            .main-content.with-sidebar {
                 margin-left: 0;
                 padding: 40px 30px;
             }
 
             .language-options {
                 grid-template-columns: repeat(3, 1fr);
+            }
+
+            .intro-video-container {
+                width: 280px;
+                height: 280px;
             }
         }
 
@@ -614,6 +705,15 @@ $_SESSION['pending_ai_lang'] = $lang;
 
             .language-options {
                 grid-template-columns: repeat(2, 1fr);
+            }
+
+            .intro-video-container {
+                width: 250px;
+                height: 250px;
+            }
+
+            .intro-message {
+                font-size: 22px;
             }
         }
     </style>
@@ -628,15 +728,15 @@ $_SESSION['pending_ai_lang'] = $lang;
         </div>
     </div>
 
-    <!-- AI Avatar Sidebar -->
-    <div class="ai-sidebar">
-        <div class="ai-avatar-circle">
-            <img src="" alt="AI Avatar" id="aiAvatar">
+    <!-- AI Avatar Sidebar (Hidden initially) -->
+    <div class="ai-sidebar" id="aiSidebar">
+        <div class="ai-avatar-container">
+            <video id="sidebarVideoAvatar" muted playsinline loop></video>
         </div>
         <h2 class="ai-name-sidebar" id="aiName">AI Companion</h2>
         <div class="ai-status">
             <span class="status-dot"></span>
-            <span>Setting Up</span>
+            <span id="statusText">Setting Up</span>
         </div>
         
         <!-- AI Speech Bubble -->
@@ -646,7 +746,24 @@ $_SESSION['pending_ai_lang'] = $lang;
     </div>
 
     <!-- Main Content -->
-    <div class="main-content">
+    <div class="main-content" id="mainContent">
+
+        <!-- Intro Screen - Centered Video -->
+        <div class="intro-screen active" id="introScreen">
+            <div class="intro-video-container">
+                <video id="introVideoAvatar" muted playsinline loop></video>
+            </div>
+            <div class="intro-message" id="introMessage">
+                Nice to meet you<br>
+                First, I'd like to know you better<br>
+                Please answer all the questions
+            </div>
+            <div class="intro-loading">
+                <div class="intro-dot"></div>
+                <div class="intro-dot"></div>
+                <div class="intro-dot"></div>
+            </div>
+        </div>
 
         <!-- 1. Language Selection Screen -->
         <div class="screen" id="languageScreen">
@@ -816,7 +933,7 @@ $_SESSION['pending_ai_lang'] = $lang;
     <script>
         // ========== Global Variables ==========
         const aiCode = '<?= $ai_code ?>';
-        let selectedLanguage = '<?= $lang ?>';
+        let selectedLanguage = 'en'; // Force English as default
         let jwt = sessionStorage.getItem('jwt');
         let companionId = null;
         let userId = null;
@@ -825,10 +942,30 @@ $_SESSION['pending_ai_lang'] = $lang;
         let currentQuestionIndex = 0;
         let answers = {};
 
+        // ========== Intro Messages (5 Languages) ==========
+        const introMessages = {
+            th: "ยินดีที่ได้รู้จัก<br>ก่อนอื่นผมอยากรู้จักคุณมากขึ้น<br>โปรดตอบคำถามให้ครบก่อนนะ",
+            en: "Nice to meet you<br>First, I'd like to know you better<br>Please answer all the questions",
+            cn: "很高兴认识你<br>首先，我想更好地了解你<br>请回答所有问题",
+            jp: "お会いできて嬉しいです<br>まず、あなたのことをもっと知りたいです<br>すべての質問に答えてください",
+            kr: "만나서 반가워요<br>먼저 당신을 더 잘 알고 싶어요<br>모든 질문에 답해주세요"
+        };
+        
+        // ========== Set default language to English ==========
+        if (!selectedLanguage || selectedLanguage === 'th') {
+            selectedLanguage = 'en';
+        }
+
         // ========== Initialize ==========
         $(document).ready(function() {
             console.log('🚀 Starting AI Setup Flow...');
             console.log('AI Code:', aiCode);
+            
+            // Force English as default language
+            if (!selectedLanguage || selectedLanguage === 'th') {
+                selectedLanguage = 'en';
+            }
+            
             console.log('Language:', selectedLanguage);
             console.log('JWT:', jwt ? 'Present' : 'Missing');
 
@@ -857,10 +994,6 @@ $_SESSION['pending_ai_lang'] = $lang;
                     
                     const langCol = 'ai_name_' + selectedLanguage;
                     $('#aiName').text(aiCompanionData[langCol] || aiCompanionData.ai_name_th);
-                    
-                    if (aiCompanionData.ai_avatar_url) {
-                        $('#aiAvatar').attr('src', aiCompanionData.ai_avatar_url);
-                    }
                 }
             } catch (error) {
                 console.error('Failed to load AI data:', error);
@@ -870,7 +1003,10 @@ $_SESSION['pending_ai_lang'] = $lang;
         // ========== Start Setup Flow ==========
         function startSetupFlow() {
             if (!jwt) {
-                showLanguageScreen();
+                // Show intro first, then language selection
+                setTimeout(() => {
+                    showLanguageScreen();
+                }, 4000); // Show intro for 4 seconds
             } else {
                 checkCompanionExists();
             }
@@ -911,19 +1047,30 @@ $_SESSION['pending_ai_lang'] = $lang;
 
         // ========== 1. Language Selection ==========
         function showLanguageScreen() {
-            $('.screen').removeClass('active');
-            $('#languageScreen').addClass('active');
+            // Hide intro, show language screen with sidebar
+            $('#introScreen').removeClass('active');
+            $('#mainContent').addClass('with-sidebar');
+            $('#aiSidebar').addClass('show');
             
-            // ✅ Speak language selection prompt
-            if (typeof playSetupVoiceMessage === 'function') {
-                playSetupVoiceMessage('choose_language');
-            }
+            setTimeout(() => {
+                $('.screen').removeClass('active');
+                $('#languageScreen').addClass('active');
+                
+                // ✅ Speak language selection prompt
+                if (typeof playSetupVoiceMessage === 'function') {
+                    playSetupVoiceMessage('choose_language');
+                }
+            }, 600);
         }
 
         $('.language-option').on('click', function() {
             $('.language-option').removeClass('selected');
             $(this).addClass('selected');
             selectedLanguage = $(this).data('lang');
+            
+            // Update intro message
+            $('#introMessage').html(introMessages[selectedLanguage]);
+            
             $('#btnConfirmLanguage').prop('disabled', false);
             
             // ✅ Speak in selected language
@@ -934,18 +1081,44 @@ $_SESSION['pending_ai_lang'] = $lang;
 
         $('#btnConfirmLanguage').on('click', function() {
             $(this).prop('disabled', true);
-            showRegisterScreen();
+            
+            // ✅ Show intro again with message in selected language
+            showIntroToRegister();
         });
 
-        // ========== 2. Register ==========
-        function showRegisterScreen() {
+        // ========== Show Intro Before Register ==========
+        function showIntroToRegister() {
+            // Hide sidebar and language screen
+            $('#aiSidebar').removeClass('show');
+            $('#mainContent').removeClass('with-sidebar');
             $('.screen').removeClass('active');
-            $('#registerScreen').addClass('active');
             
-            // ✅ Speak register prompt
+            // Show intro screen with selected language message
+            $('#introMessage').html(introMessages[selectedLanguage]);
+            $('#introScreen').addClass('active');
+            
+            // ✅ Speak the intro message
             if (typeof playSetupVoiceMessage === 'function') {
                 playSetupVoiceMessage('please_register');
             }
+            
+            // After 3 seconds, show register screen
+            setTimeout(() => {
+                showRegisterScreen();
+            }, 3000);
+        }
+
+        // ========== 2. Register ==========
+        function showRegisterScreen() {
+            // Show sidebar and register screen
+            $('#introScreen').removeClass('active');
+            $('#mainContent').addClass('with-sidebar');
+            $('#aiSidebar').addClass('show');
+            
+            setTimeout(() => {
+                $('.screen').removeClass('active');
+                $('#registerScreen').addClass('active');
+            }, 600);
         }
 
         $('#registerForm').on('submit', function(e) {
