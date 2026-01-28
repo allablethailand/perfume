@@ -9,7 +9,6 @@ try {
 
     ob_clean();
 
-    // ตรวจสอบ Connection
     if (!$conn || $conn->connect_error) {
         throw new Exception("Database connection failed: " . ($conn ? $conn->connect_error : "No connection"));
     }
@@ -27,17 +26,12 @@ try {
 
     if (isset($_POST['action']) && $_POST['action'] == 'sendOTP') {
         
-        // รับข้อมูล
         $otp_data = array(
             'user_id' => isset($_POST['userId']) ? intval($_POST['userId']) : 0,
             'otp_code' => isset($_POST['otpCode']) ? intval($_POST['otpCode']) : 0,
             'method' => isset($_POST['method']) ? $_POST['method'] : 'email'
         );
 
-        // Log ข้อมูล (เพื่อ Debug)
-        error_log("OTP Request: " . json_encode($otp_data));
-
-        // Validate input
         if ($otp_data['user_id'] <= 0) {
             throw new Exception("Invalid user ID: " . $otp_data['user_id']);
         }
@@ -46,10 +40,11 @@ try {
             throw new Exception("Invalid OTP code: " . $otp_data['otp_code']);
         }
 
-        // Query 1: ตรวจสอบ OTP
-        $sql = "SELECT COUNT(user_id) as total, login_method 
+        // Query 1: ตรวจสอบ OTP (แก้ไขแล้ว - ไม่ใช้ COUNT กับ column อื่น)
+        $sql = "SELECT login_method 
                 FROM mb_user 
-                WHERE user_id = ? AND generate_otp = ? AND del = 0";
+                WHERE user_id = ? AND generate_otp = ? AND del = 0
+                LIMIT 1";
         
         $stmt = $conn->prepare($sql);
         
@@ -67,16 +62,9 @@ try {
         $stmt->close();
         $stmt = null;
 
-        if (!$row) {
-            throw new Exception("No data returned from query");
-        }
-
-        error_log("Query result: " . json_encode($row));
-
-        $login_method = $row['login_method'];
-        $otp_match = intval($row['total']) > 0;
-
-        if ($otp_match) {
+        if ($row) {
+            // OTP ถูกต้อง
+            $login_method = $row['login_method'];
             
             // Query 2: อัพเดทสถานะ
             if ($login_method == 'email') {
@@ -102,17 +90,14 @@ try {
 
             $generate_otp = generateOTPnew();
 
-            $stmt->bind_param("ii", $generate_otp, $otp_data['user_id']);
+            $stmt->bind_param("si", $generate_otp, $otp_data['user_id']);
 
             if (!$stmt->execute()) {
                 throw new Exception("Execute failed (Query 2): " . $stmt->error);
             }
 
-            $affected = $stmt->affected_rows;
             $stmt->close();
             $stmt = null;
-
-            error_log("Rows affected: " . $affected);
 
             $response['status'] = 'succeed';
             if ($login_method == 'email') {
@@ -122,6 +107,7 @@ try {
             }
             
         } else {
+            // OTP ไม่ถูกต้อง
             $response['status'] = 'error';
             $response['message'] = 'Invalid OTP code. Please try again.';
         }
@@ -133,11 +119,8 @@ try {
 } catch (Exception $e) {
     $response['status'] = 'error';
     $response['message'] = $e->getMessage();
-    error_log("OTP Error: " . $e->getMessage());
-    error_log("Stack trace: " . $e->getTraceAsString());
 }
 
-// ปิด Resources
 if (isset($stmt) && $stmt instanceof mysqli_stmt) {
     $stmt->close();
 }
@@ -146,7 +129,6 @@ if (isset($conn) && $conn instanceof mysqli) {
     $conn->close();
 }
 
-// ส่ง JSON Response
 ob_end_clean();
 echo json_encode($response, JSON_UNESCAPED_UNICODE);
 exit;
