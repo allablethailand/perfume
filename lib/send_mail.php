@@ -38,8 +38,8 @@ function sendEmail($to, $type_mes, $id, $otp)
         // SMTP Settings - Gmail
         // ========================================
         $mail->Host = 'smtp.gmail.com';
-        $mail->Username = 'apisit@origami.life'; // หรือใช้ email ที่ต้องการ
-        $mail->Password = 'mckr ncsd omuz fkfa'; // App Password จาก Google
+        $mail->Username = 'std.nk36116@gmail.com'; // หรือใช้ email ที่ต้องการ
+        $mail->Password = 'xkde obhl qmbz wzvp'; // App Password จาก Google
         
         // 🔧 แก้: ลอง TLS ก่อน (Port 587) เพราะ production บางที่บล็อก SSL (Port 465)
         $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
