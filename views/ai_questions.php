@@ -94,6 +94,69 @@ $_SESSION['pending_ai_lang'] = $lang;
             align-items: center;
             gap: 8px;
         }
+        
+        /* AI Speech Bubble */
+        .ai-speech-bubble {
+            position: relative;
+            margin-top: 30px;
+            padding: 20px 24px;
+            background: linear-gradient(135deg, rgba(120, 119, 198, 0.25) 0%, rgba(168, 167, 229, 0.2) 100%);
+            border: 2px solid rgba(120, 119, 198, 0.4);
+            border-radius: 20px;
+            max-width: 320px;
+            opacity: 0;
+            transform: translateY(-10px) scale(0.95);
+            transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 8px 24px rgba(120, 119, 198, 0.2);
+        }
+        
+        .ai-speech-bubble.show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+        
+        .ai-speech-bubble::before {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-bottom: 12px solid rgba(120, 119, 198, 0.4);
+        }
+        
+        .ai-speech-bubble::after {
+            content: '';
+            position: absolute;
+            top: -7px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-bottom: 10px solid rgba(120, 119, 198, 0.25);
+        }
+        
+        .ai-speech-text {
+            color: #fff;
+            font-size: 14px;
+            line-height: 1.6;
+            text-align: center;
+            margin: 0;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Typing animation dots */
+        @keyframes typingDots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
 
         .status-dot {
             width: 8px;
@@ -195,8 +258,18 @@ $_SESSION['pending_ai_lang'] = $lang;
         }
 
         .language-flag {
-            font-size: 32px;
-            margin-bottom: 8px;
+            width: 48px;
+            height: 36px;
+            margin: 0 auto 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+        
+        .language-flag img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
         }
 
         .language-name {
@@ -479,6 +552,31 @@ $_SESSION['pending_ai_lang'] = $lang;
             font-size: 16px;
         }
 
+        /* Text Input */
+        #textAnswerInput {
+            width: 100%;
+            padding: 16px 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            color: #fff;
+            font-size: 15px;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+
+        #textAnswerInput:focus {
+            outline: none;
+            border-color: #7877c6;
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 0 0 4px rgba(120, 119, 198, 0.1);
+        }
+
+        #textAnswerInput::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
         /* Responsive */
         @media (max-width: 992px) {
             body {
@@ -518,30 +616,6 @@ $_SESSION['pending_ai_lang'] = $lang;
                 grid-template-columns: repeat(2, 1fr);
             }
         }
-        /* Text Input */
-#textAnswerInput {
-    width: 100%;
-    padding: 16px 20px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    border-radius: 12px;
-    color: #fff;
-    font-size: 15px;
-    font-family: 'Inter', sans-serif;
-    transition: all 0.3s;
-    margin-bottom: 20px;
-}
-
-#textAnswerInput:focus {
-    outline: none;
-    border-color: #7877c6;
-    background: rgba(255, 255, 255, 0.08);
-    box-shadow: 0 0 0 4px rgba(120, 119, 198, 0.1);
-}
-
-#textAnswerInput::placeholder {
-    color: rgba(255, 255, 255, 0.3);
-}
     </style>
 </head>
 <body>
@@ -564,6 +638,11 @@ $_SESSION['pending_ai_lang'] = $lang;
             <span class="status-dot"></span>
             <span>Setting Up</span>
         </div>
+        
+        <!-- AI Speech Bubble -->
+        <div class="ai-speech-bubble" id="aiSpeechBubble">
+            <p class="ai-speech-text" id="aiSpeechText">Welcome!</p>
+        </div>
     </div>
 
     <!-- Main Content -->
@@ -577,23 +656,33 @@ $_SESSION['pending_ai_lang'] = $lang;
                 
                 <div class="language-options">
                     <div class="language-option" data-lang="th">
-                        <div class="language-flag">🇹🇭</div>
+                        <div class="language-flag">
+                            <img src="https://flagcdn.com/th.svg" alt="Thai">
+                        </div>
                         <div class="language-name">ไทย</div>
                     </div>
                     <div class="language-option" data-lang="en">
-                        <div class="language-flag">🇺🇸</div>
+                        <div class="language-flag">
+                            <img src="https://flagcdn.com/gb.svg" alt="English">
+                        </div>
                         <div class="language-name">English</div>
                     </div>
                     <div class="language-option" data-lang="cn">
-                        <div class="language-flag">🇨🇳</div>
+                        <div class="language-flag">
+                            <img src="https://flagcdn.com/cn.svg" alt="Chinese">
+                        </div>
                         <div class="language-name">中文</div>
                     </div>
                     <div class="language-option" data-lang="jp">
-                        <div class="language-flag">🇯🇵</div>
+                        <div class="language-flag">
+                            <img src="https://flagcdn.com/jp.svg" alt="Japanese">
+                        </div>
                         <div class="language-name">日本語</div>
                     </div>
                     <div class="language-option" data-lang="kr">
-                        <div class="language-flag">🇰🇷</div>
+                        <div class="language-flag">
+                            <img src="https://flagcdn.com/kr.svg" alt="Korean">
+                        </div>
                         <div class="language-name">한국어</div>
                     </div>
                 </div>
@@ -723,6 +812,7 @@ $_SESSION['pending_ai_lang'] = $lang;
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="app/js/ai_setup_avatar.js?v=<?php echo time(); ?>"></script>
     <script>
         // ========== Global Variables ==========
         const aiCode = '<?= $ai_code ?>';
@@ -735,26 +825,6 @@ $_SESSION['pending_ai_lang'] = $lang;
         let currentQuestionIndex = 0;
         let answers = {};
 
-        // Voice Messages
-        const voiceMessages = {
-            choose_language: {
-                th: 'สวัสดีค่ะ กรุณาเลือกภาษาที่คุณต้องการใช้งาน',
-                en: 'Hello! Please choose your preferred language'
-            },
-            please_register: {
-                th: 'คุณยังไม่มีบัญชี กรุณาสมัครสมาชิกก่อนนะคะ',
-                en: 'You do not have an account yet. Please register first'
-            },
-            please_login: {
-                th: 'กรุณาเข้าสู่ระบบเพื่อเริ่มใช้งาน',
-                en: 'Please log in to continue'
-            },
-            answer_questions: {
-                th: 'ตอนนี้กรุณาตอบคำถามเพื่อให้ฉันรู้จักคุณมากขึ้น',
-                en: 'Now please answer some questions so I can get to know you better'
-            }
-        };
-
         // ========== Initialize ==========
         $(document).ready(function() {
             console.log('🚀 Starting AI Setup Flow...');
@@ -763,6 +833,12 @@ $_SESSION['pending_ai_lang'] = $lang;
             console.log('JWT:', jwt ? 'Present' : 'Missing');
 
             loadAIData();
+            
+            // ✅ Initialize Avatar System
+            if (typeof initSetupAvatar === 'function') {
+                initSetupAvatar();
+            }
+            
             startSetupFlow();
         });
 
@@ -793,12 +869,9 @@ $_SESSION['pending_ai_lang'] = $lang;
 
         // ========== Start Setup Flow ==========
         function startSetupFlow() {
-            // Check if user is logged in
             if (!jwt) {
-                // Not logged in → Show language selection
                 showLanguageScreen();
             } else {
-                // Logged in → Check if companion exists
                 checkCompanionExists();
             }
         }
@@ -824,10 +897,8 @@ $_SESSION['pending_ai_lang'] = $lang;
                         await loadQuestions();
                         showQuestionsScreen();
                     } else if (response.step === 'ready_to_chat') {
-                        // Already complete → Go to chat
                         window.location.href = '?ai_chat_3d&ai_code=' + aiCode + '&lang=' + selectedLanguage;
                     } else {
-                        // Need register
                         showLanguageScreen();
                     }
                 }
@@ -842,7 +913,11 @@ $_SESSION['pending_ai_lang'] = $lang;
         function showLanguageScreen() {
             $('.screen').removeClass('active');
             $('#languageScreen').addClass('active');
-            speakText(voiceMessages.choose_language[selectedLanguage]);
+            
+            // ✅ Speak language selection prompt
+            if (typeof playSetupVoiceMessage === 'function') {
+                playSetupVoiceMessage('choose_language');
+            }
         }
 
         $('.language-option').on('click', function() {
@@ -850,7 +925,11 @@ $_SESSION['pending_ai_lang'] = $lang;
             $(this).addClass('selected');
             selectedLanguage = $(this).data('lang');
             $('#btnConfirmLanguage').prop('disabled', false);
-            speakText(voiceMessages.choose_language[selectedLanguage]);
+            
+            // ✅ Speak in selected language
+            if (typeof playSetupVoiceMessage === 'function') {
+                playSetupVoiceMessage('choose_language');
+            }
         });
 
         $('#btnConfirmLanguage').on('click', function() {
@@ -862,7 +941,11 @@ $_SESSION['pending_ai_lang'] = $lang;
         function showRegisterScreen() {
             $('.screen').removeClass('active');
             $('#registerScreen').addClass('active');
-            speakText(voiceMessages.please_register[selectedLanguage]);
+            
+            // ✅ Speak register prompt
+            if (typeof playSetupVoiceMessage === 'function') {
+                playSetupVoiceMessage('please_register');
+            }
         }
 
         $('#registerForm').on('submit', function(e) {
@@ -903,6 +986,11 @@ $_SESSION['pending_ai_lang'] = $lang;
                             sessionStorage.setItem('user_companion_id', companionId);
                         }
 
+                        // ✅ Speak success message
+                        if (typeof playSetupVoiceMessage === 'function') {
+                            playSetupVoiceMessage('registration_success');
+                        }
+
                         $('#otpContact').text(email);
                         showOTPScreen();
                     } else {
@@ -927,6 +1015,11 @@ $_SESSION['pending_ai_lang'] = $lang;
             $('#otpScreen').addClass('active');
             $('.otp-input').val('');
             $('#otp1').focus();
+            
+            // ✅ Speak OTP prompt
+            if (typeof playSetupVoiceMessage === 'function') {
+                playSetupVoiceMessage('otp_sent');
+            }
         }
 
         $('.otp-input').on('input', function() {
@@ -966,6 +1059,11 @@ $_SESSION['pending_ai_lang'] = $lang;
                     hideLoading();
 
                     if (response.status === 'succeed') {
+                        // ✅ Speak verification success
+                        if (typeof playSetupVoiceMessage === 'function') {
+                            playSetupVoiceMessage('otp_verified');
+                        }
+                        
                         Swal.fire({
                             icon: 'success',
                             title: 'Verified!',
@@ -990,7 +1088,11 @@ $_SESSION['pending_ai_lang'] = $lang;
         function showLoginScreen() {
             $('.screen').removeClass('active');
             $('#loginScreen').addClass('active');
-            speakText(voiceMessages.please_login[selectedLanguage]);
+            
+            // ✅ Speak login prompt
+            if (typeof playSetupVoiceMessage === 'function') {
+                playSetupVoiceMessage('please_login');
+            }
         }
 
         $('#loginForm').on('submit', function(e) {
@@ -1010,6 +1112,11 @@ $_SESSION['pending_ai_lang'] = $lang;
                     if (response.status === 'success') {
                         jwt = response.jwt;
                         sessionStorage.setItem('jwt', jwt);
+
+                        // ✅ Speak login success
+                        if (typeof playSetupVoiceMessage === 'function') {
+                            playSetupVoiceMessage('login_success');
+                        }
 
                         checkCompanionExists();
                     } else {
@@ -1052,7 +1159,11 @@ $_SESSION['pending_ai_lang'] = $lang;
         function showQuestionsScreen() {
             $('.screen').removeClass('active');
             $('#questionsScreen').addClass('active');
-            speakText(voiceMessages.answer_questions[selectedLanguage]);
+            
+            // ✅ Speak questions intro
+            if (typeof playSetupVoiceMessage === 'function') {
+                playSetupVoiceMessage('answer_questions');
+            }
 
             if (questions.length > 0) {
                 displayQuestion(0);
@@ -1073,6 +1184,11 @@ $_SESSION['pending_ai_lang'] = $lang;
             const langCol = 'question_text_' + selectedLanguage;
             const questionText = question[langCol] || question.question_text_th;
             $('#questionText').text(questionText);
+
+            // ✅ Speak the question
+            if (typeof speakQuestionText === 'function') {
+                speakQuestionText(questionText);
+            }
 
             // Hide all input types first
             $('#choicesContainer').empty().hide();
@@ -1139,7 +1255,6 @@ $_SESSION['pending_ai_lang'] = $lang;
             $('#scaleContainer').show();
             $('#scaleOptions').empty();
 
-            // Create scale options 1-5
             for (let i = 1; i <= 5; i++) {
                 const $scale = $(`<div class="scale-option" data-value="${i}">${i}</div>`);
                 $('#scaleOptions').append($scale);
@@ -1163,7 +1278,6 @@ $_SESSION['pending_ai_lang'] = $lang;
             $('#choicesContainer').hide();
             $('#scaleContainer').hide();
             
-            // Create text input if not exists
             if ($('#textAnswerInput').length === 0) {
                 const textInputHtml = `
                     <textarea 
@@ -1237,6 +1351,11 @@ $_SESSION['pending_ai_lang'] = $lang;
                     hideLoading();
 
                     if (response.status === 'success') {
+                        // ✅ Speak completion message
+                        if (typeof playSetupVoiceMessage === 'function') {
+                            playSetupVoiceMessage('setup_complete');
+                        }
+                        
                         Swal.fire({
                             icon: 'success',
                             title: 'Complete!',
@@ -1258,29 +1377,14 @@ $_SESSION['pending_ai_lang'] = $lang;
         }
 
         // ========== Utils ==========
-        function speakText(text) {
-            console.log('🔊 Speaking:', text);
-            const encodedText = encodeURIComponent(text);
-            let ttsUrl;
-
-            if (selectedLanguage === 'th') {
-                ttsUrl = `https://code.responsivevoice.org/getvoice.php?t=${encodedText}&tl=th&sv=&vn=&pitch=0.5&rate=0.5&vol=1`;
-            } else {
-                let googleLang = selectedLanguage;
-                if (selectedLanguage === 'cn') googleLang = 'zh-CN';
-                if (selectedLanguage === 'jp') googleLang = 'ja';
-                if (selectedLanguage === 'kr') googleLang = 'ko';
-
-                ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${googleLang}&client=tw-ob&q=${encodedText}`;
-            }
-
-            const audio = new Audio(ttsUrl);
-            audio.play().catch(err => console.log('TTS error:', err));
-        }
-
         function showLoading(text = 'Loading...') {
             $('#loadingText').text(text);
             $('#loadingOverlay').addClass('active');
+            
+            // ✅ Speak processing message
+            if (typeof playSetupVoiceMessage === 'function') {
+                playSetupVoiceMessage('processing');
+            }
         }
 
         function hideLoading() {
