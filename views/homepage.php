@@ -471,7 +471,7 @@ if ($ticker_result && $ticker_result->num_rows > 0) {
                                  class="product-image"
                                  loading="lazy">
                             <div class="product-price-overlay">
-                                ฿<?= number_format($product['price'], 2) ?>
+                                ฿<?= number_format($product['price'] * (1 + $product['vat_percentage'] / 100), 0) ?>
                             </div>
                         </div>
                         <h3 class="product-name"><?= htmlspecialchars($product['product_name']) ?></h3>

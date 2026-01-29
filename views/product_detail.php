@@ -604,10 +604,10 @@ $page_title = $product['product_name'];
                 <h1 class="product-title"><?= htmlspecialchars($product['product_name']) ?></h1>
                 
                 <div class="product-price">
-                    ฿<?= number_format($product['price'], 2) ?>
+                    ฿<?= number_format($product['price'] * (1 + $product['vat_percentage'] / 100), 0) ?>
                 </div>
                 <div class="price-note">
-                    <?= $lang === 'en' ? 'Excluding VAT' : ($lang === 'cn' ? '不含增值税' : ($lang === 'jp' ? '税抜' : ($lang === 'kr' ? '부가세 제외' : 'ยังไม่รวม VAT'))) ?>
+                    <?= $lang === 'en' ? 'Including VAT' : ($lang === 'cn' ? '含增值税' : ($lang === 'jp' ? '税込' : ($lang === 'kr' ? '부가세 포함' : 'รวม VAT แล้ว'))) ?>
                 </div>
 
                 <!-- ✅ Stock Info -->
