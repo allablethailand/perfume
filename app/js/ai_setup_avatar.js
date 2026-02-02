@@ -7,9 +7,10 @@
  * ✅ Multi-language voice support
  * ✅ Added Last Name field
  * ✅ Voice feedback when selecting language
- * ✅ Voice feedback when selecting choices (NEW)
+ * ✅ Voice feedback when selecting choices
  * ✅ Back button to edit previous answers
  * ✅ Better login UI with chat display
+ * ✅ Edit registration fields before confirm (NEW)
  */
 
 // ========== Global Variables ==========
@@ -146,7 +147,7 @@ const conversationMessages = {
     }
 };
 
-// ========== Choice Feedback Templates (NEW) ==========
+// ========== Choice Feedback Templates ==========
 const choiceFeedbackTemplates = {
     th: [
         "เข้าใจแล้ว คุณเลือก {choice}",
@@ -185,7 +186,7 @@ const choiceFeedbackTemplates = {
     ]
 };
 
-// ========== Scale Feedback Templates (NEW) ==========
+// ========== Scale Feedback Templates ==========
 const scaleFeedbackTemplates = {
     th: [
         "โอเค คุณให้คะแนน {value} คะแนน",
@@ -219,7 +220,7 @@ const scaleFeedbackTemplates = {
     ]
 };
 
-// ========== Get Random Feedback (NEW) ==========
+// ========== Get Random Feedback ==========
 function getChoiceFeedback(choiceText) {
     const templates = choiceFeedbackTemplates[selectedLanguage] || choiceFeedbackTemplates['en'];
     const randomTemplate = templates[Math.floor(Math.random() * templates.length)];
@@ -629,7 +630,7 @@ function handleUserInput() {
     }, 800);
 }
 
-// ========== Show Registration Confirmation ==========
+// ========== Show Registration Confirmation (WITH EDIT BUTTONS) ==========
 function showRegistrationConfirmation() {
     const message = conversationMessages.confirm_registration[selectedLanguage];
     addChatMessage('ai', message);
@@ -637,25 +638,59 @@ function showRegistrationConfirmation() {
     
     const html = `
         <div class="registration-summary">
-            <div class="summary-item">
-                <span class="summary-label">${selectedLanguage === 'th' ? 'ชื่อ' : 'First Name'}:</span>
-                <span class="summary-value">${escapeHtml(registrationData.name)}</span>
+            <!-- First Name -->
+            <div class="summary-item" id="summaryName">
+                <div style="flex: 1;">
+                    <span class="summary-label">${selectedLanguage === 'th' ? 'ชื่อ' : 'First Name'}:</span>
+                    <span class="summary-value">${escapeHtml(registrationData.name)}</span>
+                </div>
+                <button class="edit-field-btn" data-field="name">
+                    <i class="fas fa-edit"></i>
+                </button>
             </div>
-            <div class="summary-item">
-                <span class="summary-label">${selectedLanguage === 'th' ? 'นามสกุล' : 'Last Name'}:</span>
-                <span class="summary-value">${escapeHtml(registrationData.lastname)}</span>
+            
+            <!-- Last Name -->
+            <div class="summary-item" id="summaryLastname">
+                <div style="flex: 1;">
+                    <span class="summary-label">${selectedLanguage === 'th' ? 'นามสกุล' : 'Last Name'}:</span>
+                    <span class="summary-value">${escapeHtml(registrationData.lastname)}</span>
+                </div>
+                <button class="edit-field-btn" data-field="lastname">
+                    <i class="fas fa-edit"></i>
+                </button>
             </div>
-            <div class="summary-item">
-                <span class="summary-label">${selectedLanguage === 'th' ? 'อีเมล' : 'Email'}:</span>
-                <span class="summary-value">${escapeHtml(registrationData.email)}</span>
+            
+            <!-- Email -->
+            <div class="summary-item" id="summaryEmail">
+                <div style="flex: 1;">
+                    <span class="summary-label">${selectedLanguage === 'th' ? 'อีเมล' : 'Email'}:</span>
+                    <span class="summary-value">${escapeHtml(registrationData.email)}</span>
+                </div>
+                <button class="edit-field-btn" data-field="email">
+                    <i class="fas fa-edit"></i>
+                </button>
             </div>
-            <div class="summary-item">
-                <span class="summary-label">${selectedLanguage === 'th' ? 'เบอร์โทร' : 'Phone'}:</span>
-                <span class="summary-value">${escapeHtml(registrationData.phone)}</span>
+            
+            <!-- Phone -->
+            <div class="summary-item" id="summaryPhone">
+                <div style="flex: 1;">
+                    <span class="summary-label">${selectedLanguage === 'th' ? 'เบอร์โทร' : 'Phone'}:</span>
+                    <span class="summary-value">${escapeHtml(registrationData.phone)}</span>
+                </div>
+                <button class="edit-field-btn" data-field="phone">
+                    <i class="fas fa-edit"></i>
+                </button>
             </div>
-            <div class="summary-item">
-                <span class="summary-label">${selectedLanguage === 'th' ? 'รหัสผ่าน' : 'Password'}:</span>
-                <span class="summary-value">••••••••</span>
+            
+            <!-- Password -->
+            <div class="summary-item" id="summaryPassword">
+                <div style="flex: 1;">
+                    <span class="summary-label">${selectedLanguage === 'th' ? 'รหัสผ่าน' : 'Password'}:</span>
+                    <span class="summary-value">••••••••</span>
+                </div>
+                <button class="edit-field-btn" data-field="password">
+                    <i class="fas fa-edit"></i>
+                </button>
             </div>
         </div>
     `;
@@ -667,7 +702,115 @@ function showRegistrationConfirmation() {
         true
     );
     
-    $('#confirmBtn').prop('disabled', false).text(selectedLanguage === 'th' ? 'ยืนยัน' : 'Confirm');
+    $('#confirmBtn').prop('disabled', false).html(`<i class="fas fa-check"></i> ${selectedLanguage === 'th' ? 'ลงทะเบียน' : 'Register'}`);
+    
+    // Handle edit buttons
+    $('.edit-field-btn').on('click', function() {
+        const field = $(this).data('field');
+        editRegistrationField(field);
+    });
+}
+
+// ========== Edit Registration Field (NEW) ==========
+function editRegistrationField(field) {
+    const labels = {
+        name: selectedLanguage === 'th' ? 'ชื่อ' : 'First Name',
+        lastname: selectedLanguage === 'th' ? 'นามสกุล' : 'Last Name',
+        email: selectedLanguage === 'th' ? 'อีเมล' : 'Email',
+        phone: selectedLanguage === 'th' ? 'เบอร์โทร' : 'Phone',
+        password: selectedLanguage === 'th' ? 'รหัสผ่าน' : 'Password'
+    };
+    
+    const currentValue = field === 'password' ? '' : registrationData[field];
+    const inputType = field === 'password' ? 'password' : 'text';
+    
+    const summaryItem = $(`#summary${field.charAt(0).toUpperCase() + field.slice(1)}`);
+    
+    summaryItem.html(`
+        <div style="flex: 1;">
+            <span class="summary-label">${labels[field]}:</span>
+            <input 
+                type="${inputType}" 
+                class="form-field edit-field-input" 
+                id="edit${field}" 
+                value="${escapeHtml(currentValue)}"
+                placeholder="${labels[field]}"
+                style="margin-top: 8px; margin-bottom: 0;"
+            >
+        </div>
+        <button class="save-field-btn" data-field="${field}">
+            <i class="fas fa-check"></i>
+        </button>
+    `);
+    
+    // Focus on input
+    $(`#edit${field}`).focus();
+    
+    // Handle save button
+    $('.save-field-btn').on('click', function() {
+        const fieldName = $(this).data('field');
+        saveEditedField(fieldName);
+    });
+    
+    // Handle Enter key
+    $(`#edit${field}`).on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            saveEditedField(field);
+        }
+    });
+}
+
+// ========== Save Edited Field (NEW) ==========
+function saveEditedField(field) {
+    const newValue = $(`#edit${field}`).val().trim();
+    
+    const labels = {
+        name: selectedLanguage === 'th' ? 'ชื่อ' : 'First Name',
+        lastname: selectedLanguage === 'th' ? 'นามสกุล' : 'Last Name',
+        email: selectedLanguage === 'th' ? 'อีเมล' : 'Email',
+        phone: selectedLanguage === 'th' ? 'เบอร์โทร' : 'Phone',
+        password: selectedLanguage === 'th' ? 'รหัสผ่าน' : 'Password'
+    };
+    
+    // Validate
+    if (!newValue) {
+        alert(selectedLanguage === 'th' ? 'กรุณากรอกข้อมูล' : 'Please enter a value');
+        return;
+    }
+    
+    if (field === 'email' && !validateEmail(newValue)) {
+        alert(selectedLanguage === 'th' ? 'กรุณากรอกอีเมลให้ถูกต้อง' : 'Please enter a valid email');
+        return;
+    }
+    
+    if (field === 'password' && newValue.length < 6) {
+        alert(selectedLanguage === 'th' ? 'รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร' : 'Password must be at least 6 characters');
+        return;
+    }
+    
+    // Save new value
+    registrationData[field] = newValue;
+    
+    // Update display
+    const displayValue = field === 'password' ? '••••••••' : escapeHtml(newValue);
+    const summaryItem = $(`#summary${field.charAt(0).toUpperCase() + field.slice(1)}`);
+    
+    summaryItem.html(`
+        <div style="flex: 1;">
+            <span class="summary-label">${labels[field]}:</span>
+            <span class="summary-value">${displayValue}</span>
+        </div>
+        <button class="edit-field-btn" data-field="${field}">
+            <i class="fas fa-edit"></i>
+        </button>
+    `);
+    
+    // Re-bind edit button
+    $('.edit-field-btn').on('click', function() {
+        const fieldToEdit = $(this).data('field');
+        editRegistrationField(fieldToEdit);
+    });
 }
 
 // ========== Submit Registration ==========
@@ -1486,4 +1629,4 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, m => map[m]);
 }
 
-console.log('✅ AI Setup Chat System (Improved with Voice Feedback) Loaded');
+console.log('✅ AI Setup Chat System (Improved with Editable Registration) Loaded');
