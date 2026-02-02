@@ -455,6 +455,98 @@ $_SESSION['pending_ai_lang'] = $lang;
             margin-top: 20px;
         }
 
+        /* แก้ไข summary-item ให้มี flexbox */
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .summary-item:last-child {
+            border-bottom: none;
+        }
+
+        /* ปุ่มแก้ไข (Edit Button) */
+        .edit-field-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: rgba(120, 119, 198, 0.2);
+            border: 1px solid rgba(120, 119, 198, 0.4);
+            color: rgba(255, 255, 255, 0.8);
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-left: 10px;
+        }
+
+        .edit-field-btn:hover {
+            background: rgba(120, 119, 198, 0.4);
+            border-color: #7877c6;
+            color: #fff;
+            transform: scale(1.05);
+        }
+
+        .edit-field-btn i {
+            font-size: 14px;
+        }
+
+        /* ปุ่มบันทึก (Save Button) */
+        .save-field-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #4caf50 0%, #66bb6a 100%);
+            border: 1px solid rgba(76, 175, 80, 0.6);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-left: 10px;
+        }
+
+        .save-field-btn:hover {
+            background: linear-gradient(135deg, #66bb6a 0%, #4caf50 100%);
+            transform: scale(1.05);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+
+        .save-field-btn i {
+            font-size: 14px;
+        }
+
+        /* Input สำหรับแก้ไข */
+        .edit-field-input {
+            width: 100%;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 2px solid rgba(120, 119, 198, 0.4);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            transition: all 0.3s;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .edit-field-input:focus {
+            outline: none;
+            border-color: #7877c6;
+            background: rgba(255, 255, 255, 0.12);
+            box-shadow: 0 0 0 3px rgba(120, 119, 198, 0.1);
+        }
+
+        .edit-field-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+
         .confirm-btn, .back-btn {
             flex: 1;
             padding: 14px 24px;
