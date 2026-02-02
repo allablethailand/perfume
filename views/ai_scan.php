@@ -186,12 +186,27 @@ $_SESSION['pending_ai_lang'] = $lang;
                     
                     if (response.status === 'success') {
                         if (response.has_companion) {
-                            // ✅ มี companion แล้ว → ไป chat ทันที
-                            console.log('✅ Has companion, going to chat...');
-                            window.location.href = '?ai_chat_3d&ai_code=' + aiCode + '&lang=' + currentLang;
+                            // ✅ มี companion แล้ว → เก็บ companion_id ลง sessionStorage แล้วไป chat
+                            const companionId = response.companion_id;
+                            const preferredLang = response.preferred_language || currentLang;
+                            
+                            console.log('✅ Has companion:', companionId, '- Language:', preferredLang);
+                            
+                            // 🔑 KEY FIX: เก็บ companion_id ลง sessionStorage ก่อนไป chat
+                            sessionStorage.setItem('user_companion_id', companionId);
+                            sessionStorage.setItem('ai_code', aiCode);
+                            
+                            // ✅ ส่ง companion_id ไปด้วยใน URL (สำคัญมาก!)
+                            window.location.href = '?ai_chat_3d&ai_code=' + aiCode + 
+                                                  '&user_companion_id=' + companionId +
+                                                  '&lang=' + preferredLang;
                         } else {
                             // ❌ ยังไม่มี companion → ไปทำ setup ที่ questions
                             console.log('❌ No companion, going to questions...');
+                            
+                            // Clear sessionStorage
+                            sessionStorage.removeItem('user_companion_id');
+                            
                             window.location.href = '?ai_questions&ai_code=' + aiCode + '&lang=' + currentLang;
                         }
                     } else {
