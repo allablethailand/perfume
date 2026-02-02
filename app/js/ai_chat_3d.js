@@ -10,6 +10,7 @@
 const urlParams = new URLSearchParams(window.location.search);
 const aiCodeFromURL = urlParams.get('ai_code') || '';
 const langFromURL = urlParams.get('lang') || 'th';
+const companionIdFromURL = urlParams.get('user_companion_id'); // ✅ เพิ่มบรรทัดนี้
 
 let currentConversationId = 0;
 let companionId = null;
