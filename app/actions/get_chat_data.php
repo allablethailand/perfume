@@ -1,15 +1,10 @@
 <?php
 /**
- * Get Chat Data API (Guest Mode Supported)
+ * Get Chat Data API (Guest Mode Supported) - FIXED VERSION
  * 
- * GET: /app/actions/get_chat_data.php
- * 
- * Actions:
- * - list_conversations: ดึงรายการ conversations
- * - get_history: ดึงประวัติแชท
- * - delete_conversation: ลบ conversation
- * 
- * ✅ รองรับ guest mode: ใช้ user_companion_id หรือ ai_code
+ * ✅ แก้ไขปัญหา: ไม่สร้าง user_id และ user_companion_id ใหม่ถ้ามีอยู่แล้ว
+ * ✅ ตรวจสอบข้อมูลที่มีอยู่ก่อนสร้างใหม่
+ * ✅ ใช้ user_companion_id เป็นหลักในการระบุตัวตน
  */
 
 require_once('../../lib/connect.php');
@@ -27,7 +22,7 @@ $action = isset($_GET['action']) ? $_GET['action'] : 'list_conversations';
 $conversation_id = isset($_GET['conversation_id']) ? intval($_GET['conversation_id']) : 0;
 $language = isset($_GET['lang']) ? $_GET['lang'] : 'th';
 
-// ✅ รับ user_companion_id และ ai_code (สำหรับ guest mode)
+// รับ user_companion_id และ ai_code
 $user_companion_id_input = isset($_GET['user_companion_id']) ? intval($_GET['user_companion_id']) : 0;
 $ai_code_input = isset($_GET['ai_code']) ? strtoupper(trim($_GET['ai_code'])) : '';
 
@@ -55,10 +50,16 @@ if (isset($headers['Authorization'])) {
 if (!$user_id) {
     $is_guest_mode = true;
     
-    // ✅ วิธีที่ 1: ใช้ user_companion_id โดยตรง
+    // ========================================
+    // ✅ FIX 1: ลำดับความสำคัญในการหา companion
+    // ========================================
+    
+    // Priority 1: ใช้ user_companion_id ที่ส่งมา (ถ้ามี)
     if ($user_companion_id_input > 0) {
+        error_log("🔍 Searching by user_companion_id: $user_companion_id_input");
+        
         $stmt = $conn->prepare("
-            SELECT user_companion_id, user_id, ai_id
+            SELECT user_companion_id, user_id, ai_id, preferred_language
             FROM user_ai_companions
             WHERE user_companion_id = ? AND status = 1 AND del = 0
         ");
@@ -71,13 +72,51 @@ if (!$user_id) {
             $user_companion_id = $companion['user_companion_id'];
             $user_id = $companion['user_id'];
             $ai_id = $companion['ai_id'];
+            $language = !empty($companion['preferred_language']) ? $companion['preferred_language'] : 'th';
+            
+            error_log("✅ Found existing companion: user_id=$user_id, companion_id=$user_companion_id");
+        } else {
+            error_log("⚠️ Companion $user_companion_id_input not found");
         }
         $stmt->close();
     }
     
-    // ✅ วิธีที่ 2: ใช้ ai_code (ถ้ายังไม่ได้ companion_id)
+    // Priority 2: ลอง session (ถ้ายังไม่ได้ companion)
+    if (!$user_companion_id && isset($_SESSION['user_companion_id'])) {
+        $session_companion_id = intval($_SESSION['user_companion_id']);
+        error_log("🔍 Searching by session companion_id: $session_companion_id");
+        
+        $stmt = $conn->prepare("
+            SELECT user_companion_id, user_id, ai_id, preferred_language
+            FROM user_ai_companions
+            WHERE user_companion_id = ? AND status = 1 AND del = 0
+        ");
+        $stmt->bind_param('i', $session_companion_id);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        
+        if ($result->num_rows > 0) {
+            $companion = $result->fetch_assoc();
+            $user_companion_id = $companion['user_companion_id'];
+            $user_id = $companion['user_id'];
+            $ai_id = $companion['ai_id'];
+            $language = !empty($companion['preferred_language']) ? $companion['preferred_language'] : 'th';
+            
+            error_log("✅ Found companion from session: user_id=$user_id, companion_id=$user_companion_id");
+        } else {
+            error_log("⚠️ Session companion $session_companion_id not found, clearing session");
+            unset($_SESSION['user_companion_id']);
+        }
+        $stmt->close();
+    }
+    
+    // Priority 3: ใช้ ai_code (สร้างใหม่เฉพาะถ้าจำเป็น)
     if (!$user_companion_id && !empty($ai_code_input)) {
-        // หา AI จาก ai_code
+        error_log("🔍 Searching by ai_code: $ai_code_input");
+        
+        // ========================================
+        // ✅ FIX 2: หา AI ก่อน
+        // ========================================
         $stmt = $conn->prepare("
             SELECT ai_id 
             FROM ai_companions 
@@ -90,36 +129,55 @@ if (!$user_id) {
         if ($result->num_rows > 0) {
             $ai_data = $result->fetch_assoc();
             $ai_id = $ai_data['ai_id'];
+            error_log("✅ Found AI: ai_id=$ai_id");
             
-            // ✅ ลอง companion_id จาก session หรือสร้างใหม่
-            if (isset($_SESSION['user_companion_id'])) {
-                $user_companion_id = $_SESSION['user_companion_id'];
+            // ========================================
+            // ✅ FIX 3: ลองหา companion ที่มีอยู่แล้วก่อน
+            // ========================================
+            
+            // 3.1 หาจาก session user_id (ถ้ามี)
+            if (isset($_SESSION['guest_user_id'])) {
+                $guest_user_id = intval($_SESSION['guest_user_id']);
+                error_log("🔍 Checking existing companion for guest_user_id: $guest_user_id, ai_id: $ai_id");
                 
-                // ตรวจสอบว่า companion นี้ match กับ ai_code หรือไม่
-                $stmt2 = $conn->prepare("
-                    SELECT uc.user_id, uc.ai_id
-                    FROM user_ai_companions uc
-                    WHERE uc.user_companion_id = ? AND uc.ai_id = ? AND uc.status = 1 AND uc.del = 0
+                $check_stmt = $conn->prepare("
+                    SELECT user_companion_id, preferred_language
+                    FROM user_ai_companions
+                    WHERE user_id = ? AND ai_id = ? AND status = 1 AND del = 0
+                    LIMIT 1
                 ");
-                $stmt2->bind_param('ii', $user_companion_id, $ai_id);
-                $stmt2->execute();
-                $result2 = $stmt2->get_result();
+                $check_stmt->bind_param('ii', $guest_user_id, $ai_id);
+                $check_stmt->execute();
+                $check_result = $check_stmt->get_result();
                 
-                if ($result2->num_rows > 0) {
-                    $comp_data = $result2->fetch_assoc();
-                    $user_id = $comp_data['user_id'];
+                if ($check_result->num_rows > 0) {
+                    // ✅ พบ companion ที่มีอยู่แล้ว - ใช้ของเก่า!
+                    $existing_companion = $check_result->fetch_assoc();
+                    $user_companion_id = $existing_companion['user_companion_id'];
+                    $user_id = $guest_user_id;
+                    $language = !empty($existing_companion['preferred_language']) 
+                        ? $existing_companion['preferred_language'] 
+                        : 'th';
+                    
+                    // บันทึกลง session
+                    $_SESSION['user_companion_id'] = $user_companion_id;
+                    
+                    error_log("✅✅ Found EXISTING companion! user_id=$user_id, companion_id=$user_companion_id - NO NEW CREATION!");
                 } else {
-                    // companion ไม่ match -> reset
-                    $user_companion_id = null;
-                    unset($_SESSION['user_companion_id']);
+                    error_log("ℹ️ No companion found for this user+ai combo");
                 }
-                $stmt2->close();
+                $check_stmt->close();
             }
             
-            // ✅ ถ้ายังไม่มี companion -> หาหรือสร้างใหม่
+            // ========================================
+            // ✅ FIX 4: สร้างใหม่เฉพาะเมื่อไม่มีจริงๆ
+            // ========================================
             if (!$user_companion_id) {
-                // จัดการ guest user
+                error_log("📝 Creating NEW companion (not found in existing data)");
+                
+                // 4.1 จัดการ user (ใช้ของเก่าถ้ามี, สร้างใหม่ถ้าไม่มี)
                 if (!isset($_SESSION['guest_user_id'])) {
+                    error_log("📝 Creating new guest user");
                     $guest_stmt = $conn->prepare("
                         INSERT INTO mb_user (first_name, email, password, login_method, verify, del) 
                         VALUES (?, ?, '', 'guest', 0, 0)
@@ -131,70 +189,39 @@ if (!$user_id) {
                     $guest_user_id = $conn->insert_id;
                     $_SESSION['guest_user_id'] = $guest_user_id;
                     $guest_stmt->close();
+                    error_log("✅ Created new guest user: $guest_user_id");
                 } else {
                     $guest_user_id = $_SESSION['guest_user_id'];
+                    error_log("✅ Using existing guest user: $guest_user_id");
                 }
                 
                 $user_id = $guest_user_id;
                 
-                // ✅ ตรวจสอบว่ามี companion อยู่แล้วหรือไม่
-                $check_existing = $conn->prepare("
-                    SELECT user_companion_id 
-                    FROM user_ai_companions 
-                    WHERE user_id = ? AND ai_id = ? AND status = 1 AND del = 0
+                // 4.2 สร้าง companion ใหม่
+                error_log("📝 Creating new companion for user_id=$user_id, ai_id=$ai_id");
+                $companion_stmt = $conn->prepare("
+                    INSERT INTO user_ai_companions (user_id, ai_id, preferred_language, status, del) 
+                    VALUES (?, ?, ?, 1, 0)
                 ");
-                $check_existing->bind_param('ii', $user_id, $ai_id);
-                $check_existing->execute();
-                $existing_result = $check_existing->get_result();
-                
-                if ($existing_result->num_rows > 0) {
-                    // ✅ ใช้ companion ที่มีอยู่
-                    $existing_companion = $existing_result->fetch_assoc();
-                    $user_companion_id = $existing_companion['user_companion_id'];
-                } else {
-                    // ✅ สร้าง companion ใหม่ (ใช้ INSERT IGNORE หรือ ON DUPLICATE KEY)
-                    $companion_stmt = $conn->prepare("
-                        INSERT INTO user_ai_companions (user_id, ai_id, preferred_language, status) 
-                        VALUES (?, ?, ?, 1)
-                        ON DUPLICATE KEY UPDATE 
-                            user_companion_id = LAST_INSERT_ID(user_companion_id),
-                            preferred_language = VALUES(preferred_language)
-                    ");
-                    $companion_stmt->bind_param('iis', $user_id, $ai_id, $language);
-                    $companion_stmt->execute();
-                    $user_companion_id = $conn->insert_id;
-                    $companion_stmt->close();
-                }
-                $check_existing->close();
+                $companion_stmt->bind_param('iis', $user_id, $ai_id, $language);
+                $companion_stmt->execute();
+                $user_companion_id = $conn->insert_id;
+                $companion_stmt->close();
                 
                 $_SESSION['user_companion_id'] = $user_companion_id;
+                error_log("✅ Created NEW companion: $user_companion_id");
             }
+        } else {
+            error_log("❌ AI not found: $ai_code_input");
         }
         $stmt->close();
     }
     
-    // ✅ วิธีที่ 3: ลอง session อย่างเดียว
-    if (!$user_companion_id && isset($_SESSION['user_companion_id'])) {
-        $user_companion_id = $_SESSION['user_companion_id'];
-        
-        $stmt = $conn->prepare("
-            SELECT user_id, ai_id 
-            FROM user_ai_companions 
-            WHERE user_companion_id = ? AND status = 1 AND del = 0
-        ");
-        $stmt->bind_param('i', $user_companion_id);
-        $stmt->execute();
-        $result = $stmt->get_result();
-        
-        if ($result->num_rows > 0) {
-            $comp_data = $result->fetch_assoc();
-            $user_id = $comp_data['user_id'];
-            $ai_id = $comp_data['ai_id'];
-        }
-        $stmt->close();
-    }
-    
+    // ========================================
+    // ตรวจสอบว่าได้ข้อมูลครบหรือไม่
+    // ========================================
     if (!$user_id && !$user_companion_id) {
+        error_log("❌ Failed to identify user - no valid authentication method");
         echo json_encode([
             'status' => 'error',
             'message' => 'Please provide user_companion_id, ai_code, or login',
@@ -203,16 +230,20 @@ if (!$user_id) {
             'debug' => [
                 'user_companion_id_input' => $user_companion_id_input,
                 'ai_code_input' => $ai_code_input,
-                'has_session_companion' => isset($_SESSION['user_companion_id'])
+                'has_session_companion' => isset($_SESSION['user_companion_id']),
+                'has_session_guest_user' => isset($_SESSION['guest_user_id'])
             ]
         ]);
         exit;
     }
 }
 
+// ========================================
+// ดำเนินการตาม action
+// ========================================
 try {
     if ($action === 'list_conversations') {
-        // ✅ ดึงรายการ conversations
+        // ดึงรายการ conversations
         if ($is_guest_mode && $user_companion_id) {
             // Guest mode: ดึงตาม user_companion_id
             $stmt = $conn->prepare("
@@ -238,10 +269,10 @@ try {
             ");
             $stmt->bind_param('i', $user_companion_id);
         } else {
-            // ✅ Login mode: หา user_companion_id ก่อน
+            // Login mode: หา user_companion_id ก่อน (ถ้ายังไม่มี)
             if (!$user_companion_id) {
                 $comp_stmt = $conn->prepare("
-                    SELECT user_companion_id, ai_id 
+                    SELECT user_companion_id, ai_id, preferred_language
                     FROM user_ai_companions 
                     WHERE user_id = ? AND status = 1 AND del = 0
                     ORDER BY last_active_at DESC
@@ -255,11 +286,14 @@ try {
                     $comp_data = $comp_result->fetch_assoc();
                     $user_companion_id = $comp_data['user_companion_id'];
                     $ai_id = $comp_data['ai_id'];
+                    $language = !empty($comp_data['preferred_language']) 
+                        ? $comp_data['preferred_language'] 
+                        : 'th';
                 }
                 $comp_stmt->close();
             }
             
-            // Login mode: ดึงตาม user_id
+            // ดึงตาม user_id
             $stmt = $conn->prepare("
                 SELECT 
                     c.conversation_id,
@@ -303,16 +337,19 @@ try {
         }
         $stmt->close();
         
+        error_log("✅ Returning conversations for companion_id: $user_companion_id");
+        
         echo json_encode([
             'status' => 'success',
             'guest_mode' => $is_guest_mode,
-            'user_companion_id' => $user_companion_id, // ✅ ส่ง companion_id กลับไป
+            'user_companion_id' => $user_companion_id,
+            'user_id' => $user_id,
             'conversations' => $conversations,
             'total' => count($conversations)
         ]);
         
     } elseif ($action === 'get_history') {
-        // ✅ ดึงประวัติแชท
+        // ดึงประวัติแชท
         if ($conversation_id === 0) {
             throw new Exception('Conversation ID is required');
         }
@@ -380,7 +417,7 @@ try {
         ]);
         
     } elseif ($action === 'delete_conversation') {
-        // ✅ ลบ conversation
+        // ลบ conversation
         if ($conversation_id === 0) {
             throw new Exception('Conversation ID is required');
         }
