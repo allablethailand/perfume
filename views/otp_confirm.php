@@ -242,12 +242,12 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
                     <input type="hidden" id="pending_lang" name="pending_lang" value="<?php echo htmlspecialchars($pending_lang); ?>">
                     
                     <div id="otp" class="inputs d-flex flex-row justify-content-center mt-4">
-                        <input class="text-center form-control rounded" type="text" id="first" maxlength="1" />
-                        <input class="text-center form-control rounded" type="text" id="second" maxlength="1" />
-                        <input class="text-center form-control rounded" type="text" id="third" maxlength="1" />
-                        <input class="text-center form-control rounded" type="text" id="fourth" maxlength="1" />
-                        <input class="text-center form-control rounded" type="text" id="fifth" maxlength="1" />
-                        <input class="text-center form-control rounded" type="text" id="sixth" maxlength="1" />
+                        <input class="text-center form-control rounded" type="text" id="first" maxlength="1" autocomplete="off" />
+                        <input class="text-center form-control rounded" type="text" id="second" maxlength="1" autocomplete="off" />
+                        <input class="text-center form-control rounded" type="text" id="third" maxlength="1" autocomplete="off" />
+                        <input class="text-center form-control rounded" type="text" id="fourth" maxlength="1" autocomplete="off" />
+                        <input class="text-center form-control rounded" type="text" id="fifth" maxlength="1" autocomplete="off" />
+                        <input class="text-center form-control rounded" type="text" id="sixth" maxlength="1" autocomplete="off" />
                     </div>
                     
                     <div class="mt-4">
@@ -287,12 +287,12 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
                     <input type="hidden" id="login_method" name="login_method" value="<?php echo $login_method; ?>">
                     
                     <div id="otp" class="inputs d-flex flex-row justify-content-center mt-4">
-                        <input class="text-center form-control rounded" type="text" id="first" maxlength="1" />
-                        <input class="text-center form-control rounded" type="text" id="second" maxlength="1" />
-                        <input class="text-center form-control rounded" type="text" id="third" maxlength="1" />
-                        <input class="text-center form-control rounded" type="text" id="fourth" maxlength="1" />
-                        <input class="text-center form-control rounded" type="text" id="fifth" maxlength="1" />
-                        <input class="text-center form-control rounded" type="text" id="sixth" maxlength="1" />
+                        <input class="text-center form-control rounded" type="text" id="first" maxlength="1" autocomplete="off" />
+                        <input class="text-center form-control rounded" type="text" id="second" maxlength="1" autocomplete="off" />
+                        <input class="text-center form-control rounded" type="text" id="third" maxlength="1" autocomplete="off" />
+                        <input class="text-center form-control rounded" type="text" id="fourth" maxlength="1" autocomplete="off" />
+                        <input class="text-center form-control rounded" type="text" id="fifth" maxlength="1" autocomplete="off" />
+                        <input class="text-center form-control rounded" type="text" id="sixth" maxlength="1" autocomplete="off" />
                     </div>
                     
                     <div class="mt-4">
@@ -313,8 +313,37 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
         function OTPInput() {
             const $inputs = $('#otp > input');
 
+            // ✅ Handle Paste Event - วางได้ที่ช่องไหนก็ได้
+            $inputs.on('paste', function(e) {
+                e.preventDefault();
+                
+                // Get pasted data
+                const pastedData = (e.originalEvent || e).clipboardData.getData('text/plain');
+                
+                // Extract only numbers
+                const otpDigits = pastedData.replace(/\D/g, '').substring(0, 6);
+                
+                if (otpDigits.length > 0) {
+                    // Fill in all OTP inputs
+                    for (let i = 0; i < otpDigits.length && i < 6; i++) {
+                        $inputs.eq(i).val(otpDigits[i]);
+                    }
+                    
+                    // Focus on last filled input or next empty one
+                    if (otpDigits.length < 6) {
+                        $inputs.eq(otpDigits.length).focus();
+                    } else {
+                        $inputs.eq(5).focus();
+                    }
+                }
+            });
+
+            // Handle typing
             $inputs.each(function(index) {
                 $(this).on('input', function() {
+                    // Only allow numbers
+                    this.value = this.value.replace(/\D/g, '');
+                    
                     if (this.value.length > 1) {
                         this.value = this.value[0];
                     }
