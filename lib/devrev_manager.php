@@ -339,68 +339,76 @@ class DevRevManager {
      * ✅ FIX: สร้าง Article ด้วย empty resource ก่อน แล้วค่อย update artifacts ทีหลัง
      * (ตามตัวอย่างโค้ดที่ใช้งานได้จริง)
      */
-    private function createArticle($title, $artifact_id, $dev_user_id, $display_id) {
-        $part_id = $this->getDefaultPart();
-        if (!$part_id) {
-            throw new Exception('No part ID available');
-        }
-        
-        // ✅ STEP 1: สร้าง Article ด้วย EMPTY resource (ตามตัวอย่างที่ใช้งานได้)
-        $payload = [
-            'title' => $title,
-            'owned_by' => [$dev_user_id],
-            'authored_by' => [$display_id],
-            'applies_to_parts' => [$part_id],
-            'resource' => new stdClass(),  // ✅ Empty object แทนที่จะส่ง artifacts ตั้งแต่แรก
-            'access_level' => 'public'
-        ];
-        
-        error_log("🔵 [DevRev] Creating article with EMPTY resource first...");
-        $response = $this->callDevRev('/articles.create', 'POST', $payload);
-        
-        if (!$response['success']) {
-            throw new Exception('Failed to create article: ' . ($response['error'] ?? 'Unknown'));
-        }
-        
-        $article_id = $response['data']['article']['id'] ?? null;
-        if (!$article_id) {
-            throw new Exception('No article ID returned');
-        }
-        
-        error_log("✅ [DevRev] Article created (empty): {$article_id}");
-        
-        // ✅ STEP 2: เพิ่ม Artifact เข้า Article ทีหลัง
-        error_log("🔵 [DevRev] Adding artifact to article...");
-        
-        $update_payload = [
-            'id' => $article_id,
-            'artifacts' => [
-                'set' => [$artifact_id]
-            ]
-        ];
-        
-        $update_response = $this->callDevRev('/articles.update', 'POST', $update_payload);
-        
-        if (!$update_response['success']) {
-            error_log("❌ [DevRev] Failed to add artifact: " . ($update_response['error'] ?? 'Unknown'));
-            throw new Exception('Failed to add artifact to article: ' . ($update_response['error'] ?? 'Unknown'));
-        }
-        
-        error_log("✅ [DevRev] Artifact added successfully");
-        
-        // ✅ STEP 3: Verify ว่า artifact ถูก link แล้วจริงๆ
-        sleep(1); // รอให้ DevRev sync
-        $verify = $this->callDevRev('/articles.get', 'POST', ['id' => $article_id]);
-        $artifacts_in_article = $verify['data']['article']['resource']['artifacts'] ?? [];
-        
-        if (empty($artifacts_in_article)) {
-            error_log("❌ [DevRev] Verification failed - no artifacts found in article");
-            throw new Exception("Failed to verify artifact in article");
-        }
-        
-        error_log("✅ [DevRev] Article verified with " . count($artifacts_in_article) . " artifact(s)");
-        return $article_id;
+    /**
+ * ✅ FIX: สร้าง Article ด้วย email จริงใน owned_by และ status = published
+ */
+private function createArticle($title, $artifact_id, $dev_user_id, $display_id) {
+    $part_id = $this->getDefaultPart();
+    if (!$part_id) {
+        throw new Exception('No part ID available');
     }
+    
+    // ✅ ใช้ ID จริงของ apisit@origami.life
+    $owner_dev_user_id = 'don:identity:dvrv-us-1:devo/1y6tLzaW99:devu/2';
+    
+    // ✅ STEP 1: สร้าง Article ด้วย EMPTY resource และ status = published
+    $payload = [
+        'title' => $title,
+        'owned_by' => [$owner_dev_user_id],  // ✅ ใช้ dev_user_id ที่ถูกต้อง
+        'authored_by' => [$display_id],
+        'applies_to_parts' => [$part_id],
+        'resource' => new stdClass(),
+        'status' => 'published',  // ✅ published แทน draft
+        'access_level' => 'internal'
+    ];
+    
+    error_log("🔵 [DevRev] Creating article with EMPTY resource first...");
+    error_log("🔵 [DevRev] Owner ID: {$owner_dev_user_id} (apisit@origami.life), Status: published");
+    $response = $this->callDevRev('/articles.create', 'POST', $payload);
+    
+    if (!$response['success']) {
+        throw new Exception('Failed to create article: ' . ($response['error'] ?? 'Unknown'));
+    }
+    
+    $article_id = $response['data']['article']['id'] ?? null;
+    if (!$article_id) {
+        throw new Exception('No article ID returned');
+    }
+    
+    error_log("✅ [DevRev] Article created (empty): {$article_id}");
+    
+    // ✅ STEP 2: เพิ่ม Artifact เข้า Article ทีหลัง
+    error_log("🔵 [DevRev] Adding artifact to article...");
+    
+    $update_payload = [
+        'id' => $article_id,
+        'artifacts' => [
+            'set' => [$artifact_id]
+        ]
+    ];
+    
+    $update_response = $this->callDevRev('/articles.update', 'POST', $update_payload);
+    
+    if (!$update_response['success']) {
+        error_log("❌ [DevRev] Failed to add artifact: " . ($update_response['error'] ?? 'Unknown'));
+        throw new Exception('Failed to add artifact to article: ' . ($update_response['error'] ?? 'Unknown'));
+    }
+    
+    error_log("✅ [DevRev] Artifact added successfully");
+    
+    // ✅ STEP 3: Verify ว่า artifact ถูก link แล้วจริงๆ
+    sleep(1); // รอให้ DevRev sync
+    $verify = $this->callDevRev('/articles.get', 'POST', ['id' => $article_id]);
+    $artifacts_in_article = $verify['data']['article']['resource']['artifacts'] ?? [];
+    
+    if (empty($artifacts_in_article)) {
+        error_log("❌ [DevRev] Verification failed - no artifacts found in article");
+        throw new Exception("Failed to verify artifact in article");
+    }
+    
+    error_log("✅ [DevRev] Article verified with " . count($artifacts_in_article) . " artifact(s)");
+    return $article_id;
+}
     
     /**
      * ✅ FIX: Update article - ใช้ format ที่ถูกต้อง
