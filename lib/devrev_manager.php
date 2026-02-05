@@ -546,7 +546,7 @@ class DevRevManager {
         try {
             error_log("🔵 [DevRev] --- System Prompt ---");
             
-            require_once __DIR__ . '/AIModelManager.php';
+            require_once __DIR__ . '/aimodelmanager.php';
             $ai_manager = new AIModelManager($this->conn);
             $prompt_data = $ai_manager->buildSystemPrompt($ai_companion, $user_personality, $language);
             $ai_name = $ai_companion['ai_name'] ?? 'AI Assistant';
