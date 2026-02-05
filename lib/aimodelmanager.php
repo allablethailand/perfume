@@ -388,10 +388,7 @@ class AIModelManager {
     
     error_log("🔵 [DevRev AI] Sending prompt (" . strlen($prompt) . " chars)");
     
-    // ✅ ส่งแค่ query เฉยๆ (เหมือนโค้ดทดสอบ)
     $payload = ['query' => $prompt];
-    
-    // ✅ ใช้ flags เดียวกับโค้ดทดสอบ
     $post_data = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     
     if ($post_data === false) {
@@ -399,7 +396,6 @@ class AIModelManager {
         return ['success' => false, 'error' => 'Failed to encode JSON'];
     }
     
-    // ✅ ใช้ headers เดียวกับโค้ดทดสอบ (ลำดับเดียวกัน!)
     $headers = [
         'Content-Type: application/json',
         'Authorization: Bearer ' . trim($api_key)
@@ -413,18 +409,35 @@ class AIModelManager {
         CURLOPT_POST => true,
         CURLOPT_POSTFIELDS => $post_data,
         CURLOPT_HTTPHEADER => $headers,
-        CURLOPT_TIMEOUT => 30
+        CURLOPT_TIMEOUT => 30,
+        // ✅ FIX: เพิ่ม SSL verification
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
     ]);
     
     $start = microtime(true);
     $response = curl_exec($ch);
     $elapsed = round((microtime(true) - $start) * 1000);
     
+    // ✅ FIX: ตรวจสอบ cURL error
+    if (curl_errno($ch)) {
+        $curl_error = curl_error($ch);
+        error_log("❌ [DevRev] cURL Error: {$curl_error}");
+        curl_close($ch);
+        return ['success' => false, 'error' => "cURL Error: {$curl_error}"];
+    }
+    
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     curl_close($ch);
     
     error_log("📊 [DevRev] HTTP: {$http_code} | Time: {$elapsed}ms");
     error_log("📄 [DevRev] FULL Response: " . $response);
+    
+    // ✅ FIX: ตรวจสอบ empty response
+    if (empty($response)) {
+        error_log("❌ [DevRev] Empty response from server");
+        return ['success' => false, 'error' => 'Empty response from DevRev'];
+    }
     
     if ($http_code === 400) {
         $err = json_decode($response, true);
@@ -433,7 +446,6 @@ class AIModelManager {
         $field_name = $err['field_name'] ?? '';
         
         error_log("❌ [DevRev] Bad Request - Type: {$error_type}, Msg: {$error_msg}, Field: {$field_name}");
-        
         return ['success' => false, 'error' => "Bad Request: {$error_msg}"];
     }
     
@@ -462,7 +474,6 @@ class AIModelManager {
     if (empty($reply)) {
         error_log("❌ [DevRev] Empty reply field");
         
-        // ตรวจสอบ field อื่นๆ
         if (isset($decoded['response'])) {
             $reply = $decoded['response'];
         } elseif (isset($decoded['text'])) {
@@ -470,6 +481,8 @@ class AIModelManager {
         }
         
         if (empty($reply)) {
+            // ✅ FIX: Log full response เพื่อ debug
+            error_log("❌ [DevRev] Full decoded response: " . json_encode($decoded));
             return ['success' => false, 'error' => 'Empty reply from DevRev'];
         }
     }
