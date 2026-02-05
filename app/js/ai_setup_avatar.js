@@ -886,12 +886,12 @@ function submitRegistration() {
 function showOTPInput() {
     const html = `
         <div class="otp-container">
-            <input type="text" class="form-field otp-input" maxlength="1" id="otp1">
-            <input type="text" class="form-field otp-input" maxlength="1" id="otp2">
-            <input type="text" class="form-field otp-input" maxlength="1" id="otp3">
-            <input type="text" class="form-field otp-input" maxlength="1" id="otp4">
-            <input type="text" class="form-field otp-input" maxlength="1" id="otp5">
-            <input type="text" class="form-field otp-input" maxlength="1" id="otp6">
+            <input type="text" class="form-field otp-input" maxlength="1" id="otp1" autocomplete="off">
+            <input type="text" class="form-field otp-input" maxlength="1" id="otp2" autocomplete="off">
+            <input type="text" class="form-field otp-input" maxlength="1" id="otp3" autocomplete="off">
+            <input type="text" class="form-field otp-input" maxlength="1" id="otp4" autocomplete="off">
+            <input type="text" class="form-field otp-input" maxlength="1" id="otp5" autocomplete="off">
+            <input type="text" class="form-field otp-input" maxlength="1" id="otp6" autocomplete="off">
         </div>
     `;
     
@@ -904,7 +904,38 @@ function showOTPInput() {
     
     $('#otp1').focus();
     
+    // ✅ Handle Paste Event - วางได้ที่ช่องไหนก็ได้
+    $('.otp-input').on('paste', function(e) {
+        e.preventDefault();
+        
+        // Get pasted data
+        const pastedData = (e.originalEvent || e).clipboardData.getData('text/plain');
+        
+        // Extract only numbers
+        const otpDigits = pastedData.replace(/\D/g, '').substring(0, 6);
+        
+        if (otpDigits.length > 0) {
+            // Fill in all OTP inputs
+            for (let i = 0; i < otpDigits.length && i < 6; i++) {
+                $('#otp' + (i + 1)).val(otpDigits[i]);
+            }
+            
+            // Focus on last filled input or next empty one
+            if (otpDigits.length < 6) {
+                $('#otp' + (otpDigits.length + 1)).focus();
+            } else {
+                $('#otp6').focus();
+                // Enable confirm button if all filled
+                $('#confirmBtn').prop('disabled', false);
+            }
+        }
+    });
+    
+    // Handle typing
     $('.otp-input').on('input', function() {
+        // Only allow numbers
+        this.value = this.value.replace(/\D/g, '');
+        
         if (this.value.length === 1) {
             $(this).next('.otp-input').focus();
         }
@@ -915,9 +946,12 @@ function showOTPInput() {
         
         if (otp.length === 6) {
             $('#confirmBtn').prop('disabled', false);
+        } else {
+            $('#confirmBtn').prop('disabled', true);
         }
     });
     
+    // Handle backspace
     $('.otp-input').on('keydown', function(e) {
         if (e.key === 'Backspace' && !this.value) {
             $(this).prev('.otp-input').focus();
