@@ -721,7 +721,7 @@ class AIModelManager {
                 $user_context .= "• {$answer['question']}: ";
                 if (!empty($answer['choice_text']))       $user_context .= $answer['choice_text'];
                 elseif (!empty($answer['text_answer']))   $user_context .= $answer['text_answer'];
-                elseif ($answer['scale_value'] !== null)  $user_context .= "คะแนน {$answer['scale_value']}/10";
+                elseif ($answer['scale_value'] !== null)  $user_context .= "คะแนน {$answer['scale_value']}/5";
                 $user_context .= "\n";
             }
             $user_context .= "\n💡 ใช้เป็นบริบทเสริม แต่รักษานิสัยหลักไว้";

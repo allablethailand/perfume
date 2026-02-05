@@ -10,7 +10,8 @@
  * ✅ Voice feedback when selecting choices
  * ✅ Back button to edit previous answers
  * ✅ Better login UI with chat display
- * ✅ Edit registration fields before confirm (NEW)
+ * ✅ Edit registration fields before confirm
+ * ✅ Fixed duplicate voice issue (FIXED)
  */
 
 // ========== Global Variables ==========
@@ -27,6 +28,10 @@ let answers = {};
 let currentStep = 'intro'; // intro, language, register, otp, login, questions
 let chatHistory = [];
 let stepHistory = []; // Track step history for back button
+
+// ✅ เพิ่ม flags เพื่อป้องกันการเรียกซ้ำ
+let isCheckingSetup = false;
+let isStartingQuestions = false;
 
 // Avatar video URLs
 let idleVideoUrl = '';
@@ -130,13 +135,6 @@ const conversationMessages = {
         cn: "欢迎回来！让我们继续了解彼此",
         jp: "お帰りなさい！お互いを知り続けましょう",
         kr: "돌아오신 것을 환영합니다! 계속 서로 알아가요"
-    },
-    start_questions: {
-        th: "ตอนนี้ฉันจะถามคำถามไม่กี่ข้อเพื่อให้เข้าใจคุณดีขึ้น พร้อมแล้วใช่ไหม?",
-        en: "Now I'll ask you a few questions to understand you better. Ready?",
-        cn: "现在我会问你几个问题以更好地了解你。准备好了吗？",
-        jp: "今、あなたをよりよく理解するためにいくつか質問します。準備はいいですか？",
-        kr: "이제 당신을 더 잘 이해하기 위해 몇 가지 질문을 하겠습니다. 준비됐나요?"
     },
     all_done: {
         th: "เยี่ยมมาก! เราทำความรู้จักกันเสร็จแล้ว ตอนนี้เราพร้อมคุยกันได้เลย",
@@ -367,6 +365,14 @@ function addChatMessage(sender, text) {
 
 // ========== Check Setup Status ==========
 async function checkSetupStatus() {
+    // ✅ ป้องกันการเรียกซ้ำ
+    if (isCheckingSetup) {
+        console.log('⚠️ Already checking setup, skipping...');
+        return;
+    }
+    
+    isCheckingSetup = true;
+    
     try {
         showLoading('Checking setup status...');
 
@@ -389,15 +395,21 @@ async function checkSetupStatus() {
                 addChatMessage('ai', message);
                 speakText(message);
                 
+                // ✅ รอให้พูดจบก่อน (4 วินาที) แล้วค่อยเริ่มถามคำถาม
                 setTimeout(() => {
+                    isCheckingSetup = false; // ✅ ปลดล็อค
                     startQuestions();
-                }, 2500);
+                }, 4000);
             } else if (response.step === 'ready_to_chat') {
+                isCheckingSetup = false; // ✅ ปลดล็อค
                 window.location.href = '?ai_chat_3d&ai_code=' + aiCode + '&lang=' + selectedLanguage;
             }
+        } else {
+            isCheckingSetup = false; // ✅ ปลดล็อค
         }
     } catch (error) {
         hideLoading();
+        isCheckingSetup = false; // ✅ ปลดล็อค
         console.error('Check setup error:', error);
         
         // Start fresh
@@ -711,7 +723,7 @@ function showRegistrationConfirmation() {
     });
 }
 
-// ========== Edit Registration Field (NEW) ==========
+// ========== Edit Registration Field ==========
 function editRegistrationField(field) {
     const labels = {
         name: selectedLanguage === 'th' ? 'ชื่อ' : 'First Name',
@@ -761,7 +773,7 @@ function editRegistrationField(field) {
     });
 }
 
-// ========== Save Edited Field (NEW) ==========
+// ========== Save Edited Field ==========
 function saveEditedField(field) {
     const newValue = $(`#edit${field}`).val().trim();
     
@@ -823,8 +835,8 @@ function submitRegistration() {
         url: 'app/actions/register_user.php',
         type: 'POST',
         data: {
-            first_name: registrationData.name,      // ✅ เปลี่ยนจาก name เป็น first_name
-            last_name: registrationData.lastname,   // ✅ ส่ง last_name ตามปกติ
+            first_name: registrationData.name,
+            last_name: registrationData.lastname,
             email: registrationData.email,
             phone: registrationData.phone,
             password: registrationData.password,
@@ -904,28 +916,22 @@ function showOTPInput() {
     
     $('#otp1').focus();
     
-    // ✅ Handle Paste Event - วางได้ที่ช่องไหนก็ได้
+    // Handle Paste Event
     $('.otp-input').on('paste', function(e) {
         e.preventDefault();
         
-        // Get pasted data
         const pastedData = (e.originalEvent || e).clipboardData.getData('text/plain');
-        
-        // Extract only numbers
         const otpDigits = pastedData.replace(/\D/g, '').substring(0, 6);
         
         if (otpDigits.length > 0) {
-            // Fill in all OTP inputs
             for (let i = 0; i < otpDigits.length && i < 6; i++) {
                 $('#otp' + (i + 1)).val(otpDigits[i]);
             }
             
-            // Focus on last filled input or next empty one
             if (otpDigits.length < 6) {
                 $('#otp' + (otpDigits.length + 1)).focus();
             } else {
                 $('#otp6').focus();
-                // Enable confirm button if all filled
                 $('#confirmBtn').prop('disabled', false);
             }
         }
@@ -933,14 +939,12 @@ function showOTPInput() {
     
     // Handle typing
     $('.otp-input').on('input', function() {
-        // Only allow numbers
         this.value = this.value.replace(/\D/g, '');
         
         if (this.value.length === 1) {
             $(this).next('.otp-input').focus();
         }
         
-        // Check if all filled
         const otp = $('#otp1').val() + $('#otp2').val() + $('#otp3').val() + 
                     $('#otp4').val() + $('#otp5').val() + $('#otp6').val();
         
@@ -1042,13 +1046,11 @@ function submitLogin(username, password) {
                 jwt = response.jwt;
                 sessionStorage.setItem('jwt', jwt);
                 
-                const successMsg = conversationMessages.login_success[selectedLanguage];
-                addChatMessage('ai', successMsg);
-                speakText(successMsg);
+                // ✅ ลบส่วนนี้ออก - ไม่พูด "Welcome back" ที่นี่
+                // เพราะจะพูดใน checkSetupStatus แทน
                 
-                setTimeout(() => {
-                    checkSetupStatus();
-                }, 2500);
+                // ✅ เรียก checkSetupStatus ทันที
+                checkSetupStatus();
             } else {
                 const errorMsg = selectedLanguage === 'th' ? 
                     "เข้าสู่ระบบล้มเหลว: " + response.message : 
@@ -1078,6 +1080,14 @@ function submitLogin(username, password) {
 
 // ========== Start Questions ==========
 async function startQuestions() {
+    // ✅ ป้องกันการเรียกซ้ำ
+    if (isStartingQuestions) {
+        console.log('⚠️ Already starting questions, skipping...');
+        return;
+    }
+    
+    isStartingQuestions = true;
+    
     try {
         const response = await $.ajax({
             url: 'app/actions/get_personality_questions.php',
@@ -1091,21 +1101,21 @@ async function startQuestions() {
             $('#totalQ').text(questions.length);
             $('#progressBar').show();
             
-            const message = conversationMessages.start_questions[selectedLanguage];
-            addChatMessage('ai', message);
-            speakText(message);
-            
+            // ✅ ลบข้อความออก - ไม่พูดอะไรเพิ่ม
+            // ✅ ถามคำถามแรกเลย
             setTimeout(() => {
                 askQuestion(0);
-            }, 3500);
+            }, 1500); // ✅ รอแค่ 1.5 วินาที
         }
     } catch (error) {
         console.error('Failed to load questions:', error);
+        isStartingQuestions = false; // ✅ ปลดล็อค
     }
 }
 
 function askQuestion(index) {
     if (index >= questions.length) {
+        isStartingQuestions = false; // ✅ ปลดล็อค
         completeSetup();
         return;
     }
@@ -1139,7 +1149,7 @@ function askQuestion(index) {
     }, 2000);
 }
 
-// ========== Show Question Choices (WITH VOICE FEEDBACK) ==========
+// ========== Show Question Choices ==========
 function showQuestionChoices(question) {
     const choiceLangCol = 'choice_text_' + selectedLanguage;
     
@@ -1172,7 +1182,6 @@ function showQuestionChoices(question) {
             choice_id: choiceId
         };
         
-        // ✅ AI พูดตอบกลับทันทีเมื่อเลือก choice
         const feedback = getChoiceFeedback(choiceText);
         speakText(feedback);
         
@@ -1180,7 +1189,7 @@ function showQuestionChoices(question) {
     });
 }
 
-// ========== Show Scale Options (WITH VOICE FEEDBACK) ==========
+// ========== Show Scale Options ==========
 function showScaleOptions(question) {
     const html = `
         <div class="scale-container">
@@ -1215,7 +1224,6 @@ function showScaleOptions(question) {
             scale_value: value
         };
         
-        // ✅ AI พูดตอบกลับทันทีเมื่อเลือก scale
         const feedback = getScaleFeedback(value);
         speakText(feedback);
         
@@ -1236,16 +1244,14 @@ function handleChoiceConfirm() {
         
         verifyOTP(otp);
     } else if (currentStep === 'register_password') {
-        // ✅ ดึงข้อมูลล่าสุดจาก DOM ก่อน submit
         const finalData = {
             name: $('.summary-item:eq(0) .summary-value').text().trim() || registrationData.name,
             lastname: $('.summary-item:eq(1) .summary-value').text().trim() || registrationData.lastname,
             email: $('.summary-item:eq(2) .summary-value').text().trim() || registrationData.email,
             phone: $('.summary-item:eq(3) .summary-value').text().trim() || registrationData.phone,
-            password: registrationData.password // password ไม่แสดงใน DOM
+            password: registrationData.password
         };
         
-        // อัพเดท registrationData ก่อน submit
         Object.assign(registrationData, finalData);
         
         submitRegistration();
@@ -1253,7 +1259,6 @@ function handleChoiceConfirm() {
         // Question answered
         hideChoices();
         
-        // Show thinking icon while processing
         showThinkingIcon();
         
         setTimeout(() => {
@@ -1278,17 +1283,13 @@ function handleBackButton() {
         return;
     }
     
-    // Remove current step
     stepHistory.pop();
-    
-    // Get previous step
     const previousStep = stepHistory[stepHistory.length - 1];
     
     console.log('Going back to:', previousStep);
     
     hideChoices();
     
-    // Restore to previous step
     switch (previousStep.step) {
         case 'language':
             askLanguage();
@@ -1297,7 +1298,6 @@ function handleBackButton() {
             startRegistration();
             break;
         case 'register_lastname':
-            // Re-ask for lastname
             currentStep = 'register_lastname';
             const askLastnameMsg = conversationMessages.ask_lastname[selectedLanguage]
                 .replace('{name}', registrationData.name);
@@ -1306,7 +1306,6 @@ function handleBackButton() {
             setTimeout(() => enableInput(), 500);
             break;
         case 'register_email':
-            // Re-ask for email
             currentStep = 'register_email';
             const askEmailMsg = conversationMessages.ask_email[selectedLanguage]
                 .replace('{name}', registrationData.name)
@@ -1316,7 +1315,6 @@ function handleBackButton() {
             setTimeout(() => enableInput(), 500);
             break;
         case 'register_phone':
-            // Re-ask for phone
             currentStep = 'register_phone';
             const askPhoneMsg = conversationMessages.ask_phone[selectedLanguage];
             addChatMessage('ai', askPhoneMsg);
@@ -1324,7 +1322,6 @@ function handleBackButton() {
             setTimeout(() => enableInput(), 500);
             break;
         case 'register_password':
-            // Re-ask for password
             currentStep = 'register_password';
             const askPasswordMsg = conversationMessages.ask_password[selectedLanguage];
             addChatMessage('ai', askPasswordMsg);
@@ -1385,7 +1382,6 @@ function showAIMessage(text, duration = 6000) {
     $('#aiSpeechText').text(text);
     $('#aiSpeechBubble').addClass('show');
     
-    // Auto hide after duration
     if (duration > 0) {
         setTimeout(() => {
             hideAIMessage();
@@ -1411,14 +1407,12 @@ function showChoices(title, subtitle, content, showBackBtn = false) {
     $('#choicesContent').html(content);
     $('#confirmBtn').prop('disabled', true);
     
-    // Show/hide back button
     if (showBackBtn && stepHistory.length > 1) {
         $('#backBtn').show();
     } else {
         $('#backBtn').hide();
     }
     
-    // Show choices sidebar
     $('#choicesSidebar').addClass('show');
     $('#avatarContainer').addClass('with-choices');
 }
@@ -1442,7 +1436,6 @@ function disableInput() {
 function speakText(text) {
     console.log('🔊 Speaking:', text.substring(0, 50) + '...');
     
-    // Stop any current audio
     if (currentAudio) {
         currentAudio.pause();
         currentAudio = null;
@@ -1451,7 +1444,6 @@ function speakText(text) {
     isSpeaking = true;
     window.isSpeaking = true;
     
-    // Switch to speaking video
     if (speakingVideoUrl) {
         switchToVideo(speakingVideoUrl);
     }
@@ -1473,7 +1465,6 @@ function speakText(text) {
     currentAudio = new Audio(ttsUrl);
     currentAudio.volume = 1.0;
     
-    // Try to play immediately
     const playPromise = currentAudio.play();
     
     if (playPromise !== undefined) {
@@ -1505,7 +1496,6 @@ function speakText(text) {
             switchToVideo(idleVideoUrl);
         }
         
-        // Try Web Speech API as fallback
         tryWebSpeechFallback(text);
     };
 }
@@ -1674,4 +1664,4 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, m => map[m]);
 }
 
-console.log('✅ AI Setup Chat System (Improved with Editable Registration) Loaded');
+console.log('✅ AI Setup Chat System (Fixed Duplicate Voice Issue) Loaded');
