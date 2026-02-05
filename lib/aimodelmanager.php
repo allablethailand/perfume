@@ -1,12 +1,11 @@
 <?php
 /**
- * AI Model Manager
+ * AI Model Manager - FIXED DevRev Integration
  * 
- * จัดการ AI Models หลายตัว พร้อม Fallback System
- * รองรับ Groq, OpenAI, Anthropic, และ providers อื่นๆ
- * ✅ ปรับโครงสร้าง Prompt: Admin = นิสัยหลัก, User = นิสัยรอง
- * ✅ บังคับใช้ภาษาที่ user เลือกจาก preferred_language
- * ✅ ห้ามใช้ ครับ/ค่ะ ต้องเลือกอย่างใดอย่างหนึ่ง
+ * 🔧 แก้ไข:
+ * 1. ✅ ใช้วิธีส่ง prompt แบบเดียวกับโค้ดตัวอย่างที่ทำงานได้
+ * 2. ✅ ส่ง prompt ทั้งหมดในครั้งเดียว (ไม่แยก article reference)
+ * 3. ✅ ใช้ Content-Type ที่ DevRev API ยอมรับ
  */
 
 class AIModelManager {
@@ -18,9 +17,6 @@ class AIModelManager {
         $this->loadModels();
     }
     
-    // ============================================
-    // ฟังก์ชันเข้ารหัส/ถอดรหัส API Key
-    // ============================================
     private function getEncryptionKey() {
         $secret_key = getenv('JWT_SECRET_KEY');
         return hash('sha256', $secret_key, true);
@@ -46,22 +42,12 @@ class AIModelManager {
         }
     }
     
-    /**
-     * ดึง AI Models ทั้งหมดที่ active เรียงตาม priority
-     */
     private function loadModels() {
         $stmt = $this->conn->prepare("
             SELECT 
-                model_id,
-                model_code,
-                model_name,
-                provider,
-                api_key,
-                api_endpoint,
-                is_free,
-                max_tokens,
-                cost_per_1k_tokens,
-                priority
+                model_id, model_code, model_name, provider,
+                api_key, api_endpoint, is_free, max_tokens,
+                cost_per_1k_tokens, priority
             FROM ai_models
             WHERE is_active = 1
             ORDER BY priority ASC, is_free DESC
@@ -76,35 +62,48 @@ class AIModelManager {
         $stmt->close();
         
         if (empty($this->models)) {
-            throw new Exception('No active AI models found. Please activate at least one AI model.');
+            throw new Exception('No active AI models found.');
         }
     }
     
-    /**
-     * ส่งข้อความไปหา AI พร้อม Fallback System
-     */
     public function chat($messages, $options = []) {
-        $default_options = [
+        $params = array_merge([
             'temperature' => 0.7,
             'max_tokens' => 1024,
-            'top_p' => 1
-        ];
+            'top_p' => 1,
+            'devrev_user_id' => null
+        ], $options);
         
-        $params = array_merge($default_options, $options);
+        // ✅ Validate messages
+        $last_user_message = '';
+        for ($i = count($messages) - 1; $i >= 0; $i--) {
+            if ($messages[$i]['role'] === 'user') {
+                $last_user_message = trim($messages[$i]['content']);
+                break;
+            }
+        }
+        
+        if (strlen($last_user_message) < 2) {
+            error_log("⚠️ [AI] User message too short: '{$last_user_message}' - rejecting");
+            return [
+                'success' => false,
+                'error' => 'Message too short (minimum 2 characters required)',
+                'message' => '',
+                'tokens_used' => 0,
+                'response_time_ms' => 0,
+                'attempts' => 0
+            ];
+        }
         
         $attempts = 0;
         $errors = [];
         
         foreach ($this->models as $model) {
             $attempts++;
-            
             try {
                 $start_time = microtime(true);
-                
                 $response = $this->sendToProvider($model, $messages, $params);
-                
-                $end_time = microtime(true);
-                $response_time = round(($end_time - $start_time) * 1000);
+                $response_time = round((microtime(true) - $start_time) * 1000);
                 
                 if ($response['success']) {
                     return [
@@ -119,9 +118,7 @@ class AIModelManager {
                         'is_free' => (bool)$model['is_free']
                     ];
                 }
-                
                 $errors[] = "{$model['model_name']}: {$response['error']}";
-                
             } catch (Exception $e) {
                 $errors[] = "{$model['model_name']}: {$e->getMessage()}";
             }
@@ -137,42 +134,25 @@ class AIModelManager {
         ];
     }
     
-    /**
-     * ส่ง request ไปยัง Provider ที่ถูกต้อง
-     */
     private function sendToProvider($model, $messages, $params) {
-        if (empty($model['api_key'])) {
-            return [
-                'success' => false,
-                'error' => 'API Key not configured or failed to decrypt'
-            ];
+        if (strtolower($model['provider']) !== 'devrev' && empty($model['api_key'])) {
+            return ['success' => false, 'error' => 'API Key not configured'];
         }
         
         switch (strtolower($model['provider'])) {
-            case 'groq':
-                return $this->sendToGroq($model, $messages, $params);
-            
-            case 'openai':
-                return $this->sendToOpenAI($model, $messages, $params);
-            
-            case 'anthropic':
-                return $this->sendToAnthropic($model, $messages, $params);
-            
+            case 'groq':      return $this->sendToGroq($model, $messages, $params);
+            case 'openai':    return $this->sendToOpenAI($model, $messages, $params);
+            case 'anthropic': return $this->sendToAnthropic($model, $messages, $params);
+            case 'devrev':    return $this->sendToDevRev($model, $messages, $params);
             default:
-                return [
-                    'success' => false,
-                    'error' => 'Unsupported provider: ' . $model['provider']
-                ];
+                return ['success' => false, 'error' => 'Unsupported provider: ' . $model['provider']];
         }
     }
     
-    /**
-     * ส่งไปยัง Groq API
-     */
     private function sendToGroq($model, $messages, $params) {
         $api_url = $model['api_endpoint'] ?: 'https://api.groq.com/openai/v1/chat/completions';
         
-        $request_params = [
+        $payload = [
             'model' => $model['model_code'],
             'messages' => $messages,
             'temperature' => $params['temperature'],
@@ -188,7 +168,7 @@ class AIModelManager {
                 'Content-Type: application/json',
                 'Authorization: Bearer ' . $model['api_key']
             ],
-            CURLOPT_POSTFIELDS => json_encode($request_params),
+            CURLOPT_POSTFIELDS => json_encode($payload),
             CURLOPT_TIMEOUT => 30
         ]);
         
@@ -197,15 +177,11 @@ class AIModelManager {
         curl_close($ch);
         
         if ($http_code !== 200) {
-            $error_data = json_decode($response, true);
-            return [
-                'success' => false,
-                'error' => $error_data['error']['message'] ?? 'HTTP Error ' . $http_code
-            ];
+            $err = json_decode($response, true);
+            return ['success' => false, 'error' => $err['error']['message'] ?? 'HTTP ' . $http_code];
         }
         
         $data = json_decode($response, true);
-        
         return [
             'success' => true,
             'message' => $data['choices'][0]['message']['content'] ?? '',
@@ -213,13 +189,10 @@ class AIModelManager {
         ];
     }
     
-    /**
-     * ส่งไปยัง OpenAI API
-     */
     private function sendToOpenAI($model, $messages, $params) {
         $api_url = $model['api_endpoint'] ?: 'https://api.openai.com/v1/chat/completions';
         
-        $request_params = [
+        $payload = [
             'model' => $model['model_code'],
             'messages' => $messages,
             'temperature' => $params['temperature'],
@@ -234,7 +207,7 @@ class AIModelManager {
                 'Content-Type: application/json',
                 'Authorization: Bearer ' . $model['api_key']
             ],
-            CURLOPT_POSTFIELDS => json_encode($request_params),
+            CURLOPT_POSTFIELDS => json_encode($payload),
             CURLOPT_TIMEOUT => 30
         ]);
         
@@ -243,15 +216,11 @@ class AIModelManager {
         curl_close($ch);
         
         if ($http_code !== 200) {
-            $error_data = json_decode($response, true);
-            return [
-                'success' => false,
-                'error' => $error_data['error']['message'] ?? 'HTTP Error ' . $http_code
-            ];
+            $err = json_decode($response, true);
+            return ['success' => false, 'error' => $err['error']['message'] ?? 'HTTP ' . $http_code];
         }
         
         $data = json_decode($response, true);
-        
         return [
             'success' => true,
             'message' => $data['choices'][0]['message']['content'] ?? '',
@@ -259,15 +228,11 @@ class AIModelManager {
         ];
     }
     
-    /**
-     * ส่งไปยัง Anthropic API (Claude)
-     */
     private function sendToAnthropic($model, $messages, $params) {
         $api_url = $model['api_endpoint'] ?: 'https://api.anthropic.com/v1/messages';
         
         $system = '';
         $anthropic_messages = [];
-        
         foreach ($messages as $msg) {
             if ($msg['role'] === 'system') {
                 $system = $msg['content'];
@@ -276,15 +241,12 @@ class AIModelManager {
             }
         }
         
-        $request_params = [
+        $payload = [
             'model' => $model['model_code'],
             'max_tokens' => min($params['max_tokens'], $model['max_tokens']),
             'messages' => $anthropic_messages
         ];
-        
-        if ($system) {
-            $request_params['system'] = $system;
-        }
+        if ($system) $payload['system'] = $system;
         
         $ch = curl_init($api_url);
         curl_setopt_array($ch, [
@@ -295,7 +257,7 @@ class AIModelManager {
                 'x-api-key: ' . $model['api_key'],
                 'anthropic-version: 2023-06-01'
             ],
-            CURLOPT_POSTFIELDS => json_encode($request_params),
+            CURLOPT_POSTFIELDS => json_encode($payload),
             CURLOPT_TIMEOUT => 30
         ]);
         
@@ -304,244 +266,519 @@ class AIModelManager {
         curl_close($ch);
         
         if ($http_code !== 200) {
-            $error_data = json_decode($response, true);
-            return [
-                'success' => false,
-                'error' => $error_data['error']['message'] ?? 'HTTP Error ' . $http_code
-            ];
+            $err = json_decode($response, true);
+            return ['success' => false, 'error' => $err['error']['message'] ?? 'HTTP ' . $http_code];
         }
         
         $data = json_decode($response, true);
-        
         return [
             'success' => true,
             'message' => $data['content'][0]['text'] ?? '',
-            'tokens_used' => $data['usage']['input_tokens'] + $data['usage']['output_tokens']
+            'tokens_used' => ($data['usage']['input_tokens'] ?? 0) + ($data['usage']['output_tokens'] ?? 0)
         ];
     }
     
     /**
-     * ✅ สร้าง System Prompt แบบใหม่
-     * โครงสร้าง:
-     * 1. Admin Prompt (นิสัยหลัก) - มาจาก system_prompt, perfume_knowledge, style_suggestions
-     * 2. User Personality (นิสัยรอง) - มาจาก user_personality_answers
-     * 3. Language Enforcement - บังคับใช้ภาษาที่ user เลือกจาก preferred_language
-     * 4. Response Format Rules - ห้ามใช้ ครับ/ค่ะ
+     * ✅ FIXED: DevRev - ใช้วิธีเดียวกับโค้ดตัวอย่างที่ทำงาน
+     * ส่ง prompt ทั้งหมดในครั้งเดียว (ไม่ใช้ article reference)
      */
+    private function sendToDevRev($model, $messages, $params) {
+    $api_key = $model['api_key'];
+    
+    if (empty($api_key)) {
+        $api_key = getenv('DEVREV_API_TOKEN') ?: ($_ENV['DEVREV_API_TOKEN'] ?? null);
+        error_log("⚠️ [DevRev AI] No API key in model, using from .env");
+    }
+    
+    if (empty($api_key)) {
+        error_log("❌ [DevRev AI] API Key not found");
+        return ['success' => false, 'error' => 'API Key not configured'];
+    }
+    
+    error_log("✅ [DevRev AI] Using API key (length: " . strlen($api_key) . ")");
+    
+    // ✅ ดึง display_id
+    $user_display_id = null;
+    if (!empty($params['devrev_user_id'])) {
+        $stmt = $this->conn->prepare("
+            SELECT devrev_display_id 
+            FROM mb_user 
+            WHERE user_id = ?
+        ");
+        $stmt->bind_param('i', $params['devrev_user_id']);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $user_data = $result->fetch_assoc();
+        $stmt->close();
+        
+        if ($user_data && !empty($user_data['devrev_display_id'])) {
+            $user_display_id = $user_data['devrev_display_id'];
+            error_log("✅ [DevRev AI] User display_id: {$user_display_id}");
+        }
+    }
+    
+    // ✅ ดึง article content (เหมือนเดิม)
+    $article_content = '';
+    if (!empty($params['devrev_user_id'])) {
+        $article_content = $this->buildArticleContext($api_key, $params['devrev_user_id']);
+    }
+    
+    // ✅ สร้าง prompt (แบบเดียวกับโค้ดทดสอบ STEP 6B)
+    $prompt = $this->buildCompletePrompt($messages, $article_content);
+    
+    error_log("🔵 [DevRev AI] Prompt length: " . strlen($prompt));
+    error_log("📝 [DevRev AI] Prompt preview: " . substr($prompt, 0, 300) . "...");
+    
+    return $this->sendDevRevRequest($api_key, $prompt, $user_display_id);
+}
+    
+    /**
+     * ✅ สร้าง prompt ที่ DevRev ต้องการ
+     * FIX: ทดลองพบว่า DevRev ต้องการ prompt ที่เรียบง่าย
+     */
+    private function buildCompletePrompt($messages, $article_content = '') {
+    // 1. ดึง user message ล่าสุด
+    $last_user_msg = '';
+    for ($i = count($messages) - 1; $i >= 0; $i--) {
+        if ($messages[$i]['role'] === 'user') {
+            $last_user_msg = trim($messages[$i]['content']);
+            break;
+        }
+    }
+    
+    if (empty($last_user_msg)) {
+        return "Hello";
+    }
+    
+    // 2. ถ้ามี article content ให้ส่งแบบเดียวกับโค้ดทดสอบ STEP 6B
+    if (!empty($article_content)) {
+        // Clean up
+        $clean_content = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $article_content);
+        $clean_content = trim($clean_content);
+        
+        // Format เหมือนโค้ดทดสอบ
+        $context = $clean_content . "\n\n---\n\n";
+        $prompt = $context . "User Question: " . $last_user_msg;
+        
+        error_log("🔵 [DevRev] Prompt with context length: " . strlen($prompt) . " chars");
+        
+        return $prompt;
+    }
+    
+    // 3. ไม่มี context ก็ส่งแค่ message
+    return $last_user_msg;
+}
+    
+    /**
+     * ✅ ส่ง request ไป DevRev API ตาม official docs
+     * API expects: POST with JSON body {"query": "text"}
+     * Max length: 10000 chars
+     */
+    private function sendDevRevRequest($api_key, $prompt, $user_display_id = null) {
+    $api_url = 'https://api.devrev.ai/recommendations.get-reply';
+    
+    if (strlen($prompt) < 1) {
+        return ['success' => false, 'error' => 'Prompt too short'];
+    }
+    
+    if (strlen($prompt) > 10000) {
+        error_log("⚠️ [DevRev] Truncating prompt from " . strlen($prompt) . " to 10000 chars");
+        $prompt = mb_substr($prompt, 0, 10000, 'UTF-8');
+    }
+    
+    error_log("🔵 [DevRev AI] Sending prompt (" . strlen($prompt) . " chars)");
+    
+    // ✅ ส่งแค่ query เฉยๆ (เหมือนโค้ดทดสอบ)
+    $payload = ['query' => $prompt];
+    
+    // ✅ ใช้ flags เดียวกับโค้ดทดสอบ
+    $post_data = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    
+    if ($post_data === false) {
+        error_log("❌ [DevRev] JSON encode failed: " . json_last_error_msg());
+        return ['success' => false, 'error' => 'Failed to encode JSON'];
+    }
+    
+    // ✅ ใช้ headers เดียวกับโค้ดทดสอบ (ลำดับเดียวกัน!)
+    $headers = [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . trim($api_key)
+    ];
+    
+    error_log("📦 [DevRev] Payload: " . $post_data);
+    
+    $ch = curl_init($api_url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => $post_data,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_TIMEOUT => 30
+    ]);
+    
+    $start = microtime(true);
+    $response = curl_exec($ch);
+    $elapsed = round((microtime(true) - $start) * 1000);
+    
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    error_log("📊 [DevRev] HTTP: {$http_code} | Time: {$elapsed}ms");
+    error_log("📄 [DevRev] FULL Response: " . $response);
+    
+    if ($http_code === 400) {
+        $err = json_decode($response, true);
+        $error_type = $err['type'] ?? 'unknown';
+        $error_msg = $err['message'] ?? 'Bad Request';
+        $field_name = $err['field_name'] ?? '';
+        
+        error_log("❌ [DevRev] Bad Request - Type: {$error_type}, Msg: {$error_msg}, Field: {$field_name}");
+        
+        return ['success' => false, 'error' => "Bad Request: {$error_msg}"];
+    }
+    
+    if ($http_code === 500) {
+        $err = json_decode($response, true);
+        $ref_id = $err['reference_id'] ?? 'unknown';
+        return ['success' => false, 'error' => "DevRev Internal Error (ref: {$ref_id})"];
+    }
+    
+    if ($http_code !== 200) {
+        $err = json_decode($response, true);
+        $msg = $err['message'] ?? "HTTP {$http_code}";
+        return ['success' => false, 'error' => $msg];
+    }
+    
+    $decoded = json_decode($response, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        error_log("❌ [DevRev] JSON decode error: " . json_last_error_msg());
+        return ['success' => false, 'error' => 'Invalid JSON response'];
+    }
+    
+    error_log("🔍 [DevRev] Response keys: " . implode(', ', array_keys($decoded)));
+    
+    $reply = $decoded['reply'] ?? '';
+    
+    if (empty($reply)) {
+        error_log("❌ [DevRev] Empty reply field");
+        
+        // ตรวจสอบ field อื่นๆ
+        if (isset($decoded['response'])) {
+            $reply = $decoded['response'];
+        } elseif (isset($decoded['text'])) {
+            $reply = $decoded['text'];
+        }
+        
+        if (empty($reply)) {
+            return ['success' => false, 'error' => 'Empty reply from DevRev'];
+        }
+    }
+    
+    if (isset($decoded['sources']) && !empty($decoded['sources'])) {
+        $source_count = count($decoded['sources']);
+        error_log("📚 [DevRev] Sources used: {$source_count}");
+        
+        foreach ($decoded['sources'] as $idx => $source) {
+            $title = $source['title'] ?? 'untitled';
+            $type = $source['type'] ?? 'unknown';
+            $display_id = $source['display_id'] ?? 'no-id';
+            error_log("   [{$idx}] {$type}: {$title} ({$display_id})");
+        }
+    } else {
+        error_log("⚠️ [DevRev] No sources used");
+    }
+    
+    error_log("✅ [DevRev] Success! Reply length: " . strlen($reply) . " chars");
+    
+    return [
+        'success' => true,
+        'message' => $reply,
+        'tokens_used' => 0
+    ];
+}
+
+    
+    /**
+     * Parse DevRev response
+     */
+    private function parseDevRevResponse($response, $http_code) {
+        if ($http_code !== 200) {
+            error_log("❌ HTTP {$http_code}: " . substr($response, 0, 200));
+            return ['success' => false, 'error' => "HTTP {$http_code}"];
+        }
+        
+        if (empty($response) || $response === '{}') {
+            error_log("❌ Empty response");
+            return ['success' => false, 'error' => 'Empty response'];
+        }
+        
+        $decoded = json_decode($response, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log("❌ JSON error: " . json_last_error_msg());
+            return ['success' => false, 'error' => 'Invalid JSON'];
+        }
+        
+        $text = $decoded['reply'] ?? $decoded['response'] ?? $decoded['text'] ?? '';
+        
+        if (empty($text)) {
+            error_log("❌ No reply field. Keys: " . implode(', ', array_keys($decoded)));
+            return ['success' => false, 'error' => 'No reply'];
+        }
+        
+        error_log("✅ SUCCESS! Response: " . substr($text, 0, 100) . "...");
+        
+        return [
+            'success' => true,
+            'message' => $text,
+            'tokens_used' => 0
+        ];
+    }
+    
+    /**
+     * ✅ ดึง context จาก Articles
+     */
+    private function buildArticleContext($api_key, $user_id) {
+        error_log("🔵 [DevRev AI] Building article context for user: {$user_id}");
+        
+        $stmt = $this->conn->prepare("
+            SELECT devrev_chat_article_id, devrev_prompt_article_id
+            FROM mb_user WHERE user_id = ?
+        ");
+        $stmt->bind_param('i', $user_id);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        
+        if (!$row) {
+            error_log("⚠️ [DevRev AI] User not found");
+            return '';
+        }
+        
+        $parts = [];
+        
+        // 1. System Prompt
+        if (!empty($row['devrev_prompt_article_id'])) {
+            $content = $this->fetchArticleContent($api_key, $row['devrev_prompt_article_id']);
+            if ($content) {
+                // ดึงแค่ส่วนสำคัญ
+                $lines = explode("\n", $content);
+                $important = [];
+                
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    if (preg_match('/^[•\-\*]\s*(.+)/', $line, $m)) {
+                        $important[] = $m[1];
+                        if (count($important) >= 5) break;
+                    }
+                }
+                
+                if (!empty($important)) {
+                    $parts[] = "=== Character Traits ===\n" . implode(". ", $important) . ".";
+                    error_log("✅ [DevRev AI] Loaded system prompt traits");
+                }
+            }
+        }
+        
+        // 2. Chat History (5 messages ล่าสุด)
+        if (!empty($row['devrev_chat_article_id'])) {
+            $content = $this->fetchArticleContent($api_key, $row['devrev_chat_article_id']);
+            if ($content) {
+                $lines = explode("\n", $content);
+                $recent = [];
+                
+                for ($i = count($lines) - 1; $i >= 0 && count($recent) < 10; $i--) {
+                    $line = trim($lines[$i]);
+                    if (preg_match('/^\[[\d\-\s:]+\]\s+(User|Assistant):\s*(.*)/', $line, $m)) {
+                        array_unshift($recent, $m[1] . ": " . $m[2]);
+                    }
+                }
+                
+                if (!empty($recent)) {
+                    $parts[] = "=== Recent Conversation ===\n" . implode("\n", $recent);
+                    error_log("✅ [DevRev AI] Loaded " . count($recent) . " messages");
+                }
+            }
+        }
+        
+        $result = implode("\n\n", $parts);
+        error_log("📚 [DevRev AI] Total context: " . strlen($result) . " chars");
+        
+        return $result;
+    }
+    
+    /**
+     * ✅ ดึงเนื้อหาจาก Article
+     */
+    private function fetchArticleContent($api_key, $article_id) {
+        error_log("🔵 [DevRev AI] Fetching article: {$article_id}");
+        
+        // Step 1: Get Article
+        $ch = curl_init('https://api.devrev.ai/articles.get');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $api_key
+            ],
+            CURLOPT_POSTFIELDS => json_encode(['id' => $article_id]),
+            CURLOPT_TIMEOUT => 15
+        ]);
+        $response = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($http_code !== 200) {
+            error_log("❌ [DevRev AI] Failed to get article: HTTP {$http_code}");
+            return '';
+        }
+        
+        $data = json_decode($response, true);
+        $artifacts = $data['article']['resource']['artifacts'] ?? [];
+        
+        if (empty($artifacts)) {
+            error_log("⚠️ [DevRev AI] No artifacts");
+            return '';
+        }
+        
+        $artifact_id = end($artifacts)['id'] ?? null;
+        if (!$artifact_id) return '';
+        
+        // Step 2: Locate artifact
+        $ch = curl_init('https://api.devrev.ai/artifacts.locate');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                'Authorization: Bearer ' . $api_key
+            ],
+            CURLOPT_POSTFIELDS => json_encode(['id' => $artifact_id]),
+            CURLOPT_TIMEOUT => 15
+        ]);
+        $response = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($http_code !== 200) return '';
+        
+        $download_url = json_decode($response, true)['url'] ?? null;
+        if (!$download_url) return '';
+        
+        // Step 3: Download
+        $ch = curl_init($download_url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 15,
+            CURLOPT_FOLLOWLOCATION => true
+        ]);
+        $content = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($http_code !== 200 || empty($content)) return '';
+        
+        error_log("✅ [DevRev AI] Downloaded " . strlen($content) . " chars");
+        
+        // จำกัดความยาว
+        if (strlen($content) > 5000) {
+            $content = substr($content, 0, 5000) . "\n[...truncated...]";
+        }
+        
+        return $content;
+    }
+    
     public function buildSystemPrompt($ai_companion, $user_personality, $language = 'th') {
         $ai_name = $ai_companion['ai_name'] ?? 'AI Assistant';
         
-        // ============================================
-        // SECTION 1: นิสัยหลัก (จาก Admin)
-        // ============================================
         $core_personality = trim($ai_companion['system_prompt'] ?? '');
-        
-        // ============================================
-        // SECTION 2: ความรู้เฉพาะทาง
-        // ============================================
         $perfume_knowledge = trim($ai_companion['perfume_knowledge'] ?? '');
         $style_suggestions = trim($ai_companion['style_suggestions'] ?? '');
         
         $expertise = '';
-        if (!empty($perfume_knowledge)) {
+        if (!empty($perfume_knowledge))
             $expertise .= "\n\n=== ความรู้เกี่ยวกับน้ำหอม ===\n" . $perfume_knowledge;
-        }
-        if (!empty($style_suggestions)) {
+        if (!empty($style_suggestions))
             $expertise .= "\n\n=== คำแนะนำด้านสไตล์ ===\n" . $style_suggestions;
-        }
         
-        // ============================================
-        // SECTION 3: นิสัยรอง (จาก User Personality)
-        // ============================================
         $user_context = '';
         if (!empty($user_personality)) {
-            $user_context = "\n\n=== ข้อมูลเพิ่มเติมเกี่ยวกับผู้ใช้ (นิสัยรองที่ต้องคำนึงถึง) ===\n";
+            $user_context = "\n\n=== ข้อมูลเพิ่มเติมเกี่ยวกับผู้ใช้ (นิสัยรอง) ===\n";
             foreach ($user_personality as $answer) {
                 $user_context .= "• {$answer['question']}: ";
-                
-                if (!empty($answer['choice_text'])) {
-                    $user_context .= $answer['choice_text'];
-                } elseif (!empty($answer['text_answer'])) {
-                    $user_context .= $answer['text_answer'];
-                } elseif ($answer['scale_value'] !== null) {
-                    $user_context .= "คะแนน {$answer['scale_value']}/10";
-                }
+                if (!empty($answer['choice_text']))       $user_context .= $answer['choice_text'];
+                elseif (!empty($answer['text_answer']))   $user_context .= $answer['text_answer'];
+                elseif ($answer['scale_value'] !== null)  $user_context .= "คะแนน {$answer['scale_value']}/10";
                 $user_context .= "\n";
             }
-            
-            $user_context .= "\n💡 ใช้ข้อมูลข้างต้นเป็นบริบทเสริมในการตอบ แต่ยังคงรักษานิสัยหลักของคุณไว้";
+            $user_context .= "\n💡 ใช้เป็นบริบทเสริม แต่รักษานิสัยหลักไว้";
         }
         
-        // ============================================
-        // SECTION 4: กฎการใช้ภาษา (ใช้ภาษาจาก preferred_language)
-        // ============================================
         $language_rules = $this->getLanguageRules($language);
-        
-        // ============================================
-        // SECTION 5: กฎการตอบกลับ
-        // ============================================
         $response_rules = $this->getResponseRules($language);
         
-        // ============================================
-        // รวม Prompt ทั้งหมด
-        // ============================================
         $full_prompt = trim(
-            $core_personality . 
-            $expertise . 
-            $user_context . 
-            "\n\n" . $language_rules . 
+            $core_personality . $expertise . $user_context .
+            "\n\n" . $language_rules .
             "\n\n" . $response_rules
         );
         
-        // ============================================
-        // สร้าง Details เพื่อ Debug
-        // ============================================
         $details = [
             'ai_name' => $ai_name,
             'ai_code' => $ai_companion['ai_code'] ?? 'unknown',
             'language' => $language,
             'language_source' => 'preferred_language from user_ai_companions',
             'prompt_sections' => [
-                'core_personality' => [
-                    'label' => '🎭 นิสัยหลัก (Admin Prompt)',
-                    'content' => $core_personality,
-                    'length' => mb_strlen($core_personality)
-                ],
-                'perfume_knowledge' => [
-                    'label' => '💧 Perfume Knowledge',
-                    'content' => $perfume_knowledge,
-                    'length' => mb_strlen($perfume_knowledge)
-                ],
-                'style_suggestions' => [
-                    'label' => '✨ Style Suggestions',
-                    'content' => $style_suggestions,
-                    'length' => mb_strlen($style_suggestions)
-                ],
-                'user_personality' => [
-                    'label' => '👤 นิสัยรอง (User Personality)',
-                    'content' => $user_context,
-                    'length' => mb_strlen($user_context),
-                    'answers_count' => count($user_personality)
-                ],
-                'language_rules' => [
-                    'label' => '🌐 Language Rules (based on preferred_language)',
-                    'content' => $language_rules,
-                    'length' => mb_strlen($language_rules)
-                ],
-                'response_rules' => [
-                    'label' => '📋 Response Format Rules',
-                    'content' => $response_rules,
-                    'length' => mb_strlen($response_rules)
-                ]
+                'core_personality' => ['label' => '🎭 นิสัยหลัก', 'content' => $core_personality, 'length' => mb_strlen($core_personality)],
+                'perfume_knowledge' => ['label' => '💧 Perfume Knowledge', 'content' => $perfume_knowledge, 'length' => mb_strlen($perfume_knowledge)],
+                'style_suggestions' => ['label' => '✨ Style Suggestions', 'content' => $style_suggestions, 'length' => mb_strlen($style_suggestions)],
+                'user_personality' => ['label' => '👤 นิสัยรอง', 'content' => $user_context, 'length' => mb_strlen($user_context), 'answers_count' => count($user_personality)],
+                'language_rules' => ['label' => '🌐 Language Rules', 'content' => $language_rules, 'length' => mb_strlen($language_rules)],
+                'response_rules' => ['label' => '📋 Response Rules', 'content' => $response_rules, 'length' => mb_strlen($response_rules)]
             ],
             'total_prompt_length' => mb_strlen($full_prompt)
         ];
         
-        return [
-            'prompt' => $full_prompt,
-            'details' => $details
-        ];
+        return ['prompt' => $full_prompt, 'details' => $details];
     }
     
-    /**
-     * ✅ กฎการใช้ภาษา (บังคับใช้ภาษาจาก preferred_language)
-     */
     private function getLanguageRules($language) {
-        $language_names = [
-            'th' => 'ภาษาไทย (Thai)',
-            'en' => 'English',
-            'jp' => '日本語 (Japanese)',
-            'kr' => '한국어 (Korean)',
-            'cn' => '中文 (Chinese)'
-        ];
-        
-        $lang_name = $language_names[$language] ?? $language_names['th'];
+        $names = ['th'=>'ภาษาไทย (Thai)','en'=>'English','jp'=>'日本語 (Japanese)','kr'=>'한국어 (Korean)','cn'=>'中文 (Chinese)'];
+        $n = $names[$language] ?? $names['th'];
         
         $rules = [
-            'th' => "=== กฎการใช้ภาษา (LANGUAGE ENFORCEMENT) ===
-🌐 คุณ**ต้อง**ตอบเป็น{$lang_name}เท่านั้น ไม่ว่าผู้ใช้จะถามเป็นภาษาอะไร
-🌐 ห้ามเปลี่ยนภาษาเว้นแต่ผู้ใช้จะขอเปลี่ยนอย่างชัดเจน เช่น \"เปลี่ยนเป็นภาษาอังกฤษ\" หรือ \"switch to English\"
-🌐 ถ้าผู้ใช้ถามเป็นภาษาอื่น ให้ตอบเป็น{$lang_name}ตามปกติ
-🌐 ภาษานี้ถูกเลือกไว้โดยผู้ใช้ใน preferred_language และจะใช้ตลอดทั้งการสนทนา",
-
-            'en' => "=== LANGUAGE ENFORCEMENT RULES ===
-🌐 You **MUST** respond in {$lang_name} only, regardless of what language the user uses
-🌐 Do NOT change language unless the user explicitly requests it (e.g., \"เปลี่ยนเป็นภาษาไทย\" or \"switch to Thai\")
-🌐 If the user asks in another language, still respond in {$lang_name}
-🌐 This language was chosen by the user in preferred_language and will be used throughout the conversation",
-
-            'ja' => "=== 言語使用ルール (LANGUAGE ENFORCEMENT) ===
-🌐 ユーザーがどの言語を使用しても、{$lang_name}でのみ回答してください
-🌐 ユーザーが明示的に要求しない限り、言語を変更しないでください（例：「英語に変更」または「switch to English」）
-🌐 ユーザーが他の言語で質問しても、{$lang_name}で回答してください
-🌐 この言語はユーザーが preferred_language で選択したもので、会話全体で使用されます",
-
-            'ko' => "=== 언어 사용 규칙 (LANGUAGE ENFORCEMENT) ===
-🌐 사용자가 어떤 언어를 사용하든 {$lang_name}로만 응답해야 합니다
-🌐 사용자가 명시적으로 요청하지 않는 한 언어를 변경하지 마세요 (예: \"영어로 변경\" 또는 \"switch to English\")
-🌐 사용자가 다른 언어로 질문해도 {$lang_name}로 응답하세요
-🌐 이 언어는 사용자가 preferred_language에서 선택한 것이며 대화 전체에 사용됩니다",
-
-            'zh' => "=== 语言使用规则 (LANGUAGE ENFORCEMENT) ===
-🌐 无论用户使用什么语言，您**必须**仅使用{$lang_name}回复
-🌐 除非用户明确要求，否则请勿更改语言（例如：切换到英语或switch to English）
-🌐 如果用户用其他语言提问，仍然用{$lang_name}回答
-🌐 此语言是用户在 preferred_language 中选择的，将在整个对话中使用"
+            'th' => "=== กฎการใช้ภาษา ===\n🌐 คุณ**ต้อง**ตอบเป็น{$n}เท่านั้น\n🌐 ห้ามเปลี่ยนภาษาเว้นแต่ผู้ใช้จะขอเปลี่ยนอย่างชัดเจน",
+            'en' => "=== LANGUAGE ENFORCEMENT ===\n🌐 Respond in {$n} only\n🌐 Do NOT change unless explicitly requested",
+            'ja' => "=== 言語ルール ===\n🌐 {$n}でのみ回答\n🌐 明示的に要求されない限り変更しない",
+            'ko' => "=== 언어 규칙 ===\n🌐 {$n}로만 응답\n🌐 명시적 요청 없이 변경 안 함",
+            'zh' => "=== 语言规则 ===\n🌐 仅{$n}回复\n🌐 无明确要求不更改"
         ];
-        
         return $rules[$language] ?? $rules['th'];
     }
     
-    /**
-     * ✅ กฎการตอบกลับ (ห้ามใช้ ครับ/ค่ะ)
-     */
     private function getResponseRules($language) {
         if ($language === 'th') {
-            return "=== กฎการตอบกลับ (RESPONSE FORMAT RULES) ===
-⛔ **ห้ามใช้ \"ครับ/ค่ะ\" เด็ดขาด** - ต้องเลือกใช้อย่างใดอย่างหนึ่งเท่านั้น
-✅ ใช้ \"ครับ\" หรือ \"ค่ะ\" อย่างใดอย่างหนึ่งตลอดทั้งการสนทนา
-✅ ถ้านิสัยของคุณเป็นผู้ชาย ให้ใช้ \"ครับ\" เท่านั้น
-✅ ถ้านิสัยของคุณเป็นผู้หญิง ให้ใช้ \"ค่ะ\" เท่านั้น
-✅ ถ้าไม่ระบุเพศ ให้เลือกตามบุคลิกที่เหมาะสม แล้วใช้แบบนั้นตลอด
-📌 ตัวอย่างที่ถูก: \"สวัสดีครับ\" หรือ \"สวัสดีค่ะ\"
-⛔ ตัวอย่างที่ผิด: \"สวัสดีครับ/ค่ะ\" (ห้ามมีเครื่องหมาย / )";
-        } else {
-            return "=== RESPONSE FORMAT RULES ===
-✅ Be natural and conversational
-✅ Maintain consistent personality throughout the conversation
-✅ Adapt your tone based on user's personality profile
-✅ Keep responses clear and engaging";
+            return "=== กฎการตอบกลับ ===\n⛔ ห้ามใช้ \"ครับ/ค่ะ\" เด็ดขาด\n✅ ผู้ชาย → \"ครับ\" | ผู้หญิง → \"ค่ะ\"";
         }
+        return "=== RESPONSE RULES ===\n✅ Be natural and conversational\n✅ Maintain consistent personality";
     }
     
-    /**
-     * Format conversation history สำหรับส่งไปยัง API
-     */
     public function formatConversationHistory($chat_history, $limit = 10) {
         $messages = [];
-        $recent_history = array_slice($chat_history, -$limit);
-        
-        foreach ($recent_history as $chat) {
-            $messages[] = [
-                'role' => $chat['role'],
-                'content' => $chat['message_text']
-            ];
+        foreach (array_slice($chat_history, -$limit) as $chat) {
+            $messages[] = ['role' => $chat['role'], 'content' => $chat['message_text']];
         }
-        
         return $messages;
     }
     
-    /**
-     * ดึงรายการ AI Models ทั้งหมด (ไม่แสดง API Key)
-     */
     public function getModels() {
-        $safe_models = [];
-        foreach ($this->models as $model) {
-            $safe_model = $model;
-            $safe_model['api_key'] = !empty($model['api_key']) ? '***ENCRYPTED***' : null;
-            $safe_models[] = $safe_model;
+        $safe = [];
+        foreach ($this->models as $m) {
+            $s = $m;
+            $s['api_key'] = !empty($m['api_key']) ? '***ENCRYPTED***' : null;
+            $safe[] = $s;
         }
-        return $safe_models;
+        return $safe;
     }
 }
 ?>

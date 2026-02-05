@@ -1,6 +1,6 @@
 <?php
 /**
- * AI Chat API (Guest Mode Supported)
+ * AI Chat API (Guest Mode Supported + DevRev Integration)
  * 
  * POST: /app/actions/ai_chat.php
  * 
@@ -8,11 +8,18 @@
  *    1. Login Mode: ใช้ JWT (user_id)
  *    2. Guest Mode: ใช้ user_companion_id หรือ ai_code
  * ✅ บังคับให้ AI ตอบเฉพาะภาษาจาก preferred_language
+ * ✅ บันทึกข้อมูลลง DevRev อัตโนมัติ:
+ *    - สร้าง Dev User สำหรับ user
+ *    - บันทึกแชทเป็น Artifacts
+ *    - บันทึก System Prompts เป็น Articles
+ * ✅ FIX: ใช้ display_id แทน customer_id/group_id
+ * ✅ NEW: ส่ง user_id ให้ DevRev ดึงข้อมูลจาก Articles
  */
 
 require_once('../../lib/connect.php');
 require_once('../../lib/jwt_helper.php');
 require_once('../../lib/aimodelmanager.php');
+require_once('../../lib/devrev_manager.php');
 
 global $conn;
 
@@ -85,7 +92,6 @@ if (!$user_id) {
             $user_companion_id = $companion['user_companion_id'];
             $user_id = $companion['user_id'];
             $ai_id = $companion['ai_id'];
-            // ✅ ดึงภาษาจาก database เป็นหลัก
             $language = !empty($companion['preferred_language']) ? $companion['preferred_language'] : 'th';
         }
         $stmt->close();
@@ -111,7 +117,6 @@ if (!$user_id) {
             if (isset($_SESSION['user_companion_id'])) {
                 $user_companion_id = $_SESSION['user_companion_id'];
                 
-                // ✅ ดึง user_id และ preferred_language จาก companion
                 $stmt2 = $conn->prepare("
                     SELECT user_id, preferred_language 
                     FROM user_ai_companions 
@@ -124,7 +129,6 @@ if (!$user_id) {
                 if ($result2->num_rows > 0) {
                     $comp_data = $result2->fetch_assoc();
                     $user_id = $comp_data['user_id'];
-                    // ✅ ดึงภาษาจาก database เป็นหลัก
                     $language = !empty($comp_data['preferred_language']) ? $comp_data['preferred_language'] : 'th';
                 }
                 $stmt2->close();
@@ -148,8 +152,6 @@ if (!$user_id) {
 try {
     $conn->begin_transaction();
     
-    // ⚠️ ยังไม่กำหนด $language ที่นี่ - ให้ดึงจาก database ก่อน
-    
     // ✅ ถ้ายังไม่มี user_companion_id ให้หาและดึง preferred_language
     if (!$user_companion_id && $user_id) {
         $companion_stmt = $conn->prepare("
@@ -170,7 +172,6 @@ try {
         $companion_data = $companion_result->fetch_assoc();
         $user_companion_id = $companion_data['user_companion_id'];
         $ai_id = $companion_data['ai_id'];
-        // ✅ ดึงภาษาจาก database เป็นหลัก
         $language = !empty($companion_data['preferred_language']) ? $companion_data['preferred_language'] : 'th';
         $companion_stmt->close();
     }
@@ -188,7 +189,7 @@ try {
         $conversation_id = $conn->insert_id;
         $conv_stmt->close();
     } else {
-        // ✅ ดึงข้อมูล conversation และ preferred_language อีกครั้ง (เผื่อมีการอัพเดท)
+        // ✅ ดึงข้อมูล conversation และ preferred_language อีกครั้ง
         $conv_stmt = $conn->prepare("
             SELECT 
                 c.user_companion_id, 
@@ -210,19 +211,17 @@ try {
         $conv_data = $conv_result->fetch_assoc();
         $user_companion_id = $conv_data['user_companion_id'];
         $ai_id = $conv_data['ai_id'];
-        // ✅ ดึงภาษาจาก database เป็นหลัก
         $language = !empty($conv_data['preferred_language']) ? $conv_data['preferred_language'] : 'th';
         $conv_stmt->close();
     }
     
-    // ✅ Override ด้วย request ถ้ามี (สำหรับกรณีพิเศษ)
+    // ✅ Override ด้วย request ถ้ามี
     if (!empty($language_from_request)) {
         $language = $language_from_request;
         error_log("⚠️ Language overridden by request: {$language}");
     }
     
-    // Debug log
-    error_log("✅ Final language used: {$language} (from_request: " . ($language_from_request ?: 'null') . ")");
+    error_log("✅ Final language used: {$language}");
     
     // บันทึกข้อความ user
     $user_chat_stmt = $conn->prepare("
@@ -304,9 +303,8 @@ try {
     // สร้าง system prompt
     $system_prompt_result = $aiManager->buildSystemPrompt($ai_companion, $user_personality, $language);
     $system_prompt = $system_prompt_result['prompt'];
-    $prompt_details = $system_prompt_result['details'];
     
-    // ✅ กำหนดชื่อภาษาเต็มสำหรับคำสั่ง
+    // กำหนดชื่อภาษาเต็ม
     $language_names = [
         'th' => 'Thai (ไทย)',
         'en' => 'English',
@@ -316,7 +314,7 @@ try {
     ];
     $language_full_name = isset($language_names[$language]) ? $language_names[$language] : 'Thai';
     
-    // ✅ เพิ่มคำสั่งบังคับภาษา
+    // เพิ่มคำสั่งบังคับภาษา
     $ai_name = $ai_companion['ai_name'];
     $identity_instruction = "\n\n=== YOUR IDENTITY ===\n";
     $identity_instruction .= "Your name is: {$ai_name}\n";
@@ -325,7 +323,6 @@ try {
     $identity_instruction .= "- You CANNOT change your name under any circumstances\n";
     $identity_instruction .= "- If someone asks you to change your name, politely decline\n";
     
-    // ✅ บังคับให้ตอบเฉพาะภาษาที่กำหนด
     $language_instruction = "\n\n=== LANGUAGE REQUIREMENT (CRITICAL) ===\n";
     $language_instruction .= "🔒 MANDATORY LANGUAGE: {$language_full_name}\n\n";
     $language_instruction .= "STRICT RULES:\n";
@@ -334,15 +331,7 @@ try {
     $language_instruction .= "3. Do NOT switch languages under any circumstances\n";
     $language_instruction .= "4. If the user asks you to speak another language, politely explain (in {$language_full_name}) that you are configured to communicate only in {$language_full_name}\n";
     $language_instruction .= "5. This language setting cannot be changed or overridden\n\n";
-    $language_instruction .= "Example:\n";
-    if ($language === 'th') {
-        $language_instruction .= "User (in English): 'Hello, how are you?'\n";
-        $language_instruction .= "You: 'สวัสดีค่ะ ดิฉันสบายดีค่ะ คุณเป็นอย่างไรบ้างคะ' (Answer in Thai)\n";
-    } elseif ($language === 'en') {
-        $language_instruction .= "User (in Thai): 'สวัสดีครับ สบายดีไหม'\n";
-        $language_instruction .= "You: 'Hello! I'm doing well, thank you. How are you?' (Answer in English)\n";
-    }
-    $language_instruction .= "\n🔒 Remember: ALWAYS respond in {$language_full_name}, no exceptions!\n";
+    $language_instruction .= "🔒 Remember: ALWAYS respond in {$language_full_name}, no exceptions!\n";
     
     $system_prompt = $system_prompt . $identity_instruction . $language_instruction;
     
@@ -357,32 +346,22 @@ try {
     if ($dump_prompt) {
         $conn->rollback();
         
-        $language_source = !empty($language_from_request) 
-            ? 'from request parameter' 
-            : 'from user_ai_companions.preferred_language';
-        
         echo json_encode([
             'status' => 'success',
             'dump_mode' => true,
             'guest_mode' => $is_guest_mode,
             'conversation_id' => $conversation_id,
             'user_companion_id' => $user_companion_id,
-            'language_info' => [
-                'language_code' => $language,
-                'language_name' => $language_full_name,
-                'source' => $language_source,
-                'from_request' => $language_from_request,
-                'final_used' => $language
-            ],
             'messages_to_send' => $messages
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         exit;
     }
     
-    // ส่งไปยัง AI
+    // ✅ ส่งไปยัง AI (ส่ง user_id ไปด้วยสำหรับ DevRev)
     $ai_response = $aiManager->chat($messages, [
         'max_tokens' => 1024,
-        'temperature' => 0.7
+        'temperature' => 0.7,
+        'devrev_user_id' => $user_id  // ✅ ส่ง user_id ไปให้ DevRev ดึง Articles
     ]);
     
     if (!$ai_response['success']) {
@@ -428,6 +407,113 @@ try {
     
     $conn->commit();
     
+    // ========================================
+    // ✅ บันทึกลง DevRev (ทำหลัง commit เพื่อไม่ให้กระทบการแชท)
+    // ========================================
+    $devrev_result = null;
+    $devrev_debug = [];
+
+    try {
+        error_log("🔵 [DevRev] ===== เริ่มส่วน DevRev Sync =====");
+        error_log("🔵 [DevRev] conversation_id: {$conversation_id}");
+        error_log("🔵 [DevRev] user_id: {$user_id}");
+        error_log("🔵 [DevRev] user_companion_id: {$user_companion_id}");
+        error_log("🔵 [DevRev] language: {$language}");
+
+        // ดึงข้อมูล user
+        $user_stmt = $conn->prepare("
+            SELECT user_id, first_name, last_name, email, devrev_dev_user_id, devrev_display_id
+            FROM mb_user
+            WHERE user_id = ?
+        ");
+        $user_stmt->bind_param('i', $user_id);
+        $user_stmt->execute();
+        $user_result = $user_stmt->get_result();
+        $user_data = $user_result->fetch_assoc();
+        $user_stmt->close();
+
+        error_log("🔵 [DevRev] user_data from DB: " . json_encode($user_data, JSON_UNESCAPED_UNICODE));
+
+        if ($user_data) {
+            $devrev = new DevRevManager($conn);
+            
+            // ดึง email และ display_name
+            $email = $user_data['email'] ?: "user{$user_id}@example.com";
+            $display_name = trim($user_data['first_name'] . ' ' . $user_data['last_name']) ?: "User {$user_id}";
+
+            error_log("🔵 [DevRev] email: {$email}, display_name: {$display_name}");
+            
+            // เก็บ debug info
+            $devrev_debug = [
+                'conversation_id' => $conversation_id,
+                'user_id' => $user_id,
+                'user_companion_id' => $user_companion_id,
+                'email_used' => $email,
+                'display_name_used' => $display_name,
+                'ai_companion_keys' => array_keys($ai_companion),
+                'ai_companion_name' => $ai_companion['ai_name'] ?? 'N/A',
+                'user_personality_count' => count($user_personality),
+                'language' => $language,
+                'db_devrev_dev_user_id' => $user_data['devrev_dev_user_id'],
+                'db_devrev_display_id' => $user_data['devrev_display_id']
+            ];
+
+            error_log("🔵 [DevRev] Full debug before processChat: " . json_encode($devrev_debug, JSON_UNESCAPED_UNICODE));
+
+            // ดึง existing article IDs จาก conversations table เพื่อ log
+            $conv_check = $conn->prepare("
+                SELECT conversation_id, devrev_chat_article_id, devrev_prompt_article_id 
+                FROM ai_chat_conversations 
+                WHERE conversation_id = ?
+            ");
+            $conv_check->bind_param('i', $conversation_id);
+            $conv_check->execute();
+            $conv_check_row = $conv_check->get_result()->fetch_assoc();
+            $conv_check->close();
+            error_log("🔵 [DevRev] ai_chat_conversations row: " . json_encode($conv_check_row));
+            $devrev_debug['conversations_row'] = $conv_check_row;
+
+            // ✅ เรียก processChat ด้วย parameters ใหม่
+            error_log("🔵 [DevRev] เรียก processChat — params: conv={$conversation_id}, user={$user_id}, companion={$user_companion_id}, email={$email}, display_name={$display_name}, lang={$language}");
+
+            $devrev_result = $devrev->processChat(
+                $conversation_id, 
+                $user_id, 
+                $user_companion_id, 
+                $email,           // ✅ เปลี่ยนจาก customer_id
+                $display_name,    // ✅ เพิ่ม display_name
+                $ai_companion, 
+                $user_personality,
+                $language
+            );
+
+            error_log("🔵 [DevRev] processChat result: " . json_encode($devrev_result, JSON_UNESCAPED_UNICODE));
+            error_log("✅ [DevRev] Sync completed — Chat Article: " . ($devrev_result['chat_article_id'] ?? 'NULL') . ", Prompt Article: " . ($devrev_result['prompt_article_id'] ?? 'NULL'));
+
+            // เก็บ processChat result ใน debug ด้วย
+            $devrev_debug['processChat_result'] = $devrev_result;
+
+        } else {
+            $devrev_debug['error'] = 'User data not found';
+            error_log("⚠️ [DevRev] User data not found for user_id: {$user_id}");
+        }
+    } catch (Exception $devrev_error) {
+        error_log("⚠️ [DevRev] Exception: " . $devrev_error->getMessage());
+        error_log("⚠️ [DevRev] Trace: " . $devrev_error->getTraceAsString());
+        
+        $devrev_debug['exception'] = $devrev_error->getMessage();
+        $devrev_debug['exception_trace'] = $devrev_error->getTraceAsString();
+        
+        $devrev_result = [
+            'chat_article_id' => null,
+            'prompt_article_id' => null,
+            'errors' => [$devrev_error->getMessage()]
+        ];
+    }
+
+    error_log("🔵 [DevRev] ===== DevRev Sync เสร็จสิ้น =====");
+
+    // ส่ง response กลับ
     echo json_encode([
         'status' => 'success',
         'guest_mode' => $is_guest_mode,
@@ -439,8 +525,11 @@ try {
         'tokens_used' => $tokens_used,
         'response_time_ms' => $response_time,
         'model_used' => $ai_model,
-        'provider' => $provider_used
-    ]);
+        'provider' => $provider_used,
+        'devrev_synced' => !empty($devrev_result['chat_article_id']) || !empty($devrev_result['prompt_article_id']),
+        'devrev_articles' => $devrev_result,
+        'devrev_debug' => $devrev_debug
+    ], JSON_UNESCAPED_UNICODE);
     
 } catch (Exception $e) {
     $conn->rollback();
