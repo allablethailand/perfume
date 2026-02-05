@@ -6,6 +6,7 @@
  * 1. ✅ ใช้วิธีส่ง prompt แบบเดียวกับโค้ดตัวอย่างที่ทำงานได้
  * 2. ✅ ส่ง prompt ทั้งหมดในครั้งเดียว (ไม่แยก article reference)
  * 3. ✅ ใช้ Content-Type ที่ DevRev API ยอมรับ
+ * 4. ✅ เพิ่ม raw_sections ใน buildSystemPrompt เพื่อใช้ใน DevRev Article
  */
 
 class AIModelManager {
@@ -410,7 +411,6 @@ class AIModelManager {
         CURLOPT_POSTFIELDS => $post_data,
         CURLOPT_HTTPHEADER => $headers,
         CURLOPT_TIMEOUT => 30,
-        // ✅ FIX: เพิ่ม SSL verification
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2,
     ]);
@@ -419,7 +419,6 @@ class AIModelManager {
     $response = curl_exec($ch);
     $elapsed = round((microtime(true) - $start) * 1000);
     
-    // ✅ FIX: ตรวจสอบ cURL error
     if (curl_errno($ch)) {
         $curl_error = curl_error($ch);
         error_log("❌ [DevRev] cURL Error: {$curl_error}");
@@ -433,7 +432,6 @@ class AIModelManager {
     error_log("📊 [DevRev] HTTP: {$http_code} | Time: {$elapsed}ms");
     error_log("📄 [DevRev] FULL Response: " . $response);
     
-    // ✅ FIX: ตรวจสอบ empty response
     if (empty($response)) {
         error_log("❌ [DevRev] Empty response from server");
         return ['success' => false, 'error' => 'Empty response from DevRev'];
@@ -481,7 +479,6 @@ class AIModelManager {
         }
         
         if (empty($reply)) {
-            // ✅ FIX: Log full response เพื่อ debug
             error_log("❌ [DevRev] Full decoded response: " . json_encode($decoded));
             return ['success' => false, 'error' => 'Empty reply from DevRev'];
         }
@@ -701,6 +698,9 @@ class AIModelManager {
         return $content;
     }
     
+    /**
+     * ✅ FIXED: buildSystemPrompt - เพิ่ม raw_sections เพื่อใช้ใน DevRev Article
+     */
     public function buildSystemPrompt($ai_companion, $user_personality, $language = 'th') {
         $ai_name = $ai_companion['ai_name'] ?? 'AI Assistant';
         
@@ -749,7 +749,16 @@ class AIModelManager {
                 'language_rules' => ['label' => '🌐 Language Rules', 'content' => $language_rules, 'length' => mb_strlen($language_rules)],
                 'response_rules' => ['label' => '📋 Response Rules', 'content' => $response_rules, 'length' => mb_strlen($response_rules)]
             ],
-            'total_prompt_length' => mb_strlen($full_prompt)
+            'total_prompt_length' => mb_strlen($full_prompt),
+            // ✅ เพิ่ม raw_sections เพื่อใช้ใน DevRev Article
+            'raw_sections' => [
+                'core_personality' => $core_personality,
+                'perfume_knowledge' => $perfume_knowledge,
+                'style_suggestions' => $style_suggestions,
+                'user_context' => $user_context,
+                'language_rules' => $language_rules,
+                'response_rules' => $response_rules
+            ]
         ];
         
         return ['prompt' => $full_prompt, 'details' => $details];
