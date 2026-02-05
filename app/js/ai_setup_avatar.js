@@ -1202,7 +1202,18 @@ function handleChoiceConfirm() {
         
         verifyOTP(otp);
     } else if (currentStep === 'register_password') {
-        // Submit registration
+        // ✅ ดึงข้อมูลล่าสุดจาก DOM ก่อน submit
+        const finalData = {
+            name: $('.summary-item:eq(0) .summary-value').text().trim() || registrationData.name,
+            lastname: $('.summary-item:eq(1) .summary-value').text().trim() || registrationData.lastname,
+            email: $('.summary-item:eq(2) .summary-value').text().trim() || registrationData.email,
+            phone: $('.summary-item:eq(3) .summary-value').text().trim() || registrationData.phone,
+            password: registrationData.password // password ไม่แสดงใน DOM
+        };
+        
+        // อัพเดท registrationData ก่อน submit
+        Object.assign(registrationData, finalData);
+        
         submitRegistration();
     } else {
         // Question answered
