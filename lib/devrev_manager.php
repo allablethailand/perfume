@@ -1,11 +1,10 @@
 <?php
 /**
- * DevRev Manager - FIXED Artifact Updates
+ * DevRev Manager - FIXED Prompt Article Update
  * 
- * ✅ แก้การ update artifacts ให้ถูก format
- * ✅ Article จะมี artifacts เสมอ
- * ✅ ปรับปรุง logging
- * ✅ FIX: สร้าง Article ด้วย empty resource ก่อน แล้วค่อย update artifacts (ตามตัวอย่างที่ใช้งานได้)
+ * ✅ แก้การ update System Prompt Article ให้ทับใหม่ทุกครั้ง
+ * ✅ ใช้ raw_sections จาก buildSystemPrompt เพื่อสร้าง prompt ที่ครบ
+ * ✅ Chat History ยังคง append เหมือนเดิม
  */
 
 class DevRevManager {
@@ -42,12 +41,10 @@ class DevRevManager {
         throw new Exception('DEVREV_API_TOKEN not found in .env or database');
     }
     
-    // ✅ FIX: ตรวจสอบว่า API key มีรูปแบบถูกต้อง
     if (strlen($this->api_token) < 100) {
         error_log("⚠️ [DevRev] API Key seems too short: " . strlen($this->api_token) . " chars");
     }
     
-    // ตรวจสอบว่าเป็น JWT format หรือไม่
     $parts = explode('.', $this->api_token);
     if (count($parts) !== 3) {
         error_log("⚠️ [DevRev] API Key doesn't look like JWT format (expected 3 parts, got " . count($parts) . ")");
@@ -90,13 +87,8 @@ class DevRevManager {
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER => $headers,
         CURLOPT_TIMEOUT => 30,
-        // ✅ FIX: เพิ่ม SSL verification options
-        CURLOPT_SSL_VERIFYPEER => true,  // ตรวจสอบ SSL certificate
-        CURLOPT_SSL_VERIFYHOST => 2,      // ตรวจสอบ hostname
-        // สำหรับ production ที่มี certificate ปกติ ควรเปิด verification
-        // ถ้ายังมีปัญหา ให้ใช้แบบนี้ชั่วคราว:
-        // CURLOPT_SSL_VERIFYPEER => false,
-        // CURLOPT_SSL_VERIFYHOST => 0,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2,
     ]);
     
     if ($method === 'POST' && $payload !== null) {
@@ -111,7 +103,6 @@ class DevRevManager {
     $response = curl_exec($ch);
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     
-    // ✅ FIX: เพิ่ม error handling สำหรับ cURL
     if (curl_errno($ch)) {
         $curl_error = curl_error($ch);
         error_log("❌ [DevRev] cURL Error: {$curl_error}");
@@ -337,12 +328,8 @@ class DevRevManager {
     
     /**
      * ✅ FIX: สร้าง Article ด้วย empty resource ก่อน แล้วค่อย update artifacts ทีหลัง
-     * (ตามตัวอย่างโค้ดที่ใช้งานได้จริง)
      */
-    /**
- * ✅ FIX: สร้าง Article ด้วย email จริงใน owned_by และ status = published
- */
-private function createArticle($title, $artifact_id, $dev_user_id, $display_id) {
+    private function createArticle($title, $artifact_id, $dev_user_id, $display_id) {
     $part_id = $this->getDefaultPart();
     if (!$part_id) {
         throw new Exception('No part ID available');
@@ -354,11 +341,11 @@ private function createArticle($title, $artifact_id, $dev_user_id, $display_id) 
     // ✅ STEP 1: สร้าง Article ด้วย EMPTY resource และ status = published
     $payload = [
         'title' => $title,
-        'owned_by' => [$owner_dev_user_id],  // ✅ ใช้ dev_user_id ที่ถูกต้อง
+        'owned_by' => [$owner_dev_user_id],
         'authored_by' => [$display_id],
         'applies_to_parts' => [$part_id],
         'resource' => new stdClass(),
-        'status' => 'published',  // ✅ published แทน draft
+        'status' => 'published',
         'access_level' => 'internal'
     ];
     
@@ -397,7 +384,7 @@ private function createArticle($title, $artifact_id, $dev_user_id, $display_id) 
     error_log("✅ [DevRev] Artifact added successfully");
     
     // ✅ STEP 3: Verify ว่า artifact ถูก link แล้วจริงๆ
-    sleep(1); // รอให้ DevRev sync
+    sleep(1);
     $verify = $this->callDevRev('/articles.get', 'POST', ['id' => $article_id]);
     $artifacts_in_article = $verify['data']['article']['resource']['artifacts'] ?? [];
     
@@ -416,7 +403,6 @@ private function createArticle($title, $artifact_id, $dev_user_id, $display_id) 
     private function updateArticle($article_id, $artifact_id) {
         error_log("🔵 [DevRev] UPDATE article {$article_id} ← artifact {$artifact_id}");
         
-        // ✅ ใช้ artifacts.set แทน resource.artifacts
         $payload = [
             'id' => $article_id,
             'artifacts' => [
@@ -433,7 +419,6 @@ private function createArticle($title, $artifact_id, $dev_user_id, $display_id) 
             return false;
         }
         
-        // ✅ Verify ว่า update สำเร็จ
         sleep(1);
         $verify = $this->callDevRev('/articles.get', 'POST', ['id' => $article_id]);
         $artifacts_in_article = $verify['data']['article']['resource']['artifacts'] ?? [];
@@ -473,7 +458,7 @@ private function createArticle($title, $artifact_id, $dev_user_id, $display_id) 
         error_log("🔵 [DevRev] Global articles — Chat: " . ($global['chat_article_id'] ?: 'None') . ", Prompt: " . ($global['prompt_article_id'] ?: 'None'));
         
         // ============================================
-        // PART 1: Chat History
+        // PART 1: Chat History (ยังคง append เหมือนเดิม)
         // ============================================
         try {
             error_log("🔵 [DevRev] --- Chat History ---");
@@ -549,15 +534,18 @@ private function createArticle($title, $artifact_id, $dev_user_id, $display_id) 
         }
         
         // ============================================
-        // PART 2: System Prompt
+        // PART 2: System Prompt (✅ ทับใหม่ทุกครั้ง)
         // ============================================
         try {
-            error_log("🔵 [DevRev] --- System Prompt ---");
+            error_log("🔵 [DevRev] --- System Prompt (OVERWRITE MODE) ---");
             
             require_once __DIR__ . '/aimodelmanager.php';
             $ai_manager = new AIModelManager($this->conn);
             $prompt_data = $ai_manager->buildSystemPrompt($ai_companion, $user_personality, $language);
             $ai_name = $ai_companion['ai_name'] ?? 'AI Assistant';
+            
+            // ✅ ใช้ raw_sections แทน prompt_sections
+            $raw = $prompt_data['details']['raw_sections'] ?? [];
             
             $prompt_content = "=== System Prompt - {$ai_name} ===\n";
             $prompt_content .= "User ID: {$user_id}\n";
@@ -567,35 +555,68 @@ private function createArticle($title, $artifact_id, $dev_user_id, $display_id) 
             $prompt_content .= "Language: {$language}\n";
             $prompt_content .= "\n" . str_repeat("=", 80) . "\n\n";
             
-            if (!empty($prompt_data['details']['prompt_sections'])) {
-                foreach ($prompt_data['details']['prompt_sections'] as $section_info) {
-                    if (!empty($section_info['content'])) {
-                        $prompt_content .= $section_info['label'] . "\n";
-                        $prompt_content .= str_repeat("-", 80) . "\n";
-                        $prompt_content .= $section_info['content'] . "\n\n";
-                    }
-                }
+            // ✅ เพิ่มทุก section แบบครบถ้วน
+            if (!empty($raw['core_personality'])) {
+                $prompt_content .= "🎭 นิสัยหลัก (Core Personality)\n";
+                $prompt_content .= str_repeat("-", 80) . "\n";
+                $prompt_content .= $raw['core_personality'] . "\n\n";
             }
             
-            $prompt_content .= "\n" . str_repeat("=", 80) . "\n";
-            $prompt_content .= "=== FULL SYSTEM PROMPT ===\n";
-            $prompt_content .= str_repeat("=", 80) . "\n\n";
-            $prompt_content .= $prompt_data['prompt'] . "\n";
+            if (!empty($raw['perfume_knowledge'])) {
+                $prompt_content .= "💧 Perfume Knowledge\n";
+                $prompt_content .= str_repeat("-", 80) . "\n";
+                $prompt_content .= $raw['perfume_knowledge'] . "\n\n";
+            }
             
+            if (!empty($raw['style_suggestions'])) {
+                $prompt_content .= "✨ Style Suggestions\n";
+                $prompt_content .= str_repeat("-", 80) . "\n";
+                $prompt_content .= $raw['style_suggestions'] . "\n\n";
+            }
+            
+            if (!empty($raw['user_context'])) {
+                $prompt_content .= "👤 นิสัยรอง (User Context)\n";
+                $prompt_content .= str_repeat("-", 80) . "\n";
+                $prompt_content .= $raw['user_context'] . "\n\n";
+            }
+            
+            if (!empty($raw['language_rules'])) {
+                $prompt_content .= "🌐 Language Rules\n";
+                $prompt_content .= str_repeat("-", 80) . "\n";
+                $prompt_content .= $raw['language_rules'] . "\n\n";
+            }
+            
+            if (!empty($raw['response_rules'])) {
+                $prompt_content .= "📋 Response Rules\n";
+                $prompt_content .= str_repeat("-", 80) . "\n";
+                $prompt_content .= $raw['response_rules'] . "\n\n";
+            }
+            
+            // $prompt_content .= "\n" . str_repeat("=", 80) . "\n";
+            // $prompt_content .= "=== FULL SYSTEM PROMPT (Combined) ===\n";
+            // $prompt_content .= str_repeat("=", 80) . "\n\n";
+            // $prompt_content .= $prompt_data['prompt'] . "\n";
+            
+            error_log("📝 [DevRev] Prompt content length: " . strlen($prompt_content) . " chars");
+            
+            // ✅ สร้าง artifact ใหม่ทุกครั้ง
             $prompt_artifact_id = $this->createArtifact(
                 "system_prompt_user_{$user_id}.txt",
                 $prompt_content
             );
             
+            // ✅ ทับ article เดิม หรือสร้างใหม่
             if (!empty($global['prompt_article_id'])) {
+                error_log("🔄 [DevRev] OVERWRITING existing prompt article: {$global['prompt_article_id']}");
                 $update_success = $this->updateArticle($global['prompt_article_id'], $prompt_artifact_id);
                 if ($update_success) {
                     $result['prompt_article_id'] = $global['prompt_article_id'];
-                    $result['debug']['prompt_mode'] = 'update';
+                    $result['debug']['prompt_mode'] = 'overwrite';
                 } else {
-                    throw new Exception("Failed to update prompt article");
+                    throw new Exception("Failed to overwrite prompt article");
                 }
             } else {
+                error_log("📝 [DevRev] Creating NEW prompt article");
                 $prompt_article_id = $this->createArticle(
                     "System Prompt - {$ai_name} - User #{$user_id}",
                     $prompt_artifact_id,
