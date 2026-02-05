@@ -19,29 +19,42 @@ class DevRevManager {
     }
     
     private function loadApiToken() {
-        $this->api_token = getenv('DEVREV_API_TOKEN') ?: $_ENV['DEVREV_API_TOKEN'] ?? null;
+    $this->api_token = getenv('DEVREV_API_TOKEN') ?: $_ENV['DEVREV_API_TOKEN'] ?? null;
+    
+    if (!$this->api_token) {
+        $stmt = $this->conn->prepare("
+            SELECT api_key 
+            FROM ai_models 
+            WHERE provider = 'devrev' AND is_active = 1 
+            LIMIT 1
+        ");
+        $stmt->execute();
+        $result = $stmt->get_result();
         
-        if (!$this->api_token) {
-            $stmt = $this->conn->prepare("
-                SELECT api_key 
-                FROM ai_models 
-                WHERE provider = 'devrev' AND is_active = 1 
-                LIMIT 1
-            ");
-            $stmt->execute();
-            $result = $stmt->get_result();
-            
-            if ($result->num_rows > 0) {
-                $row = $result->fetch_assoc();
-                $this->api_token = $this->decryptApiKey($row['api_key']);
-            }
-            $stmt->close();
+        if ($result->num_rows > 0) {
+            $row = $result->fetch_assoc();
+            $this->api_token = $this->decryptApiKey($row['api_key']);
         }
-        
-        if (!$this->api_token) {
-            throw new Exception('DEVREV_API_TOKEN not found in .env or database');
-        }
+        $stmt->close();
     }
+    
+    if (!$this->api_token) {
+        throw new Exception('DEVREV_API_TOKEN not found in .env or database');
+    }
+    
+    // ✅ FIX: ตรวจสอบว่า API key มีรูปแบบถูกต้อง
+    if (strlen($this->api_token) < 100) {
+        error_log("⚠️ [DevRev] API Key seems too short: " . strlen($this->api_token) . " chars");
+    }
+    
+    // ตรวจสอบว่าเป็น JWT format หรือไม่
+    $parts = explode('.', $this->api_token);
+    if (count($parts) !== 3) {
+        error_log("⚠️ [DevRev] API Key doesn't look like JWT format (expected 3 parts, got " . count($parts) . ")");
+    }
+    
+    error_log("✅ [DevRev] API Token loaded successfully (length: " . strlen($this->api_token) . " chars)");
+}
     
     private function decryptApiKey($encryptedKey) {
         if (empty($encryptedKey)) return null;
@@ -65,62 +78,82 @@ class DevRevManager {
     }
     
     private function callDevRev($endpoint, $method = 'POST', $payload = null) {
-        $url = $this->api_base_url . $endpoint;
-        
-        $headers = [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . trim($this->api_token)
-        ];
-        
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_TIMEOUT => 30
-        ]);
-        
-        if ($method === 'POST' && $payload !== null) {
-            curl_setopt($ch, CURLOPT_POST, true);
-            $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
-            error_log("📤 [DevRev] Request to {$endpoint}: " . substr($json, 0, 500));
-        } elseif ($method === 'GET') {
-            curl_setopt($ch, CURLOPT_HTTPGET, true);
-        }
-        
-        $response = curl_exec($ch);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $url = $this->api_base_url . $endpoint;
+    
+    $headers = [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . trim($this->api_token)
+    ];
+    
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => $headers,
+        CURLOPT_TIMEOUT => 30,
+        // ✅ FIX: เพิ่ม SSL verification options
+        CURLOPT_SSL_VERIFYPEER => true,  // ตรวจสอบ SSL certificate
+        CURLOPT_SSL_VERIFYHOST => 2,      // ตรวจสอบ hostname
+        // สำหรับ production ที่มี certificate ปกติ ควรเปิด verification
+        // ถ้ายังมีปัญหา ให้ใช้แบบนี้ชั่วคราว:
+        // CURLOPT_SSL_VERIFYPEER => false,
+        // CURLOPT_SSL_VERIFYHOST => 0,
+    ]);
+    
+    if ($method === 'POST' && $payload !== null) {
+        curl_setopt($ch, CURLOPT_POST, true);
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $json);
+        error_log("📤 [DevRev] Request to {$endpoint}: " . substr($json, 0, 500));
+    } elseif ($method === 'GET') {
+        curl_setopt($ch, CURLOPT_HTTPGET, true);
+    }
+    
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    
+    // ✅ FIX: เพิ่ม error handling สำหรับ cURL
+    if (curl_errno($ch)) {
+        $curl_error = curl_error($ch);
+        error_log("❌ [DevRev] cURL Error: {$curl_error}");
         curl_close($ch);
-        
-        error_log("📊 [DevRev] Response HTTP {$http_code} from {$endpoint}");
-        
-        $decoded = json_decode($response, true);
-        
-        if ($http_code >= 200 && $http_code < 300) {
-            return [
-                'success' => true, 
-                'data' => $decoded,
-                'http_code' => $http_code
-            ];
-        }
-        
-        error_log("❌ [DevRev] Error response: {$response}");
-        
-        $error_detail = [
-            'http_code' => $http_code,
-            'endpoint' => $endpoint,
-            'error_message' => $decoded['error']['message'] ?? $decoded['message'] ?? 'Unknown error',
-            'error_type' => $decoded['error']['type'] ?? $decoded['type'] ?? 'unknown',
-            'raw_response' => $response
-        ];
-        
         return [
-            'success' => false, 
-            'error' => json_encode($error_detail),
-            'http_code' => $http_code,
-            'raw' => $response
+            'success' => false,
+            'error' => "cURL Error: {$curl_error}",
+            'http_code' => 0
         ];
     }
+    
+    curl_close($ch);
+    
+    error_log("📊 [DevRev] Response HTTP {$http_code} from {$endpoint}");
+    
+    $decoded = json_decode($response, true);
+    
+    if ($http_code >= 200 && $http_code < 300) {
+        return [
+            'success' => true, 
+            'data' => $decoded,
+            'http_code' => $http_code
+        ];
+    }
+    
+    error_log("❌ [DevRev] Error response: {$response}");
+    
+    $error_detail = [
+        'http_code' => $http_code,
+        'endpoint' => $endpoint,
+        'error_message' => $decoded['error']['message'] ?? $decoded['message'] ?? 'Unknown error',
+        'error_type' => $decoded['error']['type'] ?? $decoded['type'] ?? 'unknown',
+        'raw_response' => $response
+    ];
+    
+    return [
+        'success' => false, 
+        'error' => json_encode($error_detail),
+        'http_code' => $http_code,
+        'raw' => $response
+    ];
+}
     
     public function ensureDevUser($user_id, $email, $display_name) {
         $stmt = $this->conn->prepare("
