@@ -12,7 +12,8 @@ if (session_status() == PHP_SESSION_NONE) {
 $response = ['status' => 'error', 'message' => ''];
 
 try {
-    $name = trim($_POST['name'] ?? '');
+    $first_name = trim($_POST['first_name'] ?? '');
+    $last_name = trim($_POST['last_name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -20,7 +21,7 @@ try {
     $language = trim($_POST['language'] ?? $_SESSION['selected_language'] ?? 'th');
     
     // Validate inputs
-    if (empty($name) || empty($email) || empty($phone) || empty($password)) {
+    if (empty($first_name) || empty($email) || empty($phone) || empty($password)) {
         throw new Exception("All fields are required");
     }
     
@@ -68,11 +69,6 @@ try {
         
         // Hash password
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
-        
-        // แยกชื่อออกเป็น first_name และ last_name
-        $nameParts = explode(' ', $name, 2);
-        $first_name = $nameParts[0];
-        $last_name = isset($nameParts[1]) ? $nameParts[1] : '';
         
         // Insert user พร้อม consent = 0
         $stmt = $conn->prepare("

@@ -823,8 +823,8 @@ function submitRegistration() {
         url: 'app/actions/register_user.php',
         type: 'POST',
         data: {
-            name: registrationData.name,
-            last_name: registrationData.lastname,
+            first_name: registrationData.name,      // ✅ เปลี่ยนจาก name เป็น first_name
+            last_name: registrationData.lastname,   // ✅ ส่ง last_name ตามปกติ
             email: registrationData.email,
             phone: registrationData.phone,
             password: registrationData.password,
