@@ -145,6 +145,7 @@ class AIModelManager {
             case 'openai':    return $this->sendToOpenAI($model, $messages, $params);
             case 'anthropic': return $this->sendToAnthropic($model, $messages, $params);
             case 'devrev':    return $this->sendToDevRev($model, $messages, $params);
+            case 'gemini':    return $this->sendToGemini($model, $messages, $params);
             default:
                 return ['success' => false, 'error' => 'Unsupported provider: ' . $model['provider']];
         }
@@ -189,7 +190,125 @@ class AIModelManager {
             'tokens_used' => $data['usage']['total_tokens'] ?? 0
         ];
     }
+    private function sendToGemini($model, $messages, $params) {
+    $api_key = $model['api_key'];
     
+    if (empty($api_key)) {
+        return ['success' => false, 'error' => 'API Key not configured'];
+    }
+    
+    // แยก system prompt และ messages
+    $system_instruction = '';
+    $gemini_messages = [];
+    
+    foreach ($messages as $msg) {
+        if ($msg['role'] === 'system') {
+            $system_instruction = $msg['content'];
+        } else {
+            // Gemini ใช้ 'user' และ 'model' แทน 'assistant'
+            $role = $msg['role'] === 'assistant' ? 'model' : 'user';
+            $gemini_messages[] = [
+                'role' => $role,
+                'parts' => [['text' => $msg['content']]]
+            ];
+        }
+    }
+    
+    // สร้าง payload
+    $payload = [
+        'contents' => $gemini_messages,
+        'generationConfig' => [
+            'temperature' => $params['temperature'],
+            'maxOutputTokens' => min($params['max_tokens'], $model['max_tokens']),
+            'topP' => $params['top_p']
+        ]
+    ];
+    
+    // เพิ่ม system instruction ถ้ามี
+    if (!empty($system_instruction)) {
+        $payload['systemInstruction'] = [
+            'parts' => [['text' => $system_instruction]]
+        ];
+    }
+    
+    // ✅ FIX: ใช้ endpoint จากฐานข้อมูลตรงๆ และเพิ่ม API key
+    $api_url = $model['api_endpoint'];
+    
+    // ตรวจสอบว่า URL มี ? หรือยัง
+    if (strpos($api_url, '?') === false) {
+        $api_url .= '?key=' . $api_key;
+    } else {
+        $api_url .= '&key=' . $api_key;
+    }
+    
+    error_log("🔵 [Gemini] Request URL: " . $api_url);
+    error_log("📦 [Gemini] Payload: " . json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    
+    $ch = curl_init($api_url);
+    curl_setopt_array($ch, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json'
+        ],
+        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        CURLOPT_TIMEOUT => 30,
+        CURLOPT_SSL_VERIFYPEER => true,
+        CURLOPT_SSL_VERIFYHOST => 2
+    ]);
+    
+    $response = curl_exec($ch);
+    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    
+    if (curl_errno($ch)) {
+        $curl_error = curl_error($ch);
+        error_log("❌ [Gemini] cURL Error: {$curl_error}");
+        curl_close($ch);
+        return ['success' => false, 'error' => "cURL Error: {$curl_error}"];
+    }
+    
+    curl_close($ch);
+    
+    error_log("📊 [Gemini] HTTP Code: {$http_code}");
+    error_log("📄 [Gemini] Response: " . $response);
+    
+    if ($http_code !== 200) {
+        $err = json_decode($response, true);
+        $error_msg = $err['error']['message'] ?? "HTTP {$http_code}";
+        error_log("❌ [Gemini] Error: {$error_msg}");
+        return ['success' => false, 'error' => $error_msg];
+    }
+    
+    $data = json_decode($response, true);
+    
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        error_log("❌ [Gemini] JSON decode error: " . json_last_error_msg());
+        return ['success' => false, 'error' => 'Invalid JSON response'];
+    }
+    
+    // ดึงข้อความจาก response
+    $text = '';
+    if (isset($data['candidates'][0]['content']['parts'][0]['text'])) {
+        $text = $data['candidates'][0]['content']['parts'][0]['text'];
+    } else {
+        error_log("❌ [Gemini] No text in response");
+        error_log("📄 [Gemini] Full response: " . json_encode($data, JSON_PRETTY_PRINT));
+        return ['success' => false, 'error' => 'No text in response'];
+    }
+    
+    // นับ tokens
+    $input_tokens = $data['usageMetadata']['promptTokenCount'] ?? 0;
+    $output_tokens = $data['usageMetadata']['candidatesTokenCount'] ?? 0;
+    $total_tokens = $input_tokens + $output_tokens;
+    
+    error_log("✅ [Gemini] Success! Input: {$input_tokens}, Output: {$output_tokens}, Total: {$total_tokens}");
+    
+    return [
+        'success' => true,
+        'message' => $text,
+        'tokens_used' => $total_tokens
+    ];
+}
     private function sendToOpenAI($model, $messages, $params) {
         $api_url = $model['api_endpoint'] ?: 'https://api.openai.com/v1/chat/completions';
         
