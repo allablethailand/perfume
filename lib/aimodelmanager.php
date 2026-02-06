@@ -197,26 +197,150 @@ class AIModelManager {
         return ['success' => false, 'error' => 'API Key not configured'];
     }
     
-    // แยก system prompt และ messages
+    error_log("🔵 [Gemini] Starting request with TWO markdown files (System Prompt + Chat History)");
+    
+    // ========================================
+    // STEP 1: แยก system prompt และ chat history
+    // ========================================
     $system_instruction = '';
-    $gemini_messages = [];
+    $chat_history_messages = [];
     
     foreach ($messages as $msg) {
         if ($msg['role'] === 'system') {
             $system_instruction = $msg['content'];
         } else {
-            // Gemini ใช้ 'user' และ 'model' แทน 'assistant'
-            $role = $msg['role'] === 'assistant' ? 'model' : 'user';
-            $gemini_messages[] = [
-                'role' => $role,
-                'parts' => [['text' => $msg['content']]]
-            ];
+            $chat_history_messages[] = $msg;
         }
     }
     
-    // สร้าง payload
+    error_log("📊 [Gemini] Messages breakdown - System: " . (empty($system_instruction) ? 'No' : 'Yes') . ", Chat history: " . count($chat_history_messages));
+    
+    // ========================================
+    // STEP 2: สร้าง System Prompt Markdown (Content)
+    // ========================================
+    $system_prompt_md = "# System Prompt / AI Personality\n\n";
+    $system_prompt_md .= "**Document Type:** AI System Configuration\n\n";
+    $system_prompt_md .= "**Generated:** " . date('Y-m-d H:i:s') . "\n\n";
+    $system_prompt_md .= "**Purpose:** This document defines the AI's personality, knowledge base, and behavioral rules.\n\n";
+    $system_prompt_md .= "---\n\n";
+    
+    if (!empty($system_instruction)) {
+        $system_prompt_md .= $system_instruction;
+    } else {
+        $system_prompt_md .= "_No system prompt provided._";
+    }
+    
+    $system_prompt_md .= "\n\n---\n\n";
+    $system_prompt_md .= "_End of System Prompt_";
+    
+    error_log("📝 [Gemini] System Prompt Markdown - Length: " . strlen($system_prompt_md) . " chars");
+    error_log("📝 [Gemini] System Prompt Preview:\n" . substr($system_prompt_md, 0, 300) . "...");
+    
+    // ========================================
+    // STEP 3: สร้าง Chat History Markdown (Body)
+    // ========================================
+    $chat_history_md = "# Chat History / Conversation Context\n\n";
+    $chat_history_md .= "**Document Type:** Conversation Log\n\n";
+    $chat_history_md .= "**Generated:** " . date('Y-m-d H:i:s') . "\n\n";
+    $chat_history_md .= "**Total Messages:** " . count($chat_history_messages) . "\n\n";
+    $chat_history_md .= "---\n\n";
+    
+    if (empty($chat_history_messages)) {
+        $chat_history_md .= "_No previous conversation history._\n\n";
+    } else {
+        $message_number = 1;
+        foreach ($chat_history_messages as $msg) {
+            $role_label = $msg['role'] === 'assistant' ? '🤖 Assistant' : '👤 User';
+            $timestamp = date('H:i:s');
+            
+            $chat_history_md .= "## Message #{$message_number} - {$role_label}\n\n";
+            $chat_history_md .= "**Time:** {$timestamp}\n\n";
+            $chat_history_md .= "**Content:**\n\n";
+            $chat_history_md .= $msg['content'] . "\n\n";
+            $chat_history_md .= "---\n\n";
+            
+            $message_number++;
+        }
+    }
+    
+    $chat_history_md .= "_End of Chat History_";
+    
+    error_log("📝 [Gemini] Chat History Markdown - Length: " . strlen($chat_history_md) . " chars");
+    error_log("📝 [Gemini] Chat History Preview:\n" . substr($chat_history_md, 0, 300) . "...");
+    
+    // ========================================
+    // STEP 4: แปลง Markdown เป็น Base64
+    // ========================================
+    $system_base64 = base64_encode($system_prompt_md);
+    $chat_base64 = base64_encode($chat_history_md);
+    
+    error_log("🔐 [Gemini] Base64 encoded - System: " . strlen($system_base64) . " chars, Chat: " . strlen($chat_base64) . " chars");
+    
+    // ========================================
+    // STEP 5: ดึง User Message ล่าสุด
+    // ========================================
+    $last_user_msg = '';
+    for ($i = count($messages) - 1; $i >= 0; $i--) {
+        if ($messages[$i]['role'] === 'user') {
+            $last_user_msg = $messages[$i]['content'];
+            break;
+        }
+    }
+    
+    if (empty($last_user_msg)) {
+        error_log("⚠️ [Gemini] No user message found in conversation");
+        return ['success' => false, 'error' => 'No user message found'];
+    }
+    
+    error_log("💬 [Gemini] Last user message (length: " . strlen($last_user_msg) . "): " . substr($last_user_msg, 0, 100) . "...");
+    
+    // ========================================
+    // STEP 6: สร้าง Parts Array (2 Markdown Files + User Message)
+    // ========================================
+    $parts = [
+        // Part 1: System Prompt as Markdown File (Content)
+        [
+            'inline_data' => [
+                'mime_type' => 'text/markdown',
+                'data' => $system_base64
+            ]
+        ],
+        // Part 2: Chat History as Markdown File (Body)
+        [
+            'inline_data' => [
+                'mime_type' => 'text/markdown',
+                'data' => $chat_base64
+            ]
+        ],
+        // Part 3: Current User Message with Context
+        [
+            'text' => "📎 **Context Files Provided:**\n\n" .
+                     "1️⃣ **System Prompt** (Markdown) - Your personality, knowledge, and rules\n" .
+                     "2️⃣ **Chat History** (Markdown) - Previous conversation context\n\n" .
+                     "---\n\n" .
+                     "**Instructions:**\n" .
+                     "- Read both markdown files carefully\n" .
+                     "- Follow the personality and rules from the System Prompt\n" .
+                     "- Use the Chat History for context continuity\n" .
+                     "- Respond naturally based on all provided information\n\n" .
+                     "---\n\n" .
+                     "**Current User Message:**\n\n" .
+                     $last_user_msg
+        ]
+    ];
+    
+    error_log("📦 [Gemini] Created " . count($parts) . " parts for request");
+    
+    // ========================================
+    // STEP 7: สร้าง Payload
+    // ========================================
     $payload = [
-        'contents' => $gemini_messages,
+        'contents' => [
+            [
+                'role' => 'user',
+                'parts' => $parts
+            ]
+        ],
         'generationConfig' => [
             'temperature' => $params['temperature'],
             'maxOutputTokens' => min($params['max_tokens'], $model['max_tokens']),
@@ -224,25 +348,46 @@ class AIModelManager {
         ]
     ];
     
-    // เพิ่ม system instruction ถ้ามี
+    // ⚠️ หมายเหตุ: ไม่ใช้ systemInstruction เพราะเราส่งเป็น markdown file แล้ว
+    // แต่ถ้าต้องการใช้ทั้งสองอย่าง (ซ้ำซ้อน) ก็เพิ่มได้:
+    /*
     if (!empty($system_instruction)) {
         $payload['systemInstruction'] = [
             'parts' => [['text' => $system_instruction]]
         ];
     }
+    */
     
-    // ✅ FIX: ใช้ endpoint จากฐานข้อมูลตรงๆ และเพิ่ม API key
+    error_log("📦 [Gemini] Payload structure created:");
+    error_log("   - Temperature: {$params['temperature']}");
+    error_log("   - Max tokens: " . min($params['max_tokens'], $model['max_tokens']));
+    error_log("   - Top P: {$params['top_p']}");
+    
+    // ========================================
+    // STEP 8: สร้าง API URL
+    // ========================================
     $api_url = $model['api_endpoint'];
     
-    // ตรวจสอบว่า URL มี ? หรือยัง
+    // เพิ่ม API key ใน URL
     if (strpos($api_url, '?') === false) {
         $api_url .= '?key=' . $api_key;
     } else {
         $api_url .= '&key=' . $api_key;
     }
     
-    error_log("🔵 [Gemini] Request URL: " . $api_url);
-    error_log("📦 [Gemini] Payload: " . json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    error_log("🔵 [Gemini] Request URL: " . preg_replace('/key=[^&]+/', 'key=***HIDDEN***', $api_url));
+    
+    // ========================================
+    // STEP 9: ส่ง Request ไป Gemini API
+    // ========================================
+    $json_payload = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    
+    if ($json_payload === false) {
+        error_log("❌ [Gemini] Failed to encode JSON: " . json_last_error_msg());
+        return ['success' => false, 'error' => 'Failed to encode JSON payload'];
+    }
+    
+    error_log("📤 [Gemini] Sending request - Payload size: " . strlen($json_payload) . " bytes");
     
     $ch = curl_init($api_url);
     curl_setopt_array($ch, [
@@ -251,15 +396,20 @@ class AIModelManager {
         CURLOPT_HTTPHEADER => [
             'Content-Type: application/json'
         ],
-        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
-        CURLOPT_TIMEOUT => 30,
+        CURLOPT_POSTFIELDS => $json_payload,
+        CURLOPT_TIMEOUT => 60, // เพิ่ม timeout เพราะมีไฟล์
         CURLOPT_SSL_VERIFYPEER => true,
         CURLOPT_SSL_VERIFYHOST => 2
     ]);
     
+    $start_time = microtime(true);
     $response = curl_exec($ch);
+    $elapsed_time = round((microtime(true) - $start_time) * 1000); // milliseconds
     $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     
+    // ========================================
+    // STEP 10: ตรวจสอบ cURL Errors
+    // ========================================
     if (curl_errno($ch)) {
         $curl_error = curl_error($ch);
         error_log("❌ [Gemini] cURL Error: {$curl_error}");
@@ -269,44 +419,131 @@ class AIModelManager {
     
     curl_close($ch);
     
-    error_log("📊 [Gemini] HTTP Code: {$http_code}");
-    error_log("📄 [Gemini] Response: " . $response);
+    error_log("📊 [Gemini] HTTP Code: {$http_code} | Response time: {$elapsed_time}ms");
     
+    // ========================================
+    // STEP 11: ตรวจสอบ HTTP Error
+    // ========================================
     if ($http_code !== 200) {
+        error_log("❌ [Gemini] HTTP Error {$http_code}");
+        error_log("📄 [Gemini] Error Response: " . substr($response, 0, 500));
+        
         $err = json_decode($response, true);
         $error_msg = $err['error']['message'] ?? "HTTP {$http_code}";
-        error_log("❌ [Gemini] Error: {$error_msg}");
+        
+        // แสดง error details ถ้ามี
+        if (isset($err['error']['details'])) {
+            error_log("🔍 [Gemini] Error details: " . json_encode($err['error']['details']));
+        }
+        
         return ['success' => false, 'error' => $error_msg];
     }
     
+    // ========================================
+    // STEP 12: Parse JSON Response
+    // ========================================
     $data = json_decode($response, true);
     
     if (json_last_error() !== JSON_ERROR_NONE) {
         error_log("❌ [Gemini] JSON decode error: " . json_last_error_msg());
+        error_log("📄 [Gemini] Raw response: " . substr($response, 0, 500));
         return ['success' => false, 'error' => 'Invalid JSON response'];
     }
     
-    // ดึงข้อความจาก response
+    error_log("📄 [Gemini] Response structure: " . json_encode(array_keys($data), JSON_PRETTY_PRINT));
+    
+    // ========================================
+    // STEP 13: ดึงข้อความจาก Response
+    // ========================================
     $text = '';
+    
     if (isset($data['candidates'][0]['content']['parts'][0]['text'])) {
         $text = $data['candidates'][0]['content']['parts'][0]['text'];
     } else {
-        error_log("❌ [Gemini] No text in response");
+        error_log("❌ [Gemini] No text found in response");
+        error_log("🔍 [Gemini] Available paths:");
+        
+        if (isset($data['candidates'])) {
+            error_log("   - candidates: YES");
+            if (isset($data['candidates'][0])) {
+                error_log("   - candidates[0]: YES");
+                error_log("   - candidates[0] keys: " . implode(', ', array_keys($data['candidates'][0])));
+                
+                if (isset($data['candidates'][0]['content'])) {
+                    error_log("   - candidates[0]['content']: YES");
+                    error_log("   - content keys: " . implode(', ', array_keys($data['candidates'][0]['content'])));
+                }
+            }
+        }
+        
         error_log("📄 [Gemini] Full response: " . json_encode($data, JSON_PRETTY_PRINT));
+        
         return ['success' => false, 'error' => 'No text in response'];
     }
     
-    // นับ tokens
+    // ========================================
+    // STEP 14: นับ Tokens
+    // ========================================
     $input_tokens = $data['usageMetadata']['promptTokenCount'] ?? 0;
     $output_tokens = $data['usageMetadata']['candidatesTokenCount'] ?? 0;
     $total_tokens = $input_tokens + $output_tokens;
     
-    error_log("✅ [Gemini] Success! Input: {$input_tokens}, Output: {$output_tokens}, Total: {$total_tokens}");
+    error_log("✅ [Gemini] SUCCESS!");
+    error_log("   - Input tokens: {$input_tokens}");
+    error_log("   - Output tokens: {$output_tokens}");
+    error_log("   - Total tokens: {$total_tokens}");
+    error_log("   - Response time: {$elapsed_time}ms");
+    error_log("   - Response length: " . strlen($text) . " chars");
+    error_log("📝 [Gemini] Response preview: " . substr($text, 0, 200) . "...");
     
+    // ========================================
+    // STEP 15: ตรวจสอบ Safety Ratings (ถ้ามี)
+    // ========================================
+    if (isset($data['candidates'][0]['safetyRatings'])) {
+        error_log("🛡️ [Gemini] Safety Ratings:");
+        foreach ($data['candidates'][0]['safetyRatings'] as $rating) {
+            $category = $rating['category'] ?? 'unknown';
+            $probability = $rating['probability'] ?? 'unknown';
+            error_log("   - {$category}: {$probability}");
+        }
+    }
+    
+    // ========================================
+    // STEP 16: ตรวจสอบ Finish Reason
+    // ========================================
+    if (isset($data['candidates'][0]['finishReason'])) {
+        $finish_reason = $data['candidates'][0]['finishReason'];
+        error_log("🏁 [Gemini] Finish Reason: {$finish_reason}");
+        
+        // เตือนถ้ามีปัญหา
+        if ($finish_reason !== 'STOP') {
+            error_log("⚠️ [Gemini] Unexpected finish reason: {$finish_reason}");
+            
+            if ($finish_reason === 'MAX_TOKENS') {
+                error_log("   → Response may be truncated (hit max_tokens limit)");
+            } elseif ($finish_reason === 'SAFETY') {
+                error_log("   → Response blocked by safety filters");
+            }
+        }
+    }
+    
+    // ========================================
+    // STEP 17: Return Success Response
+    // ========================================
     return [
         'success' => true,
         'message' => $text,
-        'tokens_used' => $total_tokens
+        'tokens_used' => $total_tokens,
+        'metadata' => [
+            'input_tokens' => $input_tokens,
+            'output_tokens' => $output_tokens,
+            'response_time_ms' => $elapsed_time,
+            'finish_reason' => $data['candidates'][0]['finishReason'] ?? 'unknown',
+            'files_sent' => [
+                'system_prompt_md' => strlen($system_prompt_md) . ' chars',
+                'chat_history_md' => strlen($chat_history_md) . ' chars'
+            ]
+        ]
     ];
 }
     private function sendToOpenAI($model, $messages, $params) {
