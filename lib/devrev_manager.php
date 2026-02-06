@@ -494,7 +494,7 @@ class DevRevManager {
             
             if ($message_count > 0) {
                 $chat_artifact_id = $this->createArtifact(
-                    "chat_history_user_{$user_id}.txt",
+                    "chat_history_user_{$user_id}.md",
                     $chat_content
                 );
                 
@@ -601,7 +601,7 @@ class DevRevManager {
             
             // ✅ สร้าง artifact ใหม่ทุกครั้ง
             $prompt_artifact_id = $this->createArtifact(
-                "system_prompt_user_{$user_id}.txt",
+                "system_prompt_user_{$user_id}.md",
                 $prompt_content
             );
             
