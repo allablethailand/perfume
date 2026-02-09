@@ -122,6 +122,9 @@ $(document).ready(function() {
 /**
  * ✅ Fetch AI Companion Data (Guest Mode Support)
  */
+/**
+ * ✅ Fetch AI Companion Data (Guest Mode Support)
+ */
 function fetchAICompanionData() {
     return new Promise((resolve, reject) => {
         let url = '';
@@ -172,6 +175,11 @@ function fetchAICompanionData() {
                         companionId = aiCompanionData.user_companion_id;
                     }
                     
+                    // ✅ เก็บ user_id (ใหม่!)
+                    if (response.user_id) {
+                        aiCompanionData.user_id = response.user_id;
+                    }
+                    
                     // ✅ เก็บใน sessionStorage
                     if (companionId) {
                         sessionStorage.setItem('user_companion_id', companionId);
@@ -186,6 +194,7 @@ function fetchAICompanionData() {
                     console.log('✅ AI Companion loaded:', {
                         ai_id: aiCompanionData.ai_id,
                         companion_id: companionId,
+                        user_id: aiCompanionData.user_id, // ✅ แสดงใน log
                         language: userPreferredLanguage,
                         idle_video: IDLE_VIDEO_URL ? '✅' : '❌',
                         talking_video: SPEAKING_VIDEO_URL ? '✅' : '❌'
@@ -800,19 +809,31 @@ function playTTSChunks(chunks, index, langCode) {
     
     console.log(`🔊 Playing ElevenLabs chunk ${index + 1}/${chunks.length}`);
     
-    // ✅ ส่ง user_companion_id หรือ ai_id ไปด้วย
+    // ✅ ส่งข้อมูลให้ครบ: user_id, user_companion_id, ai_id
     const requestData = {
         text: chunk,
         language: langCode
     };
     
+    // ✅ ส่ง user_companion_id
     if (companionId) {
         requestData.user_companion_id = companionId;
+        console.log('📤 Sending user_companion_id:', companionId);
     }
     
+    // ✅ ส่ง ai_id
     if (aiCompanionData && aiCompanionData.ai_id) {
         requestData.ai_id = aiCompanionData.ai_id;
+        console.log('📤 Sending ai_id:', aiCompanionData.ai_id);
     }
+    
+    // ✅ ส่ง user_id (ถ้ามี)
+    if (aiCompanionData && aiCompanionData.user_id) {
+        requestData.user_id = aiCompanionData.user_id;
+        console.log('📤 Sending user_id:', aiCompanionData.user_id);
+    }
+    
+    console.log('📤 Full TTS request data:', requestData);
     
     $.ajax({
         url: 'app/actions/elevenlabs_tts.php',
@@ -823,6 +844,7 @@ function playTTSChunks(chunks, index, langCode) {
         success: function(response) {
             if (response.status === 'success' && response.audio_url) {
                 console.log('🎤 Using voice_id:', response.voice_id);
+                console.log('📊 Log saved with log_id:', response.log_id);
                 
                 playAudioFromURL(response.audio_url, () => {
                     setTimeout(() => {
