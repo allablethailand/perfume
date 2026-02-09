@@ -1,17 +1,18 @@
 /**
- * AI Setup Chat - Conversational Setup Flow (IMPROVED)
+ * AI Setup Chat - Conversational Setup Flow (WITH ELEVENLABS)
  * ✅ Chat-style interface like ai_chat_3d
  * ✅ AI asks questions one by one
  * ✅ Avatar moves left when choices appear
  * ✅ Support all question types (choice, scale, text)
- * ✅ Multi-language voice support
+ * ✅ Multi-language voice support with ElevenLabs
  * ✅ Added Last Name field
  * ✅ Voice feedback when selecting language
  * ✅ Voice feedback when selecting choices
  * ✅ Back button to edit previous answers
  * ✅ Better login UI with chat display
  * ✅ Edit registration fields before confirm
- * ✅ Fixed duplicate voice issue (FIXED)
+ * ✅ Fixed duplicate voice issue
+ * ✅ Now using ElevenLabs TTS API
  */
 
 // ========== Global Variables ==========
@@ -29,7 +30,7 @@ let currentStep = 'intro'; // intro, language, register, otp, login, questions
 let chatHistory = [];
 let stepHistory = []; // Track step history for back button
 
-// ✅ เพิ่ม flags เพื่อป้องกันการเรียกซ้ำ
+// ✅ Flags to prevent duplicate calls
 let isCheckingSetup = false;
 let isStartingQuestions = false;
 
@@ -233,7 +234,7 @@ function getScaleFeedback(scaleValue) {
 
 // ========== Initialize ==========
 $(document).ready(function() {
-    console.log('🚀 Starting AI Setup Chat...');
+    console.log('🚀 Starting AI Setup Chat with ElevenLabs...');
     console.log('AI Code:', aiCode);
     
     loadAIData().then(() => {
@@ -290,7 +291,12 @@ async function loadAIData() {
             idleVideoUrl = aiCompanionData.idle_video_url || '';
             speakingVideoUrl = aiCompanionData.talking_video_url || '';
             
-            console.log('✅ AI Data loaded:', aiCompanionData.ai_name_en);
+            console.log('✅ AI Data loaded:', {
+                name: aiCompanionData.ai_name_en,
+                ai_id: aiCompanionData.ai_id,
+                user_id: aiCompanionData.user_id,
+                voice_id: aiCompanionData.voice_id
+            });
         }
     } catch (error) {
         console.error('❌ Failed to load AI data:', error);
@@ -365,7 +371,6 @@ function addChatMessage(sender, text) {
 
 // ========== Check Setup Status ==========
 async function checkSetupStatus() {
-    // ✅ ป้องกันการเรียกซ้ำ
     if (isCheckingSetup) {
         console.log('⚠️ Already checking setup, skipping...');
         return;
@@ -395,21 +400,20 @@ async function checkSetupStatus() {
                 addChatMessage('ai', message);
                 speakText(message);
                 
-                // ✅ รอให้พูดจบก่อน (4 วินาที) แล้วค่อยเริ่มถามคำถาม
                 setTimeout(() => {
-                    isCheckingSetup = false; // ✅ ปลดล็อค
+                    isCheckingSetup = false;
                     startQuestions();
                 }, 4000);
             } else if (response.step === 'ready_to_chat') {
-                isCheckingSetup = false; // ✅ ปลดล็อค
+                isCheckingSetup = false;
                 window.location.href = '?ai_chat_3d&ai_code=' + aiCode + '&lang=' + selectedLanguage;
             }
         } else {
-            isCheckingSetup = false; // ✅ ปลดล็อค
+            isCheckingSetup = false;
         }
     } catch (error) {
         hideLoading();
-        isCheckingSetup = false; // ✅ ปลดล็อค
+        isCheckingSetup = false;
         console.error('Check setup error:', error);
         
         // Start fresh
@@ -1046,10 +1050,6 @@ function submitLogin(username, password) {
                 jwt = response.jwt;
                 sessionStorage.setItem('jwt', jwt);
                 
-                // ✅ ลบส่วนนี้ออก - ไม่พูด "Welcome back" ที่นี่
-                // เพราะจะพูดใน checkSetupStatus แทน
-                
-                // ✅ เรียก checkSetupStatus ทันที
                 checkSetupStatus();
             } else {
                 const errorMsg = selectedLanguage === 'th' ? 
@@ -1080,7 +1080,6 @@ function submitLogin(username, password) {
 
 // ========== Start Questions ==========
 async function startQuestions() {
-    // ✅ ป้องกันการเรียกซ้ำ
     if (isStartingQuestions) {
         console.log('⚠️ Already starting questions, skipping...');
         return;
@@ -1101,21 +1100,19 @@ async function startQuestions() {
             $('#totalQ').text(questions.length);
             $('#progressBar').show();
             
-            // ✅ ลบข้อความออก - ไม่พูดอะไรเพิ่ม
-            // ✅ ถามคำถามแรกเลย
             setTimeout(() => {
                 askQuestion(0);
-            }, 1500); // ✅ รอแค่ 1.5 วินาที
+            }, 1500);
         }
     } catch (error) {
         console.error('Failed to load questions:', error);
-        isStartingQuestions = false; // ✅ ปลดล็อค
+        isStartingQuestions = false;
     }
 }
 
 function askQuestion(index) {
     if (index >= questions.length) {
-        isStartingQuestions = false; // ✅ ปลดล็อค
+        isStartingQuestions = false;
         completeSetup();
         return;
     }
@@ -1432,10 +1429,14 @@ function disableInput() {
     $('#sendBtn').prop('disabled', true);
 }
 
-// ========== TTS Functions ==========
+// ========== 🎙️ TTS Functions with ElevenLabs ==========
+/**
+ * ✅ Speak text using ElevenLabs API (same as ai_chat_3d.js)
+ */
 function speakText(text) {
-    console.log('🔊 Speaking:', text.substring(0, 50) + '...');
+    console.log('🔊 Speaking with ElevenLabs:', text.substring(0, 50) + '...');
     
+    // Stop any currently playing audio
     if (currentAudio) {
         currentAudio.pause();
         currentAudio = null;
@@ -1444,107 +1445,208 @@ function speakText(text) {
     isSpeaking = true;
     window.isSpeaking = true;
     
+    // Switch to speaking video
     if (speakingVideoUrl) {
         switchToVideo(speakingVideoUrl);
     }
     
-    const encodedText = encodeURIComponent(text);
-    let ttsUrl;
+    // Split text into chunks if needed
+    const maxLength = 200;
+    const chunks = [];
     
-    if (selectedLanguage === 'th') {
-        ttsUrl = `https://code.responsivevoice.org/getvoice.php?t=${encodedText}&tl=th&sv=&vn=&pitch=0.5&rate=0.5&vol=1`;
-    } else {
-        let googleLang = selectedLanguage;
-        if (selectedLanguage === 'cn') googleLang = 'zh-CN';
-        if (selectedLanguage === 'jp') googleLang = 'ja';
-        if (selectedLanguage === 'kr') googleLang = 'ko';
+    if (text.length > maxLength) {
+        const sentences = text.match(/[^.!?。！？]+[.!?。！？]+/g) || [text];
+        let currentChunk = '';
         
-        ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${googleLang}&client=tw-ob&q=${encodedText}`;
+        for (let sentence of sentences) {
+            if ((currentChunk + sentence).length <= maxLength) {
+                currentChunk += sentence;
+            } else {
+                if (currentChunk) chunks.push(currentChunk.trim());
+                currentChunk = sentence;
+            }
+        }
+        if (currentChunk) chunks.push(currentChunk.trim());
+    } else {
+        chunks.push(text);
     }
     
-    currentAudio = new Audio(ttsUrl);
-    currentAudio.volume = 1.0;
-    
-    const playPromise = currentAudio.play();
-    
-    if (playPromise !== undefined) {
-        playPromise
-            .then(() => {
-                console.log('✅ Audio playing');
-            })
-            .catch(error => {
-                console.warn('⚠️ Autoplay prevented');
-            });
-    }
-    
-    currentAudio.onended = function() {
-        console.log('⏹️ Audio ended');
+    playTTSChunks(chunks, 0, selectedLanguage);
+}
+
+/**
+ * 🎙️ Play TTS chunks with ElevenLabs v3 API
+ */
+function playTTSChunks(chunks, index, langCode) {
+    if (index >= chunks.length) {
         isSpeaking = false;
         window.isSpeaking = false;
         
         if (idleVideoUrl) {
             switchToVideo(idleVideoUrl);
         }
+        
+        console.log('✅ TTS completed');
+        return;
+    }
+    
+    const chunk = chunks[index];
+    
+    console.log(`🔊 Playing ElevenLabs chunk ${index + 1}/${chunks.length}`);
+    
+    // ✅ Prepare request data
+    const requestData = {
+        text: chunk,
+        language: langCode
+    };
+    
+    // ✅ Send user_companion_id if available
+    if (companionId) {
+        requestData.user_companion_id = companionId;
+        console.log('📤 Sending user_companion_id:', companionId);
+    }
+    
+    // ✅ Send ai_id if available
+    if (aiCompanionData && aiCompanionData.ai_id) {
+        requestData.ai_id = aiCompanionData.ai_id;
+        console.log('📤 Sending ai_id:', aiCompanionData.ai_id);
+    }
+    
+    // ✅ Send user_id if available
+    if (aiCompanionData && aiCompanionData.user_id) {
+        requestData.user_id = aiCompanionData.user_id;
+        console.log('📤 Sending user_id:', aiCompanionData.user_id);
+    }
+    
+    console.log('📤 Full TTS request data:', requestData);
+    
+    $.ajax({
+        url: 'app/actions/elevenlabs_tts.php',
+        type: 'POST',
+        data: JSON.stringify(requestData),
+        contentType: 'application/json',
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success' && response.audio_url) {
+                console.log('🎤 Using voice_id:', response.voice_id);
+                console.log('📊 Log saved with log_id:', response.log_id);
+                
+                playAudioFromURL(response.audio_url, () => {
+                    setTimeout(() => {
+                        playTTSChunks(chunks, index + 1, langCode);
+                    }, 300);
+                }, () => {
+                    console.warn('⚠️ ElevenLabs failed, using fallback');
+                    playFallbackTTS(chunk, langCode, () => {
+                        playTTSChunks(chunks, index + 1, langCode);
+                    });
+                });
+            } else {
+                console.warn('⚠️ No audio_url, using fallback');
+                playFallbackTTS(chunk, langCode, () => {
+                    playTTSChunks(chunks, index + 1, langCode);
+                });
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('❌ ElevenLabs API error:', error);
+            playFallbackTTS(chunk, langCode, () => {
+                playTTSChunks(chunks, index + 1, langCode);
+            });
+        }
+    });
+}
+
+/**
+ * 🔊 Play audio from URL with callbacks
+ */
+function playAudioFromURL(audioUrl, onEndCallback, onErrorCallback) {
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+    }
+    
+    currentAudio = new Audio(audioUrl);
+    
+    currentAudio.oncanplaythrough = function() {
+        this.play().catch(err => {
+            console.error('Audio play error:', err);
+            if (onErrorCallback) onErrorCallback();
+        });
+    };
+    
+    currentAudio.onplay = function() {
+        console.log('▶️ ElevenLabs audio playing');
+        isSpeaking = true;
+        window.isSpeaking = true;
+    };
+    
+    currentAudio.onended = function() {
+        console.log('⏹️ ElevenLabs audio ended');
+        if (onEndCallback) onEndCallback();
     };
     
     currentAudio.onerror = function(e) {
-        console.error('❌ TTS error:', e);
-        isSpeaking = false;
-        window.isSpeaking = false;
-        
-        if (idleVideoUrl) {
-            switchToVideo(idleVideoUrl);
-        }
-        
-        tryWebSpeechFallback(text);
+        console.error('❌ Audio playback error:', e);
+        if (onErrorCallback) onErrorCallback();
     };
+    
+    currentAudio.load();
 }
 
-function tryWebSpeechFallback(text) {
+/**
+ * 🔄 Fallback TTS (Web Speech API)
+ */
+function playFallbackTTS(text, langCode, callback) {
     if (!window.speechSynthesis) {
         console.error('❌ Web Speech API not available');
+        isSpeaking = false;
+        window.isSpeaking = false;
+        if (idleVideoUrl) switchToVideo(idleVideoUrl);
+        if (callback) callback();
         return;
     }
+    
+    console.log('🔄 Using Web Speech API fallback');
     
     window.speechSynthesis.cancel();
     
     const utterance = new SpeechSynthesisUtterance(text);
     
-    if (selectedLanguage === 'th') {
+    // Map language codes
+    if (langCode === 'th') {
         utterance.lang = 'th-TH';
-    } else if (selectedLanguage === 'cn') {
+    } else if (langCode === 'cn') {
         utterance.lang = 'zh-CN';
-    } else if (selectedLanguage === 'jp') {
+    } else if (langCode === 'jp') {
         utterance.lang = 'ja-JP';
-    } else if (selectedLanguage === 'kr') {
+    } else if (langCode === 'kr') {
         utterance.lang = 'ko-KR';
     } else {
         utterance.lang = 'en-US';
     }
     
-    utterance.rate = 0.9;
+    utterance.rate = 0.85;
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
     
     utterance.onstart = function() {
-        console.log('🗣️ Web Speech started');
         isSpeaking = true;
         window.isSpeaking = true;
-        if (speakingVideoUrl) switchToVideo(speakingVideoUrl);
     };
     
     utterance.onend = function() {
-        console.log('✅ Web Speech ended');
         isSpeaking = false;
         window.isSpeaking = false;
-        if (idleVideoUrl) switchToVideo(idleVideoUrl);
+        if (callback) callback();
     };
     
     utterance.onerror = function(event) {
-        console.error('❌ Web Speech error:', event);
+        console.error('Web Speech error:', event);
         isSpeaking = false;
         window.isSpeaking = false;
         if (idleVideoUrl) switchToVideo(idleVideoUrl);
+        if (callback) callback();
     };
     
     window.speechSynthesis.speak(utterance);
@@ -1625,6 +1727,8 @@ function createWaterWave() {
 
 function createParticles() {
     const container = document.getElementById('particlesContainer');
+    if (!container) return;
+    
     for (let i = 0; i < 25; i++) {
         const particle = document.createElement('div');
         particle.className = 'particle';
@@ -1664,4 +1768,4 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, m => map[m]);
 }
 
-console.log('✅ AI Setup Chat System (Fixed Duplicate Voice Issue) Loaded');
+console.log('✅ AI Setup Chat System with ElevenLabs TTS Loaded');
