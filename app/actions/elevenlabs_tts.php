@@ -102,8 +102,9 @@ $curlError = curl_error($ch);
 curl_close($ch);
 
 if ($httpCode === 200) {
-    // ✅ กำหนด path ให้ถูกต้อง - บันทึกใน /perfume/temp/
-    $tempDir = $_SERVER['DOCUMENT_ROOT'] . '/perfume/temp/';
+    // ✅ กำหนด path ให้ถูกต้อง
+    // ใช้ path จาก document root
+    $tempDir = $_SERVER['DOCUMENT_ROOT'] . '/public/';
     
     // สร้างโฟลเดอร์ temp ถ้ายังไม่มี
     if (!file_exists($tempDir)) {
@@ -119,7 +120,7 @@ if ($httpCode === 200) {
     // ✅ สร้าง URL แบบ absolute
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'];
-    $audioUrl = $protocol . '://' . $host . '/perfume/temp/' . $filename;
+    $audioUrl = $protocol . '://' . $host . '/public/' . $filename;
     
     echo json_encode([
         'status' => 'success',
@@ -127,7 +128,7 @@ if ($httpCode === 200) {
         'language_used' => $elevenLabsLang,
         'voice_id' => $voiceId,
         'model' => 'eleven_multilingual_v2',
-        'file_size' => strlen($response)
+        'file_size' => strlen($response) // เพื่อ debug
     ]);
 } else {
     error_log("ElevenLabs API Error: HTTP {$httpCode} - {$curlError}");
