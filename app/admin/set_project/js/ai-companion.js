@@ -138,23 +138,7 @@ $(document).ready(function() {
                     }
                 }
             });
-            // Voice Selection Handler
-            $('#voice_id').on('change', function() {
-                let voiceId = $(this).val();
-                let selectedOption = $(this).find('option:selected');
-                let voiceName = selectedOption.text().split('(')[0].trim();
-                
-                if (voiceId) {
-                    $('#voice_name').val(voiceName).show();
-                    
-                    // แสดง Preview (ถ้ามี - ตอนนี้ยังไม่มี API สำหรับ preview)
-                    // $('#voicePreview').show();
-                    // $('#voicePreviewSource').attr('src', 'preview_url_here');
-                } else {
-                    $('#voice_name').val('').hide();
-                    $('#voicePreview').hide();
-                }
-            });
+           
             // View QR Code
             $('#td_list_project').on('click', '.btn-view-qr', function() {
                 let aiCode = $(this).data('code');
