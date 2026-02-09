@@ -779,6 +779,9 @@ let currentAudio = null;
  * 🎙️ Play TTS chunks with ElevenLabs v3 API
  * รองรับ 5 ภาษา: th, en, cn, jp, kr
  */
+/**
+ * 🎙️ Play TTS chunks with ElevenLabs v3 API
+ */
 function playTTSChunks(chunks, index, langCode) {
     if (index >= chunks.length) {
         isSpeaking = false;
@@ -797,33 +800,41 @@ function playTTSChunks(chunks, index, langCode) {
     
     console.log(`🔊 Playing ElevenLabs chunk ${index + 1}/${chunks.length}`);
     
-    // ✅ เรียก Backend API เพื่อสร้างเสียงจาก ElevenLabs
+    // ✅ ส่ง user_companion_id หรือ ai_id ไปด้วย
+    const requestData = {
+        text: chunk,
+        language: langCode
+    };
+    
+    if (companionId) {
+        requestData.user_companion_id = companionId;
+    }
+    
+    if (aiCompanionData && aiCompanionData.ai_id) {
+        requestData.ai_id = aiCompanionData.ai_id;
+    }
+    
     $.ajax({
         url: 'app/actions/elevenlabs_tts.php',
         type: 'POST',
-        data: JSON.stringify({
-            text: chunk,
-            language: langCode
-        }),
+        data: JSON.stringify(requestData),
         contentType: 'application/json',
         dataType: 'json',
         success: function(response) {
             if (response.status === 'success' && response.audio_url) {
-                // ✅ เล่นเสียงจาก ElevenLabs
+                console.log('🎤 Using voice_id:', response.voice_id);
+                
                 playAudioFromURL(response.audio_url, () => {
-                    // เล่น chunk ถัดไป
                     setTimeout(() => {
                         playTTSChunks(chunks, index + 1, langCode);
                     }, 300);
                 }, () => {
-                    // ถ้า ElevenLabs ล้มเหลว ใช้ Google TTS
                     console.warn('⚠️ ElevenLabs failed, using Google TTS fallback');
                     playGoogleTTSFallback(chunk, langCode, () => {
                         playTTSChunks(chunks, index + 1, langCode);
                     });
                 });
             } else {
-                // ถ้าไม่มี audio_url ใช้ Google TTS
                 console.warn('⚠️ No audio_url, using Google TTS fallback');
                 playGoogleTTSFallback(chunk, langCode, () => {
                     playTTSChunks(chunks, index + 1, langCode);
@@ -832,7 +843,6 @@ function playTTSChunks(chunks, index, langCode) {
         },
         error: function(xhr, status, error) {
             console.error('❌ ElevenLabs API error:', error);
-            // Fallback to Google TTS
             playGoogleTTSFallback(chunk, langCode, () => {
                 playTTSChunks(chunks, index + 1, langCode);
             });

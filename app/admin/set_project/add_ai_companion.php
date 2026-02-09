@@ -168,6 +168,41 @@ include '../template/header.php';
                                     <small class="text-muted">วิดีโอที่แสดงเมื่อ AI กำลังพูด (Loop)</small>
                                 </div>
 
+                                <!-- เพิ่มใน Left Column หลังจาก Talking Video -->
+<div class="form-group mb-4">
+    <label><i class="fas fa-volume-up"></i> AI Voice (ElevenLabs)</label>
+    
+    <!-- Voice Selection -->
+    <select class="form-control mb-2" id="voice_id" name="voice_id">
+        <option value="">-- Use Default Voice --</option>
+        <option value="UdFuclGJ1KL5tAeoBeE0">Rachel (Female, Multilingual)</option>
+        <option value="pNInz6obpgDQGcFmaJgB">Adam (Male, Deep)</option>
+        <option value="ErXwobaYiN019PkySvjV">Antoni (Male, Well-rounded)</option>
+        <option value="VR6AewLTigWG4xSOukaG">Arnold (Male, Crisp)</option>
+        <option value="MF3mGyEYCl7XYWbV9V6O">Elli (Female, Emotional)</option>
+        <option value="TxGEqnHWrfWFTfGW9XjX">Josh (Male, Young)</option>
+        <option value="AZnzlk1XvdvUeBnXmlld">Domi (Female, Strong)</option>
+        <option value="EXAVITQu4vr4xnSDxMaL">Bella (Female, Soft)</option>
+    </select>
+    
+    <!-- Voice Name Input (Custom) -->
+    <input type="text" class="form-control mb-2" id="voice_name" name="voice_name" 
+           placeholder="Voice Name (e.g., Rachel)" 
+           style="display: none;">
+    
+    <!-- Preview Audio (if available) -->
+    <div id="voicePreview" class="mt-2" style="display: none;">
+        <audio controls style="width: 100%; height: 40px;">
+            <source id="voicePreviewSource" src="">
+        </audio>
+    </div>
+    
+    <small class="text-muted">
+        <i class="fas fa-info-circle"></i> 
+        This voice will be used for all languages (TH, EN, CN, JP, KR)
+    </small>
+</div>
+
                                 <!-- Status -->
                                 <div class="form-group">
                                     <label><i class="fas fa-toggle-on"></i> Status</label>

@@ -49,16 +49,9 @@ try {
             style_suggestions_cn,
             style_suggestions_jp,
             style_suggestions_kr,
-            voice_id_th,
-            voice_id_en,
-            voice_id_cn,
-            voice_id_jp,
-            voice_id_kr,
-            voice_gender_th,
-            voice_gender_en,
-            voice_gender_cn,
-            voice_gender_jp,
-            voice_gender_kr,
+            voice_id,
+            voice_name,
+            voice_preview_url,
             status,
             created_at,
             updated_at
@@ -78,7 +71,7 @@ try {
         throw new Exception("AI companion not found with code: " . $ai_code);
     }
     
-    error_log("✅ AI Data found: ai_id=" . $ai_data['ai_id'] . ", name=" . $ai_data['ai_name_th']);
+    error_log("✅ AI Data found: ai_id=" . $ai_data['ai_id'] . ", name=" . $ai_data['ai_name_th'] . ", voice_id=" . $ai_data['voice_id']);
     
     $response = [
         'status' => 'success',
