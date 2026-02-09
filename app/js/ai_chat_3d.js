@@ -776,7 +776,8 @@ function speakText(text, forceLangCode = null) {
 let currentAudio = null;
 
 /**
- * 🔊 Play TTS chunks (ResponsiveVoice for Thai, Google TTS for others)
+ * 🎙️ Play TTS chunks with ElevenLabs v3 API
+ * รองรับ 5 ภาษา: th, en, cn, jp, kr
  */
 function playTTSChunks(chunks, index, langCode) {
     if (index >= chunks.length) {
@@ -793,25 +794,104 @@ function playTTSChunks(chunks, index, langCode) {
     }
     
     const chunk = chunks[index];
-    const encodedText = encodeURIComponent(chunk);
     
-    let ttsUrl;
+    console.log(`🔊 Playing ElevenLabs chunk ${index + 1}/${chunks.length}`);
     
-    // ✅ ใช้ ResponsiveVoice สำหรับภาษาไทย
-    if (langCode === 'th') {
-        ttsUrl = `https://code.responsivevoice.org/getvoice.php?t=${encodedText}&tl=th&sv=&vn=&pitch=0.5&rate=0.5&vol=1`;
-    } 
-    // ✅ ใช้ Google Translate TTS สำหรับภาษาอื่นๆ
-    else {
-        let googleLangCode = langCode;
-        if (langCode === 'cn') googleLangCode = 'zh-CN';
-        if (langCode === 'jp') googleLangCode = 'ja';
-        if (langCode === 'kr') googleLangCode = 'ko';
-        
-        ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${googleLangCode}&client=tw-ob&q=${encodedText}`;
+    // ✅ เรียก Backend API เพื่อสร้างเสียงจาก ElevenLabs
+    $.ajax({
+        url: 'app/actions/elevenlabs_tts.php',
+        type: 'POST',
+        data: JSON.stringify({
+            text: chunk,
+            language: langCode
+        }),
+        contentType: 'application/json',
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success' && response.audio_url) {
+                // ✅ เล่นเสียงจาก ElevenLabs
+                playAudioFromURL(response.audio_url, () => {
+                    // เล่น chunk ถัดไป
+                    setTimeout(() => {
+                        playTTSChunks(chunks, index + 1, langCode);
+                    }, 300);
+                }, () => {
+                    // ถ้า ElevenLabs ล้มเหลว ใช้ Google TTS
+                    console.warn('⚠️ ElevenLabs failed, using Google TTS fallback');
+                    playGoogleTTSFallback(chunk, langCode, () => {
+                        playTTSChunks(chunks, index + 1, langCode);
+                    });
+                });
+            } else {
+                // ถ้าไม่มี audio_url ใช้ Google TTS
+                console.warn('⚠️ No audio_url, using Google TTS fallback');
+                playGoogleTTSFallback(chunk, langCode, () => {
+                    playTTSChunks(chunks, index + 1, langCode);
+                });
+            }
+        },
+        error: function(xhr, status, error) {
+            console.error('❌ ElevenLabs API error:', error);
+            // Fallback to Google TTS
+            playGoogleTTSFallback(chunk, langCode, () => {
+                playTTSChunks(chunks, index + 1, langCode);
+            });
+        }
+    });
+}
+
+/**
+ * 🔊 Play audio from URL with callbacks
+ */
+function playAudioFromURL(audioUrl, onEndCallback, onErrorCallback) {
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
     }
     
-    console.log(`🔊 Playing chunk ${index + 1}/${chunks.length}`);
+    currentAudio = new Audio(audioUrl);
+    
+    currentAudio.oncanplaythrough = function() {
+        this.play().catch(err => {
+            console.error('Audio play error:', err);
+            if (onErrorCallback) onErrorCallback();
+        });
+    };
+    
+    currentAudio.onplay = function() {
+        console.log('▶️ ElevenLabs audio playing');
+        isSpeaking = true;
+        window.isSpeaking = true;
+    };
+    
+    currentAudio.onended = function() {
+        console.log('⏹️ ElevenLabs audio ended');
+        if (onEndCallback) onEndCallback();
+    };
+    
+    currentAudio.onerror = function(e) {
+        console.error('❌ Audio playback error:', e);
+        if (onErrorCallback) onErrorCallback();
+    };
+    
+    currentAudio.load();
+}
+
+/**
+ * 🔄 Google TTS Fallback (สำรอง)
+ */
+function playGoogleTTSFallback(text, langCode, callback) {
+    const encodedText = encodeURIComponent(text);
+    
+    let googleLangCode = langCode;
+    if (langCode === 'cn') googleLangCode = 'zh-CN';
+    if (langCode === 'jp') googleLangCode = 'ja';
+    if (langCode === 'kr') googleLangCode = 'ko';
+    if (langCode === 'th') googleLangCode = 'th';
+    
+    const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${googleLangCode}&client=tw-ob&q=${encodedText}`;
+    
+    console.log(`🔊 Using Google TTS fallback for: ${langCode}`);
     
     if (currentAudio) {
         currentAudio.pause();
@@ -822,27 +902,28 @@ function playTTSChunks(chunks, index, langCode) {
     
     currentAudio.oncanplaythrough = function() {
         this.play().catch(err => {
-            console.error('TTS play error:', err);
-            playTTSChunks(chunks, index + 1, langCode);
+            console.error('Google TTS play error:', err);
+            // ถ้า Google TTS ก็ล้มเหลว ใช้ Web Speech API
+            fallbackToWebSpeech(text, langCode);
+            if (callback) callback();
         });
     };
     
     currentAudio.onplay = function() {
-        console.log('▶️ Audio playing');
+        console.log('▶️ Google TTS playing');
         isSpeaking = true;
         window.isSpeaking = true;
     };
     
     currentAudio.onended = function() {
-        console.log('⏹️ Chunk ended');
-        setTimeout(() => {
-            playTTSChunks(chunks, index + 1, langCode);
-        }, 300);
+        console.log('⏹️ Google TTS ended');
+        if (callback) callback();
     };
     
     currentAudio.onerror = function(e) {
-        console.error('❌ TTS error, trying fallback');
-        fallbackToWebSpeech(chunks.join(' '), langCode);
+        console.error('❌ Google TTS error, using Web Speech API');
+        fallbackToWebSpeech(text, langCode);
+        if (callback) callback();
     };
     
     currentAudio.src = ttsUrl;
