@@ -1,7 +1,7 @@
 <?php
 /**
  * ElevenLabs Text-to-Speech API v3
- * รองรับ 5 ภาษา: th, en, cn, jp, kr
+ * ใช้ voice_id จากตาราง ai_companions
  */
 
 header('Content-Type: application/json');
@@ -42,6 +42,8 @@ if (empty($ELEVENLABS_API_KEY)) {
 $input = json_decode(file_get_contents('php://input'), true);
 $text = $input['text'] ?? '';
 $language = $input['language'] ?? 'en';
+$user_companion_id = $input['user_companion_id'] ?? 0;
+$ai_id = $input['ai_id'] ?? 0;
 
 if (empty($text)) {
     echo json_encode([
@@ -51,17 +53,64 @@ if (empty($text)) {
     exit;
 }
 
-// 🎤 Voice IDs สำหรับแต่ละภาษา
-$voiceMap = [
-    'th' => 'UdFuclGJ1KL5tAeoBeE0',
-    'en' => 'UdFuclGJ1KL5tAeoBeE0', // Rachel (Multilingual)
-    'cn' => 'UdFuclGJ1KL5tAeoBeE0', // Bella (Multilingual)
-    'jp' => 'UdFuclGJ1KL5tAeoBeE0', // Domi (Multilingual)
-    'kr' => 'UdFuclGJ1KL5tAeoBeE0'  // Elli (Multilingual)
-];
+// ========================================
+// ✅ ดึง voice_id จากตาราง ai_companions
+// ========================================
+require_once __DIR__ . '/../../lib/connect.php';
+global $conn;
 
-$voiceId = $_ENV['ELEVENLABS_VOICE_ID'] ?? $voiceMap[$language] ?? $voiceMap['en'];
+$voiceId = null;
 
+// ลอง ai_id ก่อน (ถ้ามี)
+if ($ai_id > 0) {
+    $stmt = $conn->prepare("
+        SELECT voice_id, voice_name 
+        FROM ai_companions 
+        WHERE ai_id = ? AND status = 1 AND del = 0
+        LIMIT 1
+    ");
+    $stmt->bind_param('i', $ai_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows > 0) {
+        $row = $result->fetch_assoc();
+        $voiceId = $row['voice_id'];
+        error_log("✅ Found voice_id from ai_id: $voiceId ({$row['voice_name']})");
+    }
+    $stmt->close();
+}
+
+// ถ้ายังไม่ได้ voice_id ลองหาจาก user_companion_id
+if (!$voiceId && $user_companion_id > 0) {
+    $stmt = $conn->prepare("
+        SELECT ac.voice_id, ac.voice_name 
+        FROM user_ai_companions uc
+        INNER JOIN ai_companions ac ON uc.ai_id = ac.ai_id
+        WHERE uc.user_companion_id = ? AND uc.status = 1 AND uc.del = 0
+        LIMIT 1
+    ");
+    $stmt->bind_param('i', $user_companion_id);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    
+    if ($result->num_rows > 0) {
+        $row = $result->fetch_assoc();
+        $voiceId = $row['voice_id'];
+        error_log("✅ Found voice_id from user_companion_id: $voiceId ({$row['voice_name']})");
+    }
+    $stmt->close();
+}
+
+// ถ้ายังไม่ได้ voice_id ใช้ค่า default จาก .env
+if (!$voiceId) {
+    $voiceId = $_ENV['ELEVENLABS_VOICE_ID'] ?? 'UdFuclGJ1KL5tAeoBeE0';
+    error_log("⚠️ Using default voice_id from .env: $voiceId");
+}
+
+$conn->close();
+
+// Map language code สำหรับ ElevenLabs
 $langMap = [
     'th' => 'th',
     'en' => 'en',
@@ -78,13 +127,13 @@ $data = [
     'text' => $text,
     'model_id' => 'eleven_v3',
     'voice_settings' => [
-        'language_code' => 'th',
-        'stability' => 0.5,           // เพิ่มจาก 0.5 → ทำให้เสียงมั่นคงไม่แปลกๆ
-        'similarity_boost' => 0.75,    // เพิ่มจาก 0.75 → เสียงใกล้เคียงเสียงจริงมากขึ้น
-        'style' => 0.0,                // เพิ่มจาก 0.0 → ให้มีอารมณ์ธรรมชาติ
+        'language_code' => $elevenLabsLang,
+        'stability' => 0.5,
+        'similarity_boost' => 0.75,
+        'style' => 0.0,
         'use_speaker_boost' => true
     ],
-    'output_format' => 'mp3_44100_128' // คุณภาพเสียงดีขึ้น
+    'output_format' => 'mp3_44100_128'
 ];
 
 $ch = curl_init($url);
@@ -102,22 +151,17 @@ $curlError = curl_error($ch);
 curl_close($ch);
 
 if ($httpCode === 200) {
-    // ✅ กำหนด path ให้ถูกต้อง
-    // ใช้ path จาก document root
     $tempDir = $_SERVER['DOCUMENT_ROOT'] . '/public/';
     
-    // สร้างโฟลเดอร์ temp ถ้ายังไม่มี
     if (!file_exists($tempDir)) {
         mkdir($tempDir, 0777, true);
     }
     
-    // บันทึกไฟล์เสียง
     $filename = 'elevenlabs_' . uniqid() . '.mp3';
     $filepath = $tempDir . $filename;
     
     file_put_contents($filepath, $response);
     
-    // ✅ สร้าง URL แบบ absolute
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'];
     $audioUrl = $protocol . '://' . $host . '/public/' . $filename;
@@ -127,8 +171,8 @@ if ($httpCode === 200) {
         'audio_url' => $audioUrl,
         'language_used' => $elevenLabsLang,
         'voice_id' => $voiceId,
-        'model' => 'eleven_multilingual_v2',
-        'file_size' => strlen($response) // เพื่อ debug
+        'model' => 'eleven_v3',
+        'file_size' => strlen($response)
     ]);
 } else {
     error_log("ElevenLabs API Error: HTTP {$httpCode} - {$curlError}");
