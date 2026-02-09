@@ -1,16 +1,15 @@
 /**
- * AI Chat 3D - Guest Mode Support + Full Audio (5 Languages)
- * ✅ รองรับ Guest Mode (ไม่ต้อง JWT)
- * ✅ รองรับ 5 ภาษา: th, en, cn, jp, kr
- * ✅ มี TTS ครบถ้วน (ResponsiveVoice + Google TTS + Web Speech API)
- * ✅ Video avatar support
+ * AI Chat 3D - FIXED: Preload Audio Before Display
+ * ✅ รอให้เสียงโหลดเสร็จก่อนแสดงข้อความและท่าพูด
+ * ✅ แสดง typing indicator "..." ระหว่างรอ
+ * ✅ Sync การแสดงผลกับเสียงให้ตรงกัน
  */
 
 // ========== Global Variables ==========
 const urlParams = new URLSearchParams(window.location.search);
 const aiCodeFromURL = urlParams.get('ai_code') || '';
 const langFromURL = urlParams.get('lang') || 'th';
-const companionIdFromURL = urlParams.get('user_companion_id'); // ✅ เพิ่มบรรทัดนี้
+const companionIdFromURL = urlParams.get('user_companion_id');
 
 let currentConversationId = 0;
 let companionId = null;
@@ -48,6 +47,10 @@ const WELCOME_MESSAGES = {
 let userPreferredLanguage = 'th';
 let isWelcomeMessagePlayed = false;
 let aiCompanionData = null;
+
+// ✅ NEW: Audio Preload Queue
+let audioPreloadQueue = [];
+let isProcessingAudio = false;
 
 // ========== Initialize ==========
 $(document).ready(function() {
@@ -120,10 +123,7 @@ $(document).ready(function() {
 });
 
 /**
- * ✅ Fetch AI Companion Data (Guest Mode Support)
- */
-/**
- * ✅ Fetch AI Companion Data (Guest Mode Support)
+ * ✅ Fetch AI Companion Data (เหมือนเดิม)
  */
 function fetchAICompanionData() {
     return new Promise((resolve, reject) => {
@@ -160,33 +160,24 @@ function fetchAICompanionData() {
                         return;
                     }
                     
-                    // ✅ ดึง video URLs
                     IDLE_VIDEO_URL = aiCompanionData.idle_video_url || '';
                     SPEAKING_VIDEO_URL = aiCompanionData.talking_video_url || '';
-                    
-                    // ✅ ดึงภาษา
                     userPreferredLanguage = aiCompanionData.preferred_language || 'th';
-                    console.log('🌐 Language from database:', userPreferredLanguage);
                     
-                    // ✅ เก็บ companionId - รองรับทั้ง 2 format
                     if (response.companion_id) {
                         companionId = response.companion_id;
                     } else if (aiCompanionData.user_companion_id) {
                         companionId = aiCompanionData.user_companion_id;
                     }
                     
-                    // ✅ เก็บ user_id (ใหม่!)
                     if (response.user_id) {
                         aiCompanionData.user_id = response.user_id;
                     }
                     
-                    // ✅ เก็บใน sessionStorage
                     if (companionId) {
                         sessionStorage.setItem('user_companion_id', companionId);
-                        console.log('✅ Stored companionId:', companionId);
                     }
                     
-                    // เก็บ ai_code
                     if (aiCompanionData.ai_code) {
                         sessionStorage.setItem('ai_code', aiCompanionData.ai_code);
                     }
@@ -194,10 +185,8 @@ function fetchAICompanionData() {
                     console.log('✅ AI Companion loaded:', {
                         ai_id: aiCompanionData.ai_id,
                         companion_id: companionId,
-                        user_id: aiCompanionData.user_id, // ✅ แสดงใน log
-                        language: userPreferredLanguage,
-                        idle_video: IDLE_VIDEO_URL ? '✅' : '❌',
-                        talking_video: SPEAKING_VIDEO_URL ? '✅' : '❌'
+                        user_id: aiCompanionData.user_id,
+                        language: userPreferredLanguage
                     });
                                 
                     resolve();
@@ -208,11 +197,7 @@ function fetchAICompanionData() {
                 }
             },
             error: function(xhr, status, error) {
-                console.error('❌ AJAX Error:', {
-                    status: xhr.status,
-                    error: error,
-                    response: xhr.responseText
-                });
+                console.error('❌ AJAX Error:', error);
                 useVideoAvatar = false;
                 resolve();
             }
@@ -241,13 +226,11 @@ function playWelcomeMessage() {
         });
     }
     
-    showMessage(welcomeText);
-    speakText(welcomeText, userPreferredLanguage);
+    // ✅ ใช้ระบบใหม่: preload audio ก่อนแสดง
+    speakTextWithPreload(welcomeText, userPreferredLanguage);
 }
 
-/**
- * 🎬 Initialize Video Avatar
- */
+// ========== Video Avatar Functions (เหมือนเดิม) ==========
 function initVideoAvatar() {
     const container = document.querySelector('.avatar-container');
     
@@ -480,6 +463,8 @@ function onWindowResize() {
     }
 }
 
+// ========== Chat Functions ==========
+
 function loadConversations() {
     console.log('📡 Loading conversations...');
     
@@ -502,10 +487,7 @@ function loadConversations() {
         headers: headers,
         dataType: 'json',
         success: function(response) {
-            console.log('📡 Conversations response:', response); // ✅ Debug log
-            
             if (response.status === 'success') {
-                // ✅ บันทึก companion_id ถ้ามี
                 if (response.user_companion_id) {
                     companionId = response.user_companion_id;
                     sessionStorage.setItem('user_companion_id', companionId);
@@ -578,6 +560,7 @@ function loadConversation(conversationId) {
             if (response.status === 'success' && response.messages.length > 0) {
                 const lastMessage = response.messages[response.messages.length - 1];
                 if (lastMessage.role === 'assistant') {
+                    // ✅ แสดงข้อความโดยไม่เล่นเสียง (เพราะเป็นประวัติ)
                     showMessage(lastMessage.message);
                 }
             }
@@ -593,16 +576,13 @@ function sendMessage() {
     
     if (!message) return;
     
-    // ✅ ลองดึง companionId จาก sessionStorage ถ้ายังไม่มี
     if (!companionId) {
         const storedCompanionId = sessionStorage.getItem('user_companion_id');
         if (storedCompanionId) {
             companionId = parseInt(storedCompanionId);
-            console.log('📥 Retrieved companionId from sessionStorage:', companionId);
         }
     }
     
-    // ✅ เช็คว่ามี companionId หรือ aiCodeFromURL
     const hasCompanion = companionId && companionId > 0;
     const hasAICode = aiCodeFromURL && aiCodeFromURL.trim() !== '';
     
@@ -612,22 +592,8 @@ function sendMessage() {
             title: 'Cannot Send Message',
             text: 'Missing companion or AI code. Please reload the page.',
         });
-        console.error('❌ Missing data:', {
-            companionId: companionId,
-            aiCodeFromURL: aiCodeFromURL,
-            sessionStorage: sessionStorage.getItem('user_companion_id')
-        });
         return;
     }
-    
-    // ✅ Debug log
-    console.log('📤 Sending message:', {
-        hasCompanion: hasCompanion,
-        companionId: companionId,
-        hasAICode: hasAICode,
-        aiCode: aiCodeFromURL,
-        isGuest: isGuestMode
-    });
     
     if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
         videoAvatar.play().catch(e => console.log('Play on interaction'));
@@ -647,9 +613,6 @@ function sendMessage() {
         preferred_language: userPreferredLanguage || 'th'
     };
     
-    console.log('📤 Sending with language from DB:', requestData.preferred_language);
-    
-    // ✅ ส่งข้อมูลตาม mode
     if (isGuestMode) {
         if (hasCompanion) {
             requestData.user_companion_id = companionId;
@@ -659,7 +622,6 @@ function sendMessage() {
         }
     } else if (jwt) {
         headers['Authorization'] = 'Bearer ' + jwt;
-        // ใน login mode ส่ง companionId ไปด้วย (ถ้ามี)
         if (hasCompanion) {
             requestData.user_companion_id = companionId;
         }
@@ -683,14 +645,13 @@ function sendMessage() {
                     sessionStorage.setItem('user_companion_id', companionId);
                 }
                 
-                console.log('✅ AI Response:', {
-                    language_used: response.language_used,
-                    requested_language: requestData.preferred_language,
-                    match: response.language_used === requestData.preferred_language ? '✅' : '❌'
-                });
+                console.log('✅ AI Response received');
                 
-                showMessage(response.ai_message);
-                speakText(response.ai_message, response.language_used || requestData.preferred_language);
+                // ✅ ใช้ระบบใหม่: preload audio ก่อนแสดง
+                speakTextWithPreload(
+                    response.ai_message, 
+                    response.language_used || requestData.preferred_language
+                );
             } else {
                 Swal.fire('Error', response.message, 'error');
                 updateStatus('Ready to chat', false);
@@ -714,40 +675,250 @@ function showMessage(text) {
     $('#currentMessage').fadeIn();
 }
 
+// ========== ✅ NEW: Audio Preload System ==========
+
 /**
- * 🗣️ Speak text with language detection (5 languages: th, en, cn, jp, kr)
+ * ✅ Speak text WITH preload - รอให้เสียงโหลดเสร็จก่อนแสดง UI
  */
-function speakText(text, forceLangCode = null) {
-    let langCode = forceLangCode;
-    let detectedLang = 'Thai';
+function speakTextWithPreload(text, forceLangCode = null) {
+    console.log('🎬 Starting speech with preload:', text.substring(0, 50));
     
-    if (!langCode) {
-        if (/[\u0E00-\u0E7F]/.test(text)) {
-            langCode = 'th';
-            detectedLang = 'Thai';
-        } else if (/[\u4E00-\u9FFF]/.test(text)) {
-            langCode = 'cn';
-            detectedLang = 'Chinese';
-        } else if (/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) {
-            langCode = 'jp';
-            detectedLang = 'Japanese';
-        } else if (/[\uAC00-\uD7AF]/.test(text)) {
-            langCode = 'kr';
-            detectedLang = 'Korean';
-        } else {
-            langCode = 'en';
-            detectedLang = 'English';
-        }
-    } else {
-        const langMap = {
-            'th': 'Thai',
-            'en': 'English',
-            'cn': 'Chinese',
-            'jp': 'Japanese',
-            'kr': 'Korean'
-        };
-        detectedLang = langMap[langCode] || 'English';
+    // แสดง typing indicator
+    updateStatus('Preparing voice...', false);
+    $('#messageText').html('<span class="typing-indicator">Thinking...</span>');
+    $('#currentMessage').fadeIn();
+    
+    // ตรวจจับภาษา
+    let langCode = forceLangCode || detectLanguage(text);
+    
+    // แบ่งข้อความเป็น chunks
+    const chunks = splitTextIntoChunks(text);
+    
+    // Preload audio ทั้งหมดก่อน
+    preloadAllAudioChunks(chunks, langCode).then((audioUrls) => {
+        console.log('✅ All audio preloaded, ready to display and play');
+        
+        // ✅ ตอนนี้เสียงพร้อมแล้ว → แสดงข้อความ + เล่นเสียง + ท่าพูด
+        showMessage(text);
+        playPreloadedAudio(audioUrls, langCode, text);
+        
+    }).catch((error) => {
+        console.error('❌ Audio preload failed:', error);
+        // Fallback: แสดงข้อความและใช้ Google TTS
+        showMessage(text);
+        speakText(text, langCode); // ใช้ระบบเดิม
+    });
+}
+
+/**
+ * ✅ Preload audio chunks ทั้งหมดก่อน
+ */
+function preloadAllAudioChunks(chunks, langCode) {
+    return new Promise((resolve, reject) => {
+        const audioUrls = [];
+        let loadedCount = 0;
+        let hasError = false;
+        
+        console.log(`📥 Preloading ${chunks.length} audio chunks...`);
+        
+        chunks.forEach((chunk, index) => {
+            const requestData = {
+                text: chunk,
+                language: langCode
+            };
+            
+            if (companionId) {
+                requestData.user_companion_id = companionId;
+            }
+            
+            if (aiCompanionData && aiCompanionData.ai_id) {
+                requestData.ai_id = aiCompanionData.ai_id;
+            }
+            
+            if (aiCompanionData && aiCompanionData.user_id) {
+                requestData.user_id = aiCompanionData.user_id;
+            }
+            
+            $.ajax({
+                url: 'app/actions/elevenlabs_tts.php',
+                type: 'POST',
+                data: JSON.stringify(requestData),
+                contentType: 'application/json',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success' && response.audio_url) {
+                        audioUrls[index] = response.audio_url;
+                        loadedCount++;
+                        
+                        const progress = Math.round((loadedCount / chunks.length) * 100);
+                        updateStatus(`Loading voice... ${progress}%`, false);
+                        
+                        console.log(`✅ Chunk ${index + 1}/${chunks.length} preloaded`);
+                        
+                        if (loadedCount === chunks.length && !hasError) {
+                            resolve(audioUrls);
+                        }
+                    } else {
+                        if (!hasError) {
+                            hasError = true;
+                            reject(new Error('No audio URL in response'));
+                        }
+                    }
+                },
+                error: function(xhr, status, error) {
+                    if (!hasError) {
+                        hasError = true;
+                        reject(new Error('TTS API error: ' + error));
+                    }
+                }
+            });
+        });
+        
+        // Timeout protection (30 วินาที)
+        setTimeout(() => {
+            if (loadedCount < chunks.length && !hasError) {
+                hasError = true;
+                reject(new Error('Audio preload timeout'));
+            }
+        }, 30000);
+    });
+}
+
+/**
+ * ✅ เล่นเสียงที่ preload เสร็จแล้ว
+ */
+function playPreloadedAudio(audioUrls, langCode, fullText) {
+    const langNames = {
+        'th': 'Thai',
+        'en': 'English',
+        'cn': 'Chinese',
+        'jp': 'Japanese',
+        'kr': 'Korean'
+    };
+    const detectedLang = langNames[langCode] || 'English';
+    
+    console.log(`🔊 Playing preloaded audio in ${detectedLang}`);
+    
+    isSpeaking = true;
+    window.isSpeaking = true;
+    updateStatus('Speaking in ' + detectedLang + '...', true);
+    
+    if (useVideoAvatar) {
+        playSpeakingAnimation();
     }
+    
+    playAudioUrlsSequentially(audioUrls, 0, () => {
+        // เสร็จหมดแล้ว
+        isSpeaking = false;
+        window.isSpeaking = false;
+        updateStatus('Ready to chat', false);
+        $('#currentMessage').fadeOut();
+        
+        if (mouth) mouth.scale.y = 1;
+        if (useVideoAvatar) stopSpeakingAnimation();
+        
+        console.log('✅ All audio playback completed');
+    });
+}
+
+/**
+ * ✅ เล่น audio URLs แบบ sequential
+ */
+function playAudioUrlsSequentially(audioUrls, index, onComplete) {
+    if (index >= audioUrls.length) {
+        if (onComplete) onComplete();
+        return;
+    }
+    
+    const audioUrl = audioUrls[index];
+    
+    if (!audioUrl) {
+        console.warn(`⚠️ Skipping chunk ${index + 1} (no URL)`);
+        playAudioUrlsSequentially(audioUrls, index + 1, onComplete);
+        return;
+    }
+    
+    console.log(`▶️ Playing chunk ${index + 1}/${audioUrls.length}`);
+    
+    const audio = new Audio(audioUrl);
+    
+    audio.oncanplaythrough = function() {
+        this.play().catch(err => {
+            console.error('Audio play error:', err);
+            // ข้ามไปชิ้นถัดไป
+            playAudioUrlsSequentially(audioUrls, index + 1, onComplete);
+        });
+    };
+    
+    audio.onended = function() {
+        console.log(`⏹️ Chunk ${index + 1} ended`);
+        // เล่นชิ้นถัดไป (หน่วงเวลา 300ms)
+        setTimeout(() => {
+            playAudioUrlsSequentially(audioUrls, index + 1, onComplete);
+        }, 300);
+    };
+    
+    audio.onerror = function(e) {
+        console.error(`❌ Audio ${index + 1} error:`, e);
+        // ข้ามไปชิ้นถัดไป
+        playAudioUrlsSequentially(audioUrls, index + 1, onComplete);
+    };
+    
+    audio.load();
+}
+
+/**
+ * ✅ ตรวจจับภาษา
+ */
+function detectLanguage(text) {
+    if (/[\u0E00-\u0E7F]/.test(text)) return 'th';
+    if (/[\u4E00-\u9FFF]/.test(text)) return 'cn';
+    if (/[\u3040-\u309F\u30A0-\u30FF]/.test(text)) return 'jp';
+    if (/[\uAC00-\uD7AF]/.test(text)) return 'kr';
+    return 'en';
+}
+
+/**
+ * ✅ แบ่งข้อความเป็น chunks (200 ตัวอักษร)
+ */
+function splitTextIntoChunks(text, maxLength = 200) {
+    const chunks = [];
+    
+    if (text.length <= maxLength) {
+        return [text];
+    }
+    
+    const sentences = text.match(/[^.!?。！？]+[.!?。！？]+/g) || [text];
+    let currentChunk = '';
+    
+    for (let sentence of sentences) {
+        if ((currentChunk + sentence).length <= maxLength) {
+            currentChunk += sentence;
+        } else {
+            if (currentChunk) chunks.push(currentChunk.trim());
+            currentChunk = sentence;
+        }
+    }
+    if (currentChunk) chunks.push(currentChunk.trim());
+    
+    return chunks;
+}
+
+// ========== ✅ FALLBACK: ระบบเดิม (สำหรับ welcome message หรือ error) ==========
+
+let currentAudio = null;
+
+function speakText(text, forceLangCode = null) {
+    let langCode = forceLangCode || detectLanguage(text);
+    
+    const langNames = {
+        'th': 'Thai',
+        'en': 'English',
+        'cn': 'Chinese',
+        'jp': 'Japanese',
+        'kr': 'Korean'
+    };
+    const detectedLang = langNames[langCode] || 'English';
     
     console.log(`🔊 Speaking in ${detectedLang}: "${text.substring(0, 50)}..."`);
     
@@ -759,38 +930,10 @@ function speakText(text, forceLangCode = null) {
         playSpeakingAnimation();
     }
     
-    const maxLength = 200;
-    const chunks = [];
-    
-    if (text.length > maxLength) {
-        const sentences = text.match(/[^.!?。！？]+[.!?。！？]+/g) || [text];
-        let currentChunk = '';
-        
-        for (let sentence of sentences) {
-            if ((currentChunk + sentence).length <= maxLength) {
-                currentChunk += sentence;
-            } else {
-                if (currentChunk) chunks.push(currentChunk.trim());
-                currentChunk = sentence;
-            }
-        }
-        if (currentChunk) chunks.push(currentChunk.trim());
-    } else {
-        chunks.push(text);
-    }
-    
+    const chunks = splitTextIntoChunks(text);
     playTTSChunks(chunks, 0, langCode);
 }
 
-let currentAudio = null;
-
-/**
- * 🎙️ Play TTS chunks with ElevenLabs v3 API
- * รองรับ 5 ภาษา: th, en, cn, jp, kr
- */
-/**
- * 🎙️ Play TTS chunks with ElevenLabs v3 API
- */
 function playTTSChunks(chunks, index, langCode) {
     if (index >= chunks.length) {
         isSpeaking = false;
@@ -807,33 +950,22 @@ function playTTSChunks(chunks, index, langCode) {
     
     const chunk = chunks[index];
     
-    console.log(`🔊 Playing ElevenLabs chunk ${index + 1}/${chunks.length}`);
-    
-    // ✅ ส่งข้อมูลให้ครบ: user_id, user_companion_id, ai_id
     const requestData = {
         text: chunk,
         language: langCode
     };
     
-    // ✅ ส่ง user_companion_id
     if (companionId) {
         requestData.user_companion_id = companionId;
-        console.log('📤 Sending user_companion_id:', companionId);
     }
     
-    // ✅ ส่ง ai_id
     if (aiCompanionData && aiCompanionData.ai_id) {
         requestData.ai_id = aiCompanionData.ai_id;
-        console.log('📤 Sending ai_id:', aiCompanionData.ai_id);
     }
     
-    // ✅ ส่ง user_id (ถ้ามี)
     if (aiCompanionData && aiCompanionData.user_id) {
         requestData.user_id = aiCompanionData.user_id;
-        console.log('📤 Sending user_id:', aiCompanionData.user_id);
     }
-    
-    console.log('📤 Full TTS request data:', requestData);
     
     $.ajax({
         url: 'app/actions/elevenlabs_tts.php',
@@ -843,21 +975,16 @@ function playTTSChunks(chunks, index, langCode) {
         dataType: 'json',
         success: function(response) {
             if (response.status === 'success' && response.audio_url) {
-                console.log('🎤 Using voice_id:', response.voice_id);
-                console.log('📊 Log saved with log_id:', response.log_id);
-                
                 playAudioFromURL(response.audio_url, () => {
                     setTimeout(() => {
                         playTTSChunks(chunks, index + 1, langCode);
                     }, 300);
                 }, () => {
-                    console.warn('⚠️ ElevenLabs failed, using Google TTS fallback');
                     playGoogleTTSFallback(chunk, langCode, () => {
                         playTTSChunks(chunks, index + 1, langCode);
                     });
                 });
             } else {
-                console.warn('⚠️ No audio_url, using Google TTS fallback');
                 playGoogleTTSFallback(chunk, langCode, () => {
                     playTTSChunks(chunks, index + 1, langCode);
                 });
@@ -872,9 +999,6 @@ function playTTSChunks(chunks, index, langCode) {
     });
 }
 
-/**
- * 🔊 Play audio from URL with callbacks
- */
 function playAudioFromURL(audioUrl, onEndCallback, onErrorCallback) {
     if (currentAudio) {
         currentAudio.pause();
@@ -909,9 +1033,6 @@ function playAudioFromURL(audioUrl, onEndCallback, onErrorCallback) {
     currentAudio.load();
 }
 
-/**
- * 🔄 Google TTS Fallback (สำรอง)
- */
 function playGoogleTTSFallback(text, langCode, callback) {
     const encodedText = encodeURIComponent(text);
     
@@ -935,7 +1056,6 @@ function playGoogleTTSFallback(text, langCode, callback) {
     currentAudio.oncanplaythrough = function() {
         this.play().catch(err => {
             console.error('Google TTS play error:', err);
-            // ถ้า Google TTS ก็ล้มเหลว ใช้ Web Speech API
             fallbackToWebSpeech(text, langCode);
             if (callback) callback();
         });
@@ -962,9 +1082,6 @@ function playGoogleTTSFallback(text, langCode, callback) {
     currentAudio.load();
 }
 
-/**
- * 🔄 Fallback to Web Speech API
- */
 function fallbackToWebSpeech(text, langCode) {
     if (!window.speechSynthesis) {
         isSpeaking = false;
@@ -993,7 +1110,6 @@ function fallbackToWebSpeech(text, langCode) {
     
     const utterance = new SpeechSynthesisUtterance(text);
     
-    // แปลงรหัสภาษาให้ตรงกับ Web Speech API
     if (langCode === 'th') {
         utterance.lang = 'th-TH';
     } else if (langCode === 'cn') {
@@ -1040,6 +1156,8 @@ function fallbackToWebSpeech(text, langCode) {
     
     window.speechSynthesis.speak(utterance);
 }
+
+// ========== Utility Functions ==========
 
 function updateStatus(text, speaking) {
     $('#statusText').text(text);
@@ -1186,4 +1304,4 @@ function goToPreferences() {
     window.location.href = url;
 }
 
-console.log('✅ AI Chat 3D with Guest Mode + Full Audio loaded');
+console.log('✅ AI Chat 3D with Audio Preload loaded');

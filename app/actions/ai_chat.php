@@ -8,12 +8,9 @@
  *    1. Login Mode: ใช้ JWT (user_id)
  *    2. Guest Mode: ใช้ user_companion_id หรือ ai_code
  * ✅ บังคับให้ AI ตอบเฉพาะภาษาจาก preferred_language
- * ✅ บันทึกข้อมูลลง DevRev อัตโนมัติ:
- *    - สร้าง Dev User สำหรับ user
- *    - บันทึกแชทเป็น Artifacts
- *    - บันทึก System Prompts เป็น Articles
- * ✅ FIX: ใช้ display_id แทน customer_id/group_id
- * ✅ NEW: ส่ง user_id ให้ DevRev ดึงข้อมูลจาก Articles
+ * ✅ FIX: แยก DevRev sync ออกจาก main flow
+ *    - DevRev provider: ต้อง sync ก่อนแล้วค่อยถาม DevRev AI
+ *    - AI providers อื่น: ตอบได้เลย แล้วค่อย sync DevRev ทีหลังแบบ async
  */
 
 require_once('../../lib/connect.php');
@@ -357,11 +354,99 @@ try {
         exit;
     }
     
-    // ✅ ส่งไปยัง AI (ส่ง user_id ไปด้วยสำหรับ DevRev)
+    // ========================================
+    // ✅ NEW: ตรวจสอบว่าจะใช้ AI provider ไหน
+    // ========================================
+    $will_use_devrev = false;
+    $selected_provider = null;
+    
+    // ดูว่า AI models ที่ active มี DevRev ไหม
+    $models_stmt = $conn->prepare("
+        SELECT provider 
+        FROM ai_models 
+        WHERE is_active = 1 
+        ORDER BY priority ASC, is_free DESC
+        LIMIT 1
+    ");
+    $models_stmt->execute();
+    $models_result = $models_stmt->get_result();
+    if ($models_result->num_rows > 0) {
+        $first_model = $models_result->fetch_assoc();
+        $selected_provider = strtolower($first_model['provider']);
+        $will_use_devrev = ($selected_provider === 'devrev');
+    }
+    $models_stmt->close();
+    
+    error_log("🔵 [AI Chat] Selected provider: {$selected_provider}, Will use DevRev: " . ($will_use_devrev ? 'YES' : 'NO'));
+    
+    // ========================================
+    // ✅ ถ้าใช้ DevRev -> ต้อง sync ก่อน
+    // ========================================
+    $devrev_result = null;
+    $devrev_debug = [];
+    
+    if ($will_use_devrev) {
+        error_log("🔵 [AI Chat] Using DevRev provider → Syncing BEFORE AI call");
+        
+        try {
+            // ดึงข้อมูล user
+            $user_stmt = $conn->prepare("
+                SELECT user_id, first_name, last_name, email, devrev_dev_user_id, devrev_display_id
+                FROM mb_user
+                WHERE user_id = ?
+            ");
+            $user_stmt->bind_param('i', $user_id);
+            $user_stmt->execute();
+            $user_result = $user_stmt->get_result();
+            $user_data = $user_result->fetch_assoc();
+            $user_stmt->close();
+
+            if ($user_data) {
+                $devrev = new DevRevManager($conn);
+                
+                $email = $user_data['email'] ?: "user{$user_id}@example.com";
+                $display_name = trim($user_data['first_name'] . ' ' . $user_data['last_name']) ?: "User {$user_id}";
+                
+                $devrev_debug = [
+                    'mode' => 'sync_before_ai_call',
+                    'conversation_id' => $conversation_id,
+                    'user_id' => $user_id,
+                    'user_companion_id' => $user_companion_id,
+                    'email_used' => $email,
+                    'display_name_used' => $display_name
+                ];
+
+                $devrev_result = $devrev->processChat(
+                    $conversation_id, 
+                    $user_id, 
+                    $user_companion_id, 
+                    $email,
+                    $display_name,
+                    $ai_companion, 
+                    $user_personality,
+                    $language
+                );
+
+                error_log("✅ [AI Chat] DevRev synced BEFORE AI call — Chat: " . ($devrev_result['chat_article_id'] ?? 'NULL') . ", Prompt: " . ($devrev_result['prompt_article_id'] ?? 'NULL'));
+                $devrev_debug['processChat_result'] = $devrev_result;
+
+            } else {
+                error_log("⚠️ [AI Chat] User data not found for DevRev sync");
+                $devrev_debug['error'] = 'User data not found';
+            }
+        } catch (Exception $devrev_error) {
+            error_log("⚠️ [AI Chat] DevRev sync failed (before AI call): " . $devrev_error->getMessage());
+            $devrev_debug['exception'] = $devrev_error->getMessage();
+        }
+    }
+    
+    // ========================================
+    // ✅ ส่งไปยัง AI (DevRev หรือ provider อื่น)
+    // ========================================
     $ai_response = $aiManager->chat($messages, [
         'max_tokens' => 1024,
         'temperature' => 0.7,
-        'devrev_user_id' => $user_id  // ✅ ส่ง user_id ไปให้ DevRev ดึง Articles
+        'devrev_user_id' => $user_id
     ]);
     
     if (!$ai_response['success']) {
@@ -408,103 +493,75 @@ try {
     $conn->commit();
     
     // ========================================
-    // ✅ บันทึกลง DevRev (ทำหลัง commit เพื่อไม่ให้กระทบการแชท)
+    // ✅ ถ้าไม่ใช้ DevRev -> sync ทีหลังแบบ async
     // ========================================
-    $devrev_result = null;
-$devrev_debug = [];
-
-try {
-    error_log("🔵 [DevRev] ===== เริ่มส่วน DevRev Sync =====");
-    error_log("🔵 [DevRev] conversation_id: {$conversation_id}");
-    error_log("🔵 [DevRev] user_id: {$user_id}");
-    error_log("🔵 [DevRev] user_companion_id: {$user_companion_id}");
-    error_log("🔵 [DevRev] language: {$language}");
-
-    // ดึงข้อมูล user
-    $user_stmt = $conn->prepare("
-        SELECT user_id, first_name, last_name, email, devrev_dev_user_id, devrev_display_id
-        FROM mb_user
-        WHERE user_id = ?
-    ");
-    $user_stmt->bind_param('i', $user_id);
-    $user_stmt->execute();
-    $user_result = $user_stmt->get_result();
-    $user_data = $user_result->fetch_assoc();
-    $user_stmt->close();
-
-    error_log("🔵 [DevRev] user_data from DB: " . json_encode($user_data, JSON_UNESCAPED_UNICODE));
-
-    if ($user_data) {
-        $devrev = new DevRevManager($conn);
+    if (!$will_use_devrev) {
+        error_log("🔵 [AI Chat] NOT using DevRev provider → Scheduling async sync AFTER response");
         
-        $email = $user_data['email'] ?: "user{$user_id}@example.com";
-        $display_name = trim($user_data['first_name'] . ' ' . $user_data['last_name']) ?: "User {$user_id}";
-
-        error_log("🔵 [DevRev] email: {$email}, display_name: {$display_name}");
-        
-        $devrev_debug = [
+        // เก็บข้อมูลไว้สำหรับ async sync
+        $sync_data = json_encode([
             'conversation_id' => $conversation_id,
             'user_id' => $user_id,
             'user_companion_id' => $user_companion_id,
-            'email_used' => $email,
-            'display_name_used' => $display_name,
-            'ai_companion_name' => $ai_companion['ai_name'] ?? 'N/A',
+            'ai_companion' => $ai_companion,
+            'user_personality' => $user_personality,
             'language' => $language
-        ];
-
-        $devrev_result = $devrev->processChat(
-            $conversation_id, 
-            $user_id, 
-            $user_companion_id, 
-            $email,
-            $display_name,
-            $ai_companion, 
-            $user_personality,
-            $language
-        );
-
-        error_log("✅ [DevRev] Sync completed — Chat Article: " . ($devrev_result['chat_article_id'] ?? 'NULL') . ", Prompt Article: " . ($devrev_result['prompt_article_id'] ?? 'NULL'));
-
-        $devrev_debug['processChat_result'] = $devrev_result;
-
-    } else {
-        $devrev_debug['error'] = 'User data not found';
-        error_log("⚠️ [DevRev] User data not found for user_id: {$user_id}");
+        ], JSON_UNESCAPED_UNICODE);
+        
+        // บันทึกลง queue table (สร้างตาราง devrev_sync_queue ถ้ายังไม่มี)
+        try {
+            $queue_stmt = $conn->prepare("
+                INSERT INTO devrev_sync_queue 
+                (conversation_id, user_id, sync_data, status, created_at)
+                VALUES (?, ?, ?, 'pending', NOW())
+                ON DUPLICATE KEY UPDATE 
+                    sync_data = VALUES(sync_data),
+                    status = 'pending',
+                    retry_count = 0,
+                    updated_at = NOW()
+            ");
+            $queue_stmt->bind_param('iis', $conversation_id, $user_id, $sync_data);
+            $queue_stmt->execute();
+            $queue_stmt->close();
+            
+            error_log("✅ [AI Chat] DevRev sync queued for async processing");
+            
+            $devrev_debug = [
+                'mode' => 'async_queue',
+                'queued' => true,
+                'message' => 'DevRev sync will be processed in background'
+            ];
+            
+        } catch (Exception $queue_error) {
+            error_log("⚠️ [AI Chat] Failed to queue DevRev sync: " . $queue_error->getMessage());
+            $devrev_debug = [
+                'mode' => 'async_queue',
+                'queued' => false,
+                'error' => $queue_error->getMessage()
+            ];
+        }
     }
-} catch (Exception $devrev_error) {
-    // ✅ FIX: ไม่ throw ต่อ เพื่อไม่ให้กระทบ response
-    error_log("⚠️ [DevRev] Exception (non-fatal): " . $devrev_error->getMessage());
-    error_log("⚠️ [DevRev] Trace: " . $devrev_error->getTraceAsString());
     
-    $devrev_debug['exception'] = $devrev_error->getMessage();
-    $devrev_debug['exception_trace'] = $devrev_error->getTraceAsString();
-    
-    $devrev_result = [
-        'chat_article_id' => null,
-        'prompt_article_id' => null,
-        'errors' => [$devrev_error->getMessage()]
-    ];
-}
-
-error_log("🔵 [DevRev] ===== DevRev Sync เสร็จสิ้น =====");
-
-// ✅ FIX: ส่ง response กลับแม้ว่า DevRev จะล้มเหลว
-echo json_encode([
-    'status' => 'success',
-    'guest_mode' => $is_guest_mode,
-    'conversation_id' => $conversation_id,
-    'user_companion_id' => $user_companion_id,
-    'language_used' => $language,
-    'ai_message' => $ai_message,
-    'ai_name' => $ai_name,
-    'tokens_used' => $tokens_used,
-    'response_time_ms' => $response_time,
-    'model_used' => $ai_model,
-    'provider' => $provider_used,
-    'devrev_synced' => !empty($devrev_result['chat_article_id']) || !empty($devrev_result['prompt_article_id']),
-    'devrev_articles' => $devrev_result,
-    'devrev_debug' => $devrev_debug
-], JSON_UNESCAPED_UNICODE);
+    // ========================================
+    // ✅ ส่ง Response กลับทันที
+    // ========================================
+    echo json_encode([
+        'status' => 'success',
+        'guest_mode' => $is_guest_mode,
+        'conversation_id' => $conversation_id,
+        'user_companion_id' => $user_companion_id,
+        'language_used' => $language,
+        'ai_message' => $ai_message,
+        'ai_name' => $ai_name,
+        'tokens_used' => $tokens_used,
+        'response_time_ms' => $response_time,
+        'model_used' => $ai_model,
+        'provider' => $provider_used,
+        'devrev_mode' => $will_use_devrev ? 'sync_before' : 'async_after',
+        'devrev_synced' => $will_use_devrev ? (!empty($devrev_result['chat_article_id']) || !empty($devrev_result['prompt_article_id'])) : false,
+        'devrev_articles' => $devrev_result,
+        'devrev_debug' => $devrev_debug
+    ], JSON_UNESCAPED_UNICODE);
     
 } catch (Exception $e) {
     $conn->rollback();
