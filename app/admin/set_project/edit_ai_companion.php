@@ -218,6 +218,35 @@ include '../template/header.php';
                                     <input type="hidden" id="deleteTalkingVideoFlag" name="delete_talking_video" value="0">
                                     <small class="text-muted">วิดีโอที่แสดงเมื่อ AI กำลังพูด (Loop)</small>
                                 </div>
+
+                                <!-- เพิ่มใน Left Column หลังจาก Talking Video -->
+<div class="form-group mb-4">
+    <label><i class="fas fa-volume-up"></i> AI Voice (ElevenLabs)</label>
+    
+    <select class="form-control mb-2" id="voice_id" name="voice_id">
+        <option value="">-- Use Default Voice --</option>
+        <option value="UdFuclGJ1KL5tAeoBeE0" <?= $ai['voice_id'] == 'UdFuclGJ1KL5tAeoBeE0' ? 'selected' : '' ?>>
+            Rachel (Female, Multilingual)
+        </option>
+        <option value="pNInz6obpgDQGcFmaJgB" <?= $ai['voice_id'] == 'pNInz6obpgDQGcFmaJgB' ? 'selected' : '' ?>>
+            Adam (Male, Deep)
+        </option>
+        <option value="ErXwobaYiN019PkySvjV" <?= $ai['voice_id'] == 'ErXwobaYiN019PkySvjV' ? 'selected' : '' ?>>
+            Antoni (Male, Well-rounded)
+        </option>
+        <!-- เพิ่มตัวเลือกอื่นๆ -->
+    </select>
+    
+    <input type="text" class="form-control mb-2" id="voice_name" name="voice_name" 
+           placeholder="Voice Name" 
+           value="<?= htmlspecialchars($ai['voice_name'] ?? '') ?>"
+           style="<?= !empty($ai['voice_id']) ? '' : 'display: none;' ?>">
+    
+    <small class="text-muted">
+        <i class="fas fa-info-circle"></i> 
+        This voice will be used for all languages
+    </small>
+</div>
                                 
                                 <!-- Status -->
                                 <div class="form-group">

@@ -138,7 +138,23 @@ $(document).ready(function() {
                     }
                 }
             });
-
+            // Voice Selection Handler
+            $('#voice_id').on('change', function() {
+                let voiceId = $(this).val();
+                let selectedOption = $(this).find('option:selected');
+                let voiceName = selectedOption.text().split('(')[0].trim();
+                
+                if (voiceId) {
+                    $('#voice_name').val(voiceName).show();
+                    
+                    // แสดง Preview (ถ้ามี - ตอนนี้ยังไม่มี API สำหรับ preview)
+                    // $('#voicePreview').show();
+                    // $('#voicePreviewSource').attr('src', 'preview_url_here');
+                } else {
+                    $('#voice_name').val('').hide();
+                    $('#voicePreview').hide();
+                }
+            });
             // View QR Code
             $('#td_list_project').on('click', '.btn-view-qr', function() {
                 let aiCode = $(this).data('code');
@@ -299,52 +315,56 @@ $(document).ready(function() {
     
     // Submit Add AI Companion
     $('#submitAddAI').on('click', function(e) {
-        e.preventDefault();
-        
-        if (!$('#item_id').val()) {
-            alertError('Please select a bottle');
-            return;
-        }
-        
-        if (!$('#ai_code').val()) {
-            alertError('Please enter AI Code');
-            return;
-        }
-        
-        if (!$('#ai_name_th').val()) {
-            alertError('Please enter AI Name (Thai)');
-            return;
-        }
-        
-        let formData = new FormData($('#formAICompanion')[0]);
-        formData.append('action', 'addAICompanion');
-        
-        $('#loading-overlay').fadeIn();
-        
-        $.ajax({
-            url: 'actions/process_ai_companions.php',
-            type: 'POST',
-            data: formData,
-            processData: false,
-            contentType: false,
-            dataType: 'json',
-            success: function(response) {
-                if (response.status === 'success') {
-                    Swal.fire('Success!', response.message, 'success').then(() => {
-                        window.location.href = 'list_project.php';
-                    });
-                } else {
-                    alertError(response.message);
-                }
-            },
-            error: function(xhr, status, error) {
-                alertError('Failed to add AI Companion: ' + error);
-            },
-            complete: function() {
-                $('#loading-overlay').fadeOut();
+    e.preventDefault();
+    
+    if (!$('#item_id').val()) {
+        alertError('Please select a bottle');
+        return;
+    }
+    
+    if (!$('#ai_code').val()) {
+        alertError('Please enter AI Code');
+        return;
+    }
+    
+    if (!$('#ai_name_th').val()) {
+        alertError('Please enter AI Name (Thai)');
+        return;
+    }
+    
+    let formData = new FormData($('#formAICompanion')[0]);
+    formData.append('action', 'addAICompanion');
+    
+    // เพิ่ม voice data
+    formData.append('voice_id', $('#voice_id').val());
+    formData.append('voice_name', $('#voice_name').val());
+    
+    $('#loading-overlay').fadeIn();
+    
+    $.ajax({
+        url: 'actions/process_ai_companions.php',
+        type: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        dataType: 'json',
+        success: function(response) {
+            if (response.status === 'success') {
+                Swal.fire('Success!', response.message, 'success').then(() => {
+                    window.location.href = 'list_project.php';
+                });
+            } else {
+                alertError(response.message);
             }
-        });
+        },
+        error: function(xhr, status, error) {
+            alertError('Failed to add AI Companion: ' + error);
+        },
+        complete: function() {
+            $('#loading-overlay').fadeOut();
+        }
     });
+});
     
     // Back Button
     $('#btnAddAI, #backToAIList').on('click', function() {
