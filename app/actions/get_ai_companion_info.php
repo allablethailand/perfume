@@ -1,7 +1,7 @@
 <?php
 /**
  * Get AI Companion Info API
- * ดึงข้อมูล AI companion ของ user (รวม video URLs และ preferred_language)
+ * ดึงข้อมูล AI companion ของ user (รวม random video URLs และ preferred_language)
  */
 
 require_once('../../lib/connect.php');
@@ -34,7 +34,7 @@ if (!$user_id) {
 }
 
 try {
-    // ✅ ดึงข้อมูล AI companion ของ user พร้อม video URLs
+    // ✅ ดึงข้อมูล AI companion ของ user พร้อม video URLs (arrays)
     $stmt = $conn->prepare("
         SELECT 
             uc.user_companion_id,
@@ -48,8 +48,10 @@ try {
             ai.ai_name_jp,
             ai.ai_name_kr,
             ai.ai_avatar_url,
-            ai.idle_video_url,
-            ai.talking_video_url
+            ai.idle_video_urls,
+            ai.talking_video_urls,
+            ai.voice_id,
+            ai.voice_name
         FROM user_ai_companions uc
         INNER JOIN ai_companions ai ON uc.ai_id = ai.ai_id
         WHERE uc.user_id = ? 
@@ -95,6 +97,26 @@ try {
         $ai_name = $companion['ai_code'] ?? 'AI Companion';
     }
     
+    // ✅ สุ่มเลือกวิดีโอจาก arrays
+    $idle_videos = json_decode($companion['idle_video_urls'] ?? '[]', true);
+    $talking_videos = json_decode($companion['talking_video_urls'] ?? '[]', true);
+    
+    // สุ่ม idle video
+    $idle_video_url = null;
+    if (!empty($idle_videos) && is_array($idle_videos)) {
+        $random_index = array_rand($idle_videos);
+        $idle_video_url = $idle_videos[$random_index];
+        error_log("✅ Random idle video selected for user_id=$user_id: " . $idle_video_url);
+    }
+    
+    // สุ่ม talking video
+    $talking_video_url = null;
+    if (!empty($talking_videos) && is_array($talking_videos)) {
+        $random_index = array_rand($talking_videos);
+        $talking_video_url = $talking_videos[$random_index];
+        error_log("✅ Random talking video selected for user_id=$user_id: " . $talking_video_url);
+    }
+    
     echo json_encode([
         'status' => 'success',
         'companion' => [
@@ -104,10 +126,17 @@ try {
             'ai_name' => $ai_name,
             'preferred_language' => $companion['preferred_language'],
             'ai_avatar_url' => $companion['ai_avatar_url'],
-            'idle_video_url' => $companion['idle_video_url'],
-            'talking_video_url' => $companion['talking_video_url'],
-            'last_active_at' => $companion['last_active_at']
-        ]
+            'idle_video_url' => $idle_video_url,
+            'talking_video_url' => $talking_video_url,
+            'voice_id' => $companion['voice_id'],
+            'voice_name' => $companion['voice_name'],
+            'last_active_at' => $companion['last_active_at'],
+            // เก็บ arrays ไว้ในกรณีต้องการใช้งานเพิ่มเติม
+            'idle_video_urls_array' => $idle_videos,
+            'talking_video_urls_array' => $talking_videos
+        ],
+        'user_id' => $user_id,
+        'companion_id' => $companion['user_companion_id']
     ]);
     
 } catch (Exception $e) {
