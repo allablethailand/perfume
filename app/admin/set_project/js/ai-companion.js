@@ -258,7 +258,7 @@ $(document).ready(function() {
         }
     });
     
-    // Intro Video Preview
+    // Intro Video Preview (single)
     $('#aiVideo').on('change', function(e) {
         let file = e.target.files[0];
         if (file) {
@@ -271,92 +271,105 @@ $(document).ready(function() {
         }
     });
     
-    // Idle Video Preview
-    $('#idleVideo').on('change', function(e) {
-        let file = e.target.files[0];
-        if (file) {
+    // ========================================
+    // MULTIPLE IDLE VIDEOS PREVIEW (ADD PAGE)
+    // ========================================
+    $('#idleVideos').on('change', function(e) {
+        let files = e.target.files;
+        let previewContainer = $('#idleVideosPreview');
+        
+        for (let i = 0; i < files.length; i++) {
+            let file = files[i];
             let url = URL.createObjectURL(file);
-            $('#idleVideoPreview').html(`
-                <video controls style="width: 100%; height: 250px; border-radius: 8px;">
-                    <source src="${url}" type="${file.type}">
-                </video>
-            `);
+            
+            let videoHtml = `
+                <div class="video-item" style="position: relative;">
+                    <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
+                        <source src="${url}" type="${file.type}">
+                    </video>
+                    <div style="margin-top: 5px; font-size: 12px; color: #666; text-align: center;">
+                        ${file.name}
+                    </div>
+                </div>
+            `;
+            
+            previewContainer.append(videoHtml);
         }
     });
     
-    // Talking Video Preview
-    $('#talkingVideo').on('change', function(e) {
-        let file = e.target.files[0];
-        if (file) {
+    // ========================================
+    // MULTIPLE TALKING VIDEOS PREVIEW (ADD PAGE)
+    // ========================================
+    $('#talkingVideos').on('change', function(e) {
+        let files = e.target.files;
+        let previewContainer = $('#talkingVideosPreview');
+        
+        for (let i = 0; i < files.length; i++) {
+            let file = files[i];
             let url = URL.createObjectURL(file);
-            $('#talkingVideoPreview').html(`
-                <video controls style="width: 100%; height: 250px; border-radius: 8px;">
-                    <source src="${url}" type="${file.type}">
-                </video>
-            `);
+            
+            let videoHtml = `
+                <div class="video-item" style="position: relative;">
+                    <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
+                        <source src="${url}" type="${file.type}">
+                    </video>
+                    <div style="margin-top: 5px; font-size: 12px; color: #666; text-align: center;">
+                        ${file.name}
+                    </div>
+                </div>
+            `;
+            
+            previewContainer.append(videoHtml);
         }
     });
     
     // Submit Add AI Companion
     $('#submitAddAI').on('click', function(e) {
-    e.preventDefault();
-    
-    if (!$('#item_id').val()) {
-        alertError('Please select a bottle');
-        return;
-    }
-    
-    if (!$('#ai_code').val()) {
-        alertError('Please enter AI Code');
-        return;
-    }
-    
-    if (!$('#ai_name_th').val()) {
-        alertError('Please enter AI Name (Thai)');
-        return;
-    }
-    
-    let formData = new FormData($('#formAICompanion')[0]);
-    formData.append('action', 'addAICompanion');
-    
-    // เพิ่ม voice data
-    formData.append('voice_id', $('#voice_id').val());
-    formData.append('voice_name', $('#voice_name').val());
-    
-    $('#loading-overlay').fadeIn();
-    
-    $.ajax({
-        url: 'actions/process_ai_companions.php',
-        type: 'POST',
-        data: formData,
-        processData: false,
-        contentType: false,
-        dataType: 'json',
-        success: function(response) {
-            if (response.status === 'success') {
-                Swal.fire('Success!', response.message, 'success').then(() => {
-                    window.location.href = 'list_project.php';
-                });
-            } else {
-                alertError(response.message);
+        e.preventDefault();
+        
+        if (!$('#item_id').val()) {
+            alertError('Please select a bottle');
+            return;
+        }
+        
+        if (!$('#ai_code').val()) {
+            alertError('Please enter AI Code');
+            return;
+        }
+        
+        if (!$('#ai_name_th').val()) {
+            alertError('Please enter AI Name (Thai)');
+            return;
+        }
+        
+        let formData = new FormData($('#formAICompanion')[0]);
+        formData.append('action', 'addAICompanion');
+        
+        $('#loading-overlay').fadeIn();
+        
+        $.ajax({
+            url: 'actions/process_ai_companions.php',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    Swal.fire('Success!', response.message, 'success').then(() => {
+                        window.location.href = 'list_project.php';
+                    });
+                } else {
+                    alertError(response.message);
+                }
+            },
+            error: function(xhr, status, error) {
+                alertError('Failed to add AI Companion: ' + error);
+            },
+            complete: function() {
+                $('#loading-overlay').fadeOut();
             }
-        },
-        error: function(xhr, status, error) {
-            alertError('Failed to add AI Companion: ' + error);
-        },
-        complete: function() {
-            $('#loading-overlay').fadeOut();
-        }
-    });
-});
-    
-    // Back Button
-    $('#btnAddAI, #backToAIList').on('click', function() {
-        if ($(this).attr('id') === 'btnAddAI') {
-            window.location.href = 'add_ai_companion.php';
-        } else {
-            window.location.href = 'list_project.php';
-        }
+        });
     });
     
     // ========================================
@@ -413,13 +426,18 @@ $(document).ready(function() {
         });
     });
     
-    // Delete Idle Video
-    $('#deleteIdleVideo').on('click', function(e) {
+    // ========================================
+    // DELETE EXISTING IDLE VIDEOS (EDIT PAGE)
+    // ========================================
+    let deletedIdleVideos = [];
+    
+    $(document).on('click', '.delete-idle-video', function(e) {
         e.stopPropagation();
+        let videoUrl = $(this).data('url');
+        let videoItem = $(this).closest('.video-item');
         
         Swal.fire({
-            title: 'Delete Idle Video?',
-            text: "This will remove the AI idle video",
+            title: 'Delete this idle video?',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
@@ -427,24 +445,28 @@ $(document).ready(function() {
             confirmButtonText: 'Yes, delete it!'
         }).then((result) => {
             if (result.isConfirmed) {
-                $('#deleteIdleVideoFlag').val('1');
-                $('#idleVideoPreview').html(`
-                    <i class="fas fa-pause-circle"></i>
-                    <p>Click to upload idle video</p>
-                    <small>MP4, WebM (Max 50MB)</small>
-                `);
-                Swal.fire('Marked for deletion!', 'Idle video will be deleted when you save.', 'success');
+                deletedIdleVideos.push(videoUrl);
+                $('#deletedIdleVideos').val(JSON.stringify(deletedIdleVideos));
+                videoItem.fadeOut(300, function() {
+                    $(this).remove();
+                });
+                Swal.fire('Marked!', 'Video will be deleted when you save.', 'success');
             }
         });
     });
     
-    // Delete Talking Video
-    $('#deleteTalkingVideo').on('click', function(e) {
+    // ========================================
+    // DELETE EXISTING TALKING VIDEOS (EDIT PAGE)
+    // ========================================
+    let deletedTalkingVideos = [];
+    
+    $(document).on('click', '.delete-talking-video', function(e) {
         e.stopPropagation();
+        let videoUrl = $(this).data('url');
+        let videoItem = $(this).closest('.video-item');
         
         Swal.fire({
-            title: 'Delete Talking Video?',
-            text: "This will remove the AI talking video",
+            title: 'Delete this talking video?',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
@@ -452,15 +474,66 @@ $(document).ready(function() {
             confirmButtonText: 'Yes, delete it!'
         }).then((result) => {
             if (result.isConfirmed) {
-                $('#deleteTalkingVideoFlag').val('1');
-                $('#talkingVideoPreview').html(`
-                    <i class="fas fa-play-circle"></i>
-                    <p>Click to upload talking video</p>
-                    <small>MP4, WebM (Max 50MB)</small>
-                `);
-                Swal.fire('Marked for deletion!', 'Talking video will be deleted when you save.', 'success');
+                deletedTalkingVideos.push(videoUrl);
+                $('#deletedTalkingVideos').val(JSON.stringify(deletedTalkingVideos));
+                videoItem.fadeOut(300, function() {
+                    $(this).remove();
+                });
+                Swal.fire('Marked!', 'Video will be deleted when you save.', 'success');
             }
         });
+    });
+    
+    // ========================================
+    // ADD NEW IDLE VIDEOS PREVIEW (EDIT PAGE)
+    // ========================================
+    $('#idleVideos').on('change', function(e) {
+        let files = e.target.files;
+        let previewContainer = $('#newIdleVideosPreview');
+        
+        for (let i = 0; i < files.length; i++) {
+            let file = files[i];
+            let url = URL.createObjectURL(file);
+            
+            let videoHtml = `
+                <div class="video-item" style="position: relative;">
+                    <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
+                        <source src="${url}" type="${file.type}">
+                    </video>
+                    <div style="margin-top: 5px; font-size: 12px; color: #666; text-align: center;">
+                        ${file.name} <span class="badge badge-success">New</span>
+                    </div>
+                </div>
+            `;
+            
+            previewContainer.append(videoHtml);
+        }
+    });
+    
+    // ========================================
+    // ADD NEW TALKING VIDEOS PREVIEW (EDIT PAGE)
+    // ========================================
+    $('#talkingVideos').on('change', function(e) {
+        let files = e.target.files;
+        let previewContainer = $('#newTalkingVideosPreview');
+        
+        for (let i = 0; i < files.length; i++) {
+            let file = files[i];
+            let url = URL.createObjectURL(file);
+            
+            let videoHtml = `
+                <div class="video-item" style="position: relative;">
+                    <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
+                        <source src="${url}" type="${file.type}">
+                    </video>
+                    <div style="margin-top: 5px; font-size: 12px; color: #666; text-align: center;">
+                        ${file.name} <span class="badge badge-success">New</span>
+                    </div>
+                </div>
+            `;
+            
+            previewContainer.append(videoHtml);
+        }
     });
     
     // Avatar Preview on new upload (Edit page)
@@ -485,34 +558,6 @@ $(document).ready(function() {
             $('#deleteVideoFlag').val('0');
             let url = URL.createObjectURL(file);
             $('#videoPreview').html(`
-                <video controls style="width: 100%; height: 250px; border-radius: 8px;">
-                    <source src="${url}" type="${file.type}">
-                </video>
-            `);
-        }
-    });
-    
-    // Idle Video Preview on new upload (Edit page)
-    $('#idleVideo').on('change', function(e) {
-        let file = e.target.files[0];
-        if (file) {
-            $('#deleteIdleVideoFlag').val('0');
-            let url = URL.createObjectURL(file);
-            $('#idleVideoPreview').html(`
-                <video controls style="width: 100%; height: 250px; border-radius: 8px;">
-                    <source src="${url}" type="${file.type}">
-                </video>
-            `);
-        }
-    });
-    
-    // Talking Video Preview on new upload (Edit page)
-    $('#talkingVideo').on('change', function(e) {
-        let file = e.target.files[0];
-        if (file) {
-            $('#deleteTalkingVideoFlag').val('0');
-            let url = URL.createObjectURL(file);
-            $('#talkingVideoPreview').html(`
                 <video controls style="width: 100%; height: 250px; border-radius: 8px;">
                     <source src="${url}" type="${file.type}">
                 </video>
@@ -567,6 +612,15 @@ $(document).ready(function() {
                 $('#loading-overlay').fadeOut();
             }
         });
+    });
+    
+    // Back Button
+    $('#btnAddAI, #backToAIList').on('click', function() {
+        if ($(this).attr('id') === 'btnAddAI') {
+            window.location.href = 'add_ai_companion.php';
+        } else {
+            window.location.href = 'list_project.php';
+        }
     });
     
     function alertError(message) {

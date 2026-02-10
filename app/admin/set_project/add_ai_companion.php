@@ -140,33 +140,49 @@ include '../template/header.php';
                                     <small class="text-muted">วิดีโอแนะนำตัวเมื่อเริ่มต้นใช้งาน AI</small>
                                 </div>
 
-                                <!-- Idle Video (วิดีโอก่อนพูด/ไม่พูด) -->
-                                <div class="form-group mb-4">
-                                    <label><i class="fas fa-video"></i> Idle Video (วิดีโอก่อนพูด/ไม่พูด) *</label>
-                                    <div class="ai-video-upload" onclick="document.getElementById('idleVideo').click()">
-                                        <div id="idleVideoPreview" class="video-preview">
-                                            <i class="fas fa-pause-circle"></i>
-                                            <p>Click to upload idle video</p>
-                                            <small>MP4, WebM (Max 50MB)</small>
-                                        </div>
-                                    </div>
-                                    <input type="file" id="idleVideo" name="idle_video" accept="video/*" style="display: none;">
-                                    <small class="text-muted">วิดีโอที่แสดงเมื่อ AI ไม่ได้พูด (Loop)</small>
-                                </div>
+<!-- Idle Videos (Multiple) -->
+<div class="form-group mb-4">
+    <label><i class="fas fa-video"></i> Idle Videos (วิดีโอก่อนพูด/ไม่พูด) - หลายไฟล์</label>
+    
+    <div class="ai-video-upload" onclick="document.getElementById('idleVideos').click()">
+        <div class="video-preview">
+            <i class="fas fa-pause-circle"></i>
+            <p>Click to upload idle videos</p>
+            <small>MP4, WebM (Max 50MB each) - Multiple files allowed</small>
+        </div>
+    </div>
+    
+    <input type="file" id="idleVideos" name="idle_videos[]" accept="video/*" multiple style="display: none;">
+    
+    <!-- Preview Container for Multiple Videos -->
+    <div id="idleVideosPreview" class="mt-3" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+        <!-- Videos will be displayed here -->
+    </div>
+    
+    <small class="text-muted d-block mt-2">วิดีโอที่แสดงเมื่อ AI ไม่ได้พูด (จะ Random เล่น)</small>
+</div>
 
-                                <!-- Talking Video (วิดีโอกำลังพูด) -->
-                                <div class="form-group mb-4">
-                                    <label><i class="fas fa-video"></i> Talking Video (วิดีโอกำลังพูด) *</label>
-                                    <div class="ai-video-upload" onclick="document.getElementById('talkingVideo').click()">
-                                        <div id="talkingVideoPreview" class="video-preview">
-                                            <i class="fas fa-play-circle"></i>
-                                            <p>Click to upload talking video</p>
-                                            <small>MP4, WebM (Max 50MB)</small>
-                                        </div>
-                                    </div>
-                                    <input type="file" id="talkingVideo" name="talking_video" accept="video/*" style="display: none;">
-                                    <small class="text-muted">วิดีโอที่แสดงเมื่อ AI กำลังพูด (Loop)</small>
-                                </div>
+<!-- Talking Videos (Multiple) -->
+<div class="form-group mb-4">
+    <label><i class="fas fa-video"></i> Talking Videos (วิดีโอกำลังพูด) - หลายไฟล์</label>
+    
+    <div class="ai-video-upload" onclick="document.getElementById('talkingVideos').click()">
+        <div class="video-preview">
+            <i class="fas fa-play-circle"></i>
+            <p>Click to upload talking videos</p>
+            <small>MP4, WebM (Max 50MB each) - Multiple files allowed</small>
+        </div>
+    </div>
+    
+    <input type="file" id="talkingVideos" name="talking_videos[]" accept="video/*" multiple style="display: none;">
+    
+    <!-- Preview Container for Multiple Videos -->
+    <div id="talkingVideosPreview" class="mt-3" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+        <!-- Videos will be displayed here -->
+    </div>
+    
+    <small class="text-muted d-block mt-2">วิดีโอที่แสดงเมื่อ AI กำลังพูด (จะ Random เล่น)</small>
+</div>
 
                                 <!-- เพิ่มใน Left Column หลังจาก Talking Video -->
                                 <div class="form-group mb-4">
