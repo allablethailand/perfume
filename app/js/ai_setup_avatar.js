@@ -327,7 +327,7 @@ function startConversation() {
             const aiName = aiCompanionData?.ai_name_en || 'AI';
             const message = conversationMessages.intro.en.replace('{ai_name}', aiName);
             addChatMessage('ai', message);
-            speakText(message);
+            speakText(message, 'conversation');
             
             // After intro, ask for language
             setTimeout(() => {
@@ -420,7 +420,7 @@ async function checkSetupStatus() {
         const aiName = aiCompanionData?.ai_name_en || 'AI';
         const message = conversationMessages.intro.en.replace('{ai_name}', aiName);
         addChatMessage('ai', message);
-        speakText(message);
+        speakText(message, 'conversation');
         
         setTimeout(() => {
             askLanguage();
@@ -435,7 +435,7 @@ function askLanguage() {
     
     const message = conversationMessages.choose_language.en;
     addChatMessage('ai', message);
-    speakText(message);
+    speakText(message, 'conversation');
     
     // Show language choices
     setTimeout(() => {
@@ -475,7 +475,7 @@ function showLanguageChoices() {
         
         // ✅ Play voice feedback when language is selected
         const confirmMessage = conversationMessages.language_selected[selectedLanguage];
-        speakText(confirmMessage);
+        speakText(confirmMessage, 'conversation');
         
         // Add to chat display
         addChatMessage('user', langName);
@@ -491,7 +491,7 @@ function startRegistration() {
     
     const message = conversationMessages.need_register[selectedLanguage];
     addChatMessage('ai', message);
-    speakText(message);
+    speakText(message, 'conversation');
     
     enableInput();
 }
@@ -1131,7 +1131,7 @@ function askQuestion(index) {
     
     // Show AI message
     addChatMessage('ai', questionText);
-    speakText(questionText);
+    speakText(questionText, 'question');
     
     // Show appropriate input
     setTimeout(() => {
@@ -1180,7 +1180,7 @@ function showQuestionChoices(question) {
         };
         
         const feedback = getChoiceFeedback(choiceText);
-        speakText(feedback);
+        speakText(feedback, 'feedback');
         
         $('#confirmBtn').prop('disabled', false);
     });
@@ -1222,7 +1222,7 @@ function showScaleOptions(question) {
         };
         
         const feedback = getScaleFeedback(value);
-        speakText(feedback);
+        speakText(feedback, 'feedback');
         
         $('#confirmBtn').prop('disabled', false);
     });
@@ -1433,8 +1433,8 @@ function disableInput() {
 /**
  * ✅ Speak text using ElevenLabs API (same as ai_chat_3d.js)
  */
-function speakText(text) {
-    console.log('🔊 Speaking with ElevenLabs:', text.substring(0, 50) + '...');
+function speakText(text, cacheType = 'conversation') {
+    console.log('🔊 Speaking with cache:', text.substring(0, 50) + '...', '| Type:', cacheType);
     
     // Stop any currently playing audio
     if (currentAudio) {
@@ -1471,13 +1471,13 @@ function speakText(text) {
         chunks.push(text);
     }
     
-    playTTSChunks(chunks, 0, selectedLanguage);
+    playTTSChunks(chunks, 0, selectedLanguage, cacheType);
 }
 
 /**
  * 🎙️ Play TTS chunks with ElevenLabs v3 API
  */
-function playTTSChunks(chunks, index, langCode) {
+function playTTSChunks(chunks, index, langCode, cacheType = 'conversation') {
     if (index >= chunks.length) {
         isSpeaking = false;
         window.isSpeaking = false;
@@ -1492,66 +1492,62 @@ function playTTSChunks(chunks, index, langCode) {
     
     const chunk = chunks[index];
     
-    console.log(`🔊 Playing ElevenLabs chunk ${index + 1}/${chunks.length}`);
+    console.log(`🔊 Playing chunk ${index + 1}/${chunks.length} | Type: ${cacheType}`);
     
     // ✅ Prepare request data
     const requestData = {
         text: chunk,
-        language: langCode
+        language: langCode,
+        cache_type: cacheType
     };
     
     // ✅ Send user_companion_id if available
     if (companionId) {
         requestData.user_companion_id = companionId;
-        console.log('📤 Sending user_companion_id:', companionId);
     }
     
     // ✅ Send ai_id if available
     if (aiCompanionData && aiCompanionData.ai_id) {
         requestData.ai_id = aiCompanionData.ai_id;
-        console.log('📤 Sending ai_id:', aiCompanionData.ai_id);
     }
     
-    // ✅ Send user_id if available
-    if (aiCompanionData && aiCompanionData.user_id) {
-        requestData.user_id = aiCompanionData.user_id;
-        console.log('📤 Sending user_id:', aiCompanionData.user_id);
+    // ✅ Send voice_id if available
+    if (aiCompanionData && aiCompanionData.voice_id) {
+        requestData.voice_id = aiCompanionData.voice_id;
     }
-    
-    console.log('📤 Full TTS request data:', requestData);
     
     $.ajax({
-        url: 'app/actions/elevenlabs_tts.php',
+        url: 'app/actions/get_or_create_tts_cache.php',
         type: 'POST',
         data: JSON.stringify(requestData),
         contentType: 'application/json',
         dataType: 'json',
         success: function(response) {
             if (response.status === 'success' && response.audio_url) {
-                console.log('🎤 Using voice_id:', response.voice_id);
-                console.log('📊 Log saved with log_id:', response.log_id);
+                const hitStatus = response.cache_hit ? '✅ Cache HIT' : '🆕 Cache MISS';
+                console.log(`${hitStatus} - ${response.audio_url.substring(0, 50)}`);
                 
                 playAudioFromURL(response.audio_url, () => {
                     setTimeout(() => {
-                        playTTSChunks(chunks, index + 1, langCode);
+                        playTTSChunks(chunks, index + 1, langCode, cacheType);
                     }, 300);
                 }, () => {
                     console.warn('⚠️ ElevenLabs failed, using fallback');
                     playFallbackTTS(chunk, langCode, () => {
-                        playTTSChunks(chunks, index + 1, langCode);
+                        playTTSChunks(chunks, index + 1, langCode, cacheType);
                     });
                 });
             } else {
                 console.warn('⚠️ No audio_url, using fallback');
                 playFallbackTTS(chunk, langCode, () => {
-                    playTTSChunks(chunks, index + 1, langCode);
+                    playTTSChunks(chunks, index + 1, langCode, cacheType);
                 });
             }
         },
         error: function(xhr, status, error) {
-            console.error('❌ ElevenLabs API error:', error);
+            console.error('❌ Cache API error:', error);
             playFallbackTTS(chunk, langCode, () => {
-                playTTSChunks(chunks, index + 1, langCode);
+                playTTSChunks(chunks, index + 1, langCode, cacheType);
             });
         }
     });

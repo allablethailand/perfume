@@ -1,11 +1,11 @@
 /**
- * AI Chat 3D - FIXED: Preload Audio Before Display
- * ✅ รอให้เสียงโหลดเสร็จก่อนแสดงข้อความและท่าพูด
- * ✅ แสดง typing indicator "..." ระหว่างรอ
+ * AI Chat 3D - WITH TTS CACHE SYSTEM
+ * ✅ Cache: welcome, conversation messages (ไม่ cache AI responses)
+ * ✅ รอให้เสียงโหลดเสร็จก่อนแสดงข้อความ
  * ✅ Sync การแสดงผลกับเสียงให้ตรงกัน
  */
 
-// ========== Global Variables ==========
+// ========== Global Variables (เหมือนเดิม) ==========
 const urlParams = new URLSearchParams(window.location.search);
 const aiCodeFromURL = urlParams.get('ai_code') || '';
 const langFromURL = urlParams.get('lang') || 'th';
@@ -20,22 +20,18 @@ let scene, camera, renderer, avatar, mouth, leftEye, rightEye, leftEyePupil, rig
 let isSpeaking = false;
 let waveIntensity = 0;
 
-// Video Avatar Settings
 let videoAvatar = null;
 let useVideoAvatar = true;
 
-// Video URLs from database
 let IDLE_VIDEO_URL = '';
 let SPEAKING_VIDEO_URL = '';
 let currentVideoState = 'idle';
 let isTransitioning = false;
 let preloadedSpeakingVideo = null;
 
-// Global variables for wave animation
 window.isSpeaking = false;
 window.waveIntensity = 0;
 
-// Welcome Messages (5 languages)
 const WELCOME_MESSAGES = {
     th: "ยินดีต้อนรับกลับมานะเพื่อน",
     en: "Welcome back, my friend",
@@ -47,14 +43,11 @@ const WELCOME_MESSAGES = {
 let userPreferredLanguage = 'th';
 let isWelcomeMessagePlayed = false;
 let aiCompanionData = null;
+let currentAudio = null;
 
-// ✅ NEW: Audio Preload Queue
-let audioPreloadQueue = [];
-let isProcessingAudio = false;
-
-// ========== Initialize ==========
+// ========== Initialize (เหมือนเดิม) ==========
 $(document).ready(function() {
-    console.log('🚀 Initializing AI Chat 3D...');
+    console.log('🚀 Initializing AI Chat 3D with TTS Cache...');
     console.log('AI Code:', aiCodeFromURL);
     console.log('Guest Mode:', isGuestMode);
     
@@ -75,7 +68,6 @@ $(document).ready(function() {
         console.log('✅ Found stored companionId:', companionId);
     }
     
-    // Fetch AI companion data
     fetchAICompanionData().then(() => {
         console.log('📊 After fetch:', {
             idle: IDLE_VIDEO_URL ? '✅' : '❌',
@@ -93,7 +85,6 @@ $(document).ready(function() {
         
         loadConversations();
         
-        // Play Welcome Message
         setTimeout(() => {
             playWelcomeMessage();
         }, 800);
@@ -122,9 +113,7 @@ $(document).ready(function() {
     });
 });
 
-/**
- * ✅ Fetch AI Companion Data (เหมือนเดิม)
- */
+// ========== Fetch AI Data (เหมือนเดิม) ==========
 function fetchAICompanionData() {
     return new Promise((resolve, reject) => {
         let url = '';
@@ -205,9 +194,7 @@ function fetchAICompanionData() {
     });
 }
 
-/**
- * 🎉 Play Welcome Message
- */
+// ========== ✅ Play Welcome Message (ใช้ CACHE) ==========
 function playWelcomeMessage() {
     if (isWelcomeMessagePlayed) {
         console.log('⏭️ Welcome already played');
@@ -226,8 +213,271 @@ function playWelcomeMessage() {
         });
     }
     
-    // ✅ ใช้ระบบใหม่: preload audio ก่อนแสดง
-    speakTextWithPreload(welcomeText, userPreferredLanguage);
+    // ✅ ใช้ cache system สำหรับ welcome message
+    speakTextWithCache(welcomeText, userPreferredLanguage, 'welcome');
+}
+
+// ========== ✅ Speak with CACHE (สำหรับ welcome, conversation) ==========
+function speakTextWithCache(text, forceLangCode = null, cacheType = 'welcome') {
+    console.log('🎬 Speaking with CACHE:', text.substring(0, 50), '| Type:', cacheType);
+    
+    updateStatus('Preparing voice...', false);
+    $('#messageText').html('<span class="typing-indicator">Thinking...</span>');
+    $('#currentMessage').fadeIn();
+    
+    let langCode = forceLangCode || detectLanguage(text);
+    const chunks = splitTextIntoChunks(text);
+    
+    preloadAllAudioChunksWithCache(chunks, langCode, cacheType).then((audioUrls) => {
+        console.log('✅ All audio preloaded with cache');
+        showMessage(text);
+        playPreloadedAudio(audioUrls, langCode, text);
+    }).catch((error) => {
+        console.error('❌ Audio preload failed:', error);
+        showMessage(text);
+        fallbackToGoogleTTS(text, langCode);
+    });
+}
+
+// ========== ✅ Preload Audio WITH CACHE ==========
+function preloadAllAudioChunksWithCache(chunks, langCode, cacheType = 'welcome') {
+    return new Promise((resolve, reject) => {
+        const audioUrls = [];
+        let loadedCount = 0;
+        let hasError = false;
+        
+        console.log(`📥 Preloading ${chunks.length} chunks with cache | Type: ${cacheType}`);
+        
+        chunks.forEach((chunk, index) => {
+            const requestData = {
+                text: chunk,
+                language: langCode,
+                cache_type: cacheType
+            };
+            
+            if (companionId) {
+                requestData.user_companion_id = companionId;
+            }
+            
+            if (aiCompanionData && aiCompanionData.ai_id) {
+                requestData.ai_id = aiCompanionData.ai_id;
+            }
+            
+            if (aiCompanionData && aiCompanionData.voice_id) {
+                requestData.voice_id = aiCompanionData.voice_id;
+            }
+            
+            $.ajax({
+                url: 'app/actions/get_or_create_tts_cache.php',
+                type: 'POST',
+                data: JSON.stringify(requestData),
+                contentType: 'application/json',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success' && response.audio_url) {
+                        audioUrls[index] = response.audio_url;
+                        loadedCount++;
+                        
+                        const progress = Math.round((loadedCount / chunks.length) * 100);
+                        updateStatus(`Loading voice... ${progress}%`, false);
+                        
+                        const hitStatus = response.cache_hit ? '✅ Cache HIT' : '🆕 Cache MISS';
+                        console.log(`${hitStatus} - Chunk ${index + 1}/${chunks.length}`);
+                        
+                        if (loadedCount === chunks.length && !hasError) {
+                            resolve(audioUrls);
+                        }
+                    } else {
+                        if (!hasError) {
+                            hasError = true;
+                            reject(new Error('No audio URL'));
+                        }
+                    }
+                },
+                error: function(xhr, status, error) {
+                    if (!hasError) {
+                        hasError = true;
+                        reject(new Error('TTS API error: ' + error));
+                    }
+                }
+            });
+        });
+        
+        setTimeout(() => {
+            if (loadedCount < chunks.length && !hasError) {
+                hasError = true;
+                reject(new Error('Audio preload timeout'));
+            }
+        }, 30000);
+    });
+}
+
+// ========== ✅ Speak AI Response (ไม่ใช้ CACHE) ==========
+function speakAIResponseDirectly(text, forceLangCode = null) {
+    console.log('🎬 Speaking AI Response (NO CACHE):', text.substring(0, 50));
+    
+    updateStatus('Preparing voice...', false);
+    $('#messageText').html('<span class="typing-indicator">Thinking...</span>');
+    $('#currentMessage').fadeIn();
+    
+    let langCode = forceLangCode || detectLanguage(text);
+    const chunks = splitTextIntoChunks(text);
+    
+    preloadAIResponseAudio(chunks, langCode).then((audioUrls) => {
+        console.log('✅ AI Response audio ready (NO CACHE)');
+        showMessage(text);
+        playPreloadedAudio(audioUrls, langCode, text);
+    }).catch((error) => {
+        console.error('❌ AI audio preload failed:', error);
+        showMessage(text);
+        fallbackToGoogleTTS(text, langCode);
+    });
+}
+
+// ========== ✅ Preload AI Response (ไม่ผ่าน CACHE) ==========
+function preloadAIResponseAudio(chunks, langCode) {
+    return new Promise((resolve, reject) => {
+        const audioUrls = [];
+        let loadedCount = 0;
+        let hasError = false;
+        
+        console.log(`📥 Preloading ${chunks.length} AI response chunks (NO CACHE)`);
+        
+        chunks.forEach((chunk, index) => {
+            const requestData = {
+                text: chunk,
+                language: langCode
+            };
+            
+            if (companionId) {
+                requestData.user_companion_id = companionId;
+            }
+            
+            if (aiCompanionData && aiCompanionData.ai_id) {
+                requestData.ai_id = aiCompanionData.ai_id;
+            }
+            
+            if (aiCompanionData && aiCompanionData.user_id) {
+                requestData.user_id = aiCompanionData.user_id;
+            }
+            
+            // ✅ เรียก elevenlabs_tts.php โดยตรง (ไม่ผ่าน cache)
+            $.ajax({
+                url: 'app/actions/elevenlabs_tts.php',
+                type: 'POST',
+                data: JSON.stringify(requestData),
+                contentType: 'application/json',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.status === 'success' && response.audio_url) {
+                        audioUrls[index] = response.audio_url;
+                        loadedCount++;
+                        
+                        const progress = Math.round((loadedCount / chunks.length) * 100);
+                        updateStatus(`Loading voice... ${progress}%`, false);
+                        
+                        console.log(`✅ AI Chunk ${index + 1}/${chunks.length} loaded (NO CACHE)`);
+                        
+                        if (loadedCount === chunks.length && !hasError) {
+                            resolve(audioUrls);
+                        }
+                    } else {
+                        if (!hasError) {
+                            hasError = true;
+                            reject(new Error('No audio URL'));
+                        }
+                    }
+                },
+                error: function(xhr, status, error) {
+                    if (!hasError) {
+                        hasError = true;
+                        reject(new Error('TTS API error: ' + error));
+                    }
+                }
+            });
+        });
+        
+        setTimeout(() => {
+            if (loadedCount < chunks.length && !hasError) {
+                hasError = true;
+                reject(new Error('Audio preload timeout'));
+            }
+        }, 30000);
+    });
+}
+
+// ========== Play Preloaded Audio (เหมือนเดิม) ==========
+function playPreloadedAudio(audioUrls, langCode, fullText) {
+    const langNames = {
+        'th': 'Thai',
+        'en': 'English',
+        'cn': 'Chinese',
+        'jp': 'Japanese',
+        'kr': 'Korean'
+    };
+    const detectedLang = langNames[langCode] || 'English';
+    
+    console.log(`🔊 Playing preloaded audio in ${detectedLang}`);
+    
+    isSpeaking = true;
+    window.isSpeaking = true;
+    updateStatus('Speaking in ' + detectedLang + '...', true);
+    
+    if (useVideoAvatar) {
+        playSpeakingAnimation();
+    }
+    
+    playAudioUrlsSequentially(audioUrls, 0, () => {
+        isSpeaking = false;
+        window.isSpeaking = false;
+        updateStatus('Ready to chat', false);
+        $('#currentMessage').fadeOut();
+        
+        if (mouth) mouth.scale.y = 1;
+        if (useVideoAvatar) stopSpeakingAnimation();
+        
+        console.log('✅ All audio playback completed');
+    });
+}
+
+function playAudioUrlsSequentially(audioUrls, index, onComplete) {
+    if (index >= audioUrls.length) {
+        if (onComplete) onComplete();
+        return;
+    }
+    
+    const audioUrl = audioUrls[index];
+    
+    if (!audioUrl) {
+        console.warn(`⚠️ Skipping chunk ${index + 1} (no URL)`);
+        playAudioUrlsSequentially(audioUrls, index + 1, onComplete);
+        return;
+    }
+    
+    console.log(`▶️ Playing chunk ${index + 1}/${audioUrls.length}`);
+    
+    const audio = new Audio(audioUrl);
+    
+    audio.oncanplaythrough = function() {
+        this.play().catch(err => {
+            console.error('Audio play error:', err);
+            playAudioUrlsSequentially(audioUrls, index + 1, onComplete);
+        });
+    };
+    
+    audio.onended = function() {
+        console.log(`⏹️ Chunk ${index + 1} ended`);
+        setTimeout(() => {
+            playAudioUrlsSequentially(audioUrls, index + 1, onComplete);
+        }, 300);
+    };
+    
+    audio.onerror = function(e) {
+        console.error(`❌ Audio ${index + 1} error:`, e);
+        playAudioUrlsSequentially(audioUrls, index + 1, onComplete);
+    };
+    
+    audio.load();
 }
 
 // ========== Video Avatar Functions (เหมือนเดิม) ==========
@@ -560,7 +810,6 @@ function loadConversation(conversationId) {
             if (response.status === 'success' && response.messages.length > 0) {
                 const lastMessage = response.messages[response.messages.length - 1];
                 if (lastMessage.role === 'assistant') {
-                    // ✅ แสดงข้อความโดยไม่เล่นเสียง (เพราะเป็นประวัติ)
                     showMessage(lastMessage.message);
                 }
             }
@@ -571,6 +820,7 @@ function loadConversation(conversationId) {
     $('#menuToggle').removeClass('active');
 }
 
+// ========== ✅ Send Message (ใช้ speakAIResponseDirectly - ไม่ cache) ==========
 function sendMessage() {
     const message = $('#messageInput').val().trim();
     
@@ -647,8 +897,8 @@ function sendMessage() {
                 
                 console.log('✅ AI Response received');
                 
-                // ✅ ใช้ระบบใหม่: preload audio ก่อนแสดง
-                speakTextWithPreload(
+                // ✅ ใช้ speakAIResponseDirectly (ไม่ผ่าน cache)
+                speakAIResponseDirectly(
                     response.ai_message, 
                     response.language_used || requestData.preferred_language
                 );
@@ -675,201 +925,8 @@ function showMessage(text) {
     $('#currentMessage').fadeIn();
 }
 
-// ========== ✅ NEW: Audio Preload System ==========
+// ========== Utility Functions ==========
 
-/**
- * ✅ Speak text WITH preload - รอให้เสียงโหลดเสร็จก่อนแสดง UI
- */
-function speakTextWithPreload(text, forceLangCode = null) {
-    console.log('🎬 Starting speech with preload:', text.substring(0, 50));
-    
-    // แสดง typing indicator
-    updateStatus('Preparing voice...', false);
-    $('#messageText').html('<span class="typing-indicator">Thinking...</span>');
-    $('#currentMessage').fadeIn();
-    
-    // ตรวจจับภาษา
-    let langCode = forceLangCode || detectLanguage(text);
-    
-    // แบ่งข้อความเป็น chunks
-    const chunks = splitTextIntoChunks(text);
-    
-    // Preload audio ทั้งหมดก่อน
-    preloadAllAudioChunks(chunks, langCode).then((audioUrls) => {
-        console.log('✅ All audio preloaded, ready to display and play');
-        
-        // ✅ ตอนนี้เสียงพร้อมแล้ว → แสดงข้อความ + เล่นเสียง + ท่าพูด
-        showMessage(text);
-        playPreloadedAudio(audioUrls, langCode, text);
-        
-    }).catch((error) => {
-        console.error('❌ Audio preload failed:', error);
-        // Fallback: แสดงข้อความและใช้ Google TTS
-        showMessage(text);
-        speakText(text, langCode); // ใช้ระบบเดิม
-    });
-}
-
-/**
- * ✅ Preload audio chunks ทั้งหมดก่อน
- */
-function preloadAllAudioChunks(chunks, langCode) {
-    return new Promise((resolve, reject) => {
-        const audioUrls = [];
-        let loadedCount = 0;
-        let hasError = false;
-        
-        console.log(`📥 Preloading ${chunks.length} audio chunks...`);
-        
-        chunks.forEach((chunk, index) => {
-            const requestData = {
-                text: chunk,
-                language: langCode
-            };
-            
-            if (companionId) {
-                requestData.user_companion_id = companionId;
-            }
-            
-            if (aiCompanionData && aiCompanionData.ai_id) {
-                requestData.ai_id = aiCompanionData.ai_id;
-            }
-            
-            if (aiCompanionData && aiCompanionData.user_id) {
-                requestData.user_id = aiCompanionData.user_id;
-            }
-            
-            $.ajax({
-                url: 'app/actions/elevenlabs_tts.php',
-                type: 'POST',
-                data: JSON.stringify(requestData),
-                contentType: 'application/json',
-                dataType: 'json',
-                success: function(response) {
-                    if (response.status === 'success' && response.audio_url) {
-                        audioUrls[index] = response.audio_url;
-                        loadedCount++;
-                        
-                        const progress = Math.round((loadedCount / chunks.length) * 100);
-                        updateStatus(`Loading voice... ${progress}%`, false);
-                        
-                        console.log(`✅ Chunk ${index + 1}/${chunks.length} preloaded`);
-                        
-                        if (loadedCount === chunks.length && !hasError) {
-                            resolve(audioUrls);
-                        }
-                    } else {
-                        if (!hasError) {
-                            hasError = true;
-                            reject(new Error('No audio URL in response'));
-                        }
-                    }
-                },
-                error: function(xhr, status, error) {
-                    if (!hasError) {
-                        hasError = true;
-                        reject(new Error('TTS API error: ' + error));
-                    }
-                }
-            });
-        });
-        
-        // Timeout protection (30 วินาที)
-        setTimeout(() => {
-            if (loadedCount < chunks.length && !hasError) {
-                hasError = true;
-                reject(new Error('Audio preload timeout'));
-            }
-        }, 30000);
-    });
-}
-
-/**
- * ✅ เล่นเสียงที่ preload เสร็จแล้ว
- */
-function playPreloadedAudio(audioUrls, langCode, fullText) {
-    const langNames = {
-        'th': 'Thai',
-        'en': 'English',
-        'cn': 'Chinese',
-        'jp': 'Japanese',
-        'kr': 'Korean'
-    };
-    const detectedLang = langNames[langCode] || 'English';
-    
-    console.log(`🔊 Playing preloaded audio in ${detectedLang}`);
-    
-    isSpeaking = true;
-    window.isSpeaking = true;
-    updateStatus('Speaking in ' + detectedLang + '...', true);
-    
-    if (useVideoAvatar) {
-        playSpeakingAnimation();
-    }
-    
-    playAudioUrlsSequentially(audioUrls, 0, () => {
-        // เสร็จหมดแล้ว
-        isSpeaking = false;
-        window.isSpeaking = false;
-        updateStatus('Ready to chat', false);
-        $('#currentMessage').fadeOut();
-        
-        if (mouth) mouth.scale.y = 1;
-        if (useVideoAvatar) stopSpeakingAnimation();
-        
-        console.log('✅ All audio playback completed');
-    });
-}
-
-/**
- * ✅ เล่น audio URLs แบบ sequential
- */
-function playAudioUrlsSequentially(audioUrls, index, onComplete) {
-    if (index >= audioUrls.length) {
-        if (onComplete) onComplete();
-        return;
-    }
-    
-    const audioUrl = audioUrls[index];
-    
-    if (!audioUrl) {
-        console.warn(`⚠️ Skipping chunk ${index + 1} (no URL)`);
-        playAudioUrlsSequentially(audioUrls, index + 1, onComplete);
-        return;
-    }
-    
-    console.log(`▶️ Playing chunk ${index + 1}/${audioUrls.length}`);
-    
-    const audio = new Audio(audioUrl);
-    
-    audio.oncanplaythrough = function() {
-        this.play().catch(err => {
-            console.error('Audio play error:', err);
-            // ข้ามไปชิ้นถัดไป
-            playAudioUrlsSequentially(audioUrls, index + 1, onComplete);
-        });
-    };
-    
-    audio.onended = function() {
-        console.log(`⏹️ Chunk ${index + 1} ended`);
-        // เล่นชิ้นถัดไป (หน่วงเวลา 300ms)
-        setTimeout(() => {
-            playAudioUrlsSequentially(audioUrls, index + 1, onComplete);
-        }, 300);
-    };
-    
-    audio.onerror = function(e) {
-        console.error(`❌ Audio ${index + 1} error:`, e);
-        // ข้ามไปชิ้นถัดไป
-        playAudioUrlsSequentially(audioUrls, index + 1, onComplete);
-    };
-    
-    audio.load();
-}
-
-/**
- * ✅ ตรวจจับภาษา
- */
 function detectLanguage(text) {
     if (/[\u0E00-\u0E7F]/.test(text)) return 'th';
     if (/[\u4E00-\u9FFF]/.test(text)) return 'cn';
@@ -878,9 +935,6 @@ function detectLanguage(text) {
     return 'en';
 }
 
-/**
- * ✅ แบ่งข้อความเป็น chunks (200 ตัวอักษร)
- */
 function splitTextIntoChunks(text, maxLength = 200) {
     const chunks = [];
     
@@ -904,260 +958,47 @@ function splitTextIntoChunks(text, maxLength = 200) {
     return chunks;
 }
 
-// ========== ✅ FALLBACK: ระบบเดิม (สำหรับ welcome message หรือ error) ==========
-
-let currentAudio = null;
-
-function speakText(text, forceLangCode = null) {
-    let langCode = forceLangCode || detectLanguage(text);
-    
-    const langNames = {
-        'th': 'Thai',
-        'en': 'English',
-        'cn': 'Chinese',
-        'jp': 'Japanese',
-        'kr': 'Korean'
-    };
-    const detectedLang = langNames[langCode] || 'English';
-    
-    console.log(`🔊 Speaking in ${detectedLang}: "${text.substring(0, 50)}..."`);
-    
-    isSpeaking = true;
-    window.isSpeaking = true;
-    updateStatus('Speaking in ' + detectedLang + '...', true);
-    
-    if (useVideoAvatar) {
-        playSpeakingAnimation();
-    }
-    
-    const chunks = splitTextIntoChunks(text);
-    playTTSChunks(chunks, 0, langCode);
-}
-
-function playTTSChunks(chunks, index, langCode) {
-    if (index >= chunks.length) {
-        isSpeaking = false;
-        window.isSpeaking = false;
-        updateStatus('Ready to chat', false);
-        $('#currentMessage').fadeOut();
-        
-        if (mouth) mouth.scale.y = 1;
-        if (useVideoAvatar) stopSpeakingAnimation();
-        
-        console.log('✅ TTS completed');
-        return;
-    }
-    
-    const chunk = chunks[index];
-    
-    const requestData = {
-        text: chunk,
-        language: langCode
-    };
-    
-    if (companionId) {
-        requestData.user_companion_id = companionId;
-    }
-    
-    if (aiCompanionData && aiCompanionData.ai_id) {
-        requestData.ai_id = aiCompanionData.ai_id;
-    }
-    
-    if (aiCompanionData && aiCompanionData.user_id) {
-        requestData.user_id = aiCompanionData.user_id;
-    }
-    
-    $.ajax({
-        url: 'app/actions/elevenlabs_tts.php',
-        type: 'POST',
-        data: JSON.stringify(requestData),
-        contentType: 'application/json',
-        dataType: 'json',
-        success: function(response) {
-            if (response.status === 'success' && response.audio_url) {
-                playAudioFromURL(response.audio_url, () => {
-                    setTimeout(() => {
-                        playTTSChunks(chunks, index + 1, langCode);
-                    }, 300);
-                }, () => {
-                    playGoogleTTSFallback(chunk, langCode, () => {
-                        playTTSChunks(chunks, index + 1, langCode);
-                    });
-                });
-            } else {
-                playGoogleTTSFallback(chunk, langCode, () => {
-                    playTTSChunks(chunks, index + 1, langCode);
-                });
-            }
-        },
-        error: function(xhr, status, error) {
-            console.error('❌ ElevenLabs API error:', error);
-            playGoogleTTSFallback(chunk, langCode, () => {
-                playTTSChunks(chunks, index + 1, langCode);
-            });
-        }
-    });
-}
-
-function playAudioFromURL(audioUrl, onEndCallback, onErrorCallback) {
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio = null;
-    }
-    
-    currentAudio = new Audio(audioUrl);
-    
-    currentAudio.oncanplaythrough = function() {
-        this.play().catch(err => {
-            console.error('Audio play error:', err);
-            if (onErrorCallback) onErrorCallback();
-        });
-    };
-    
-    currentAudio.onplay = function() {
-        console.log('▶️ ElevenLabs audio playing');
-        isSpeaking = true;
-        window.isSpeaking = true;
-    };
-    
-    currentAudio.onended = function() {
-        console.log('⏹️ ElevenLabs audio ended');
-        if (onEndCallback) onEndCallback();
-    };
-    
-    currentAudio.onerror = function(e) {
-        console.error('❌ Audio playback error:', e);
-        if (onErrorCallback) onErrorCallback();
-    };
-    
-    currentAudio.load();
-}
-
-function playGoogleTTSFallback(text, langCode, callback) {
+function fallbackToGoogleTTS(text, langCode) {
     const encodedText = encodeURIComponent(text);
     
     let googleLangCode = langCode;
     if (langCode === 'cn') googleLangCode = 'zh-CN';
     if (langCode === 'jp') googleLangCode = 'ja';
     if (langCode === 'kr') googleLangCode = 'ko';
-    if (langCode === 'th') googleLangCode = 'th';
     
     const ttsUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${googleLangCode}&client=tw-ob&q=${encodedText}`;
     
-    console.log(`🔊 Using Google TTS fallback for: ${langCode}`);
+    console.log(`🔊 Using Google TTS fallback`);
     
     if (currentAudio) {
         currentAudio.pause();
         currentAudio = null;
     }
     
-    currentAudio = new Audio();
+    currentAudio = new Audio(ttsUrl);
     
     currentAudio.oncanplaythrough = function() {
         this.play().catch(err => {
-            console.error('Google TTS play error:', err);
-            fallbackToWebSpeech(text, langCode);
-            if (callback) callback();
+            console.error('Google TTS error:', err);
         });
     };
     
     currentAudio.onplay = function() {
-        console.log('▶️ Google TTS playing');
         isSpeaking = true;
         window.isSpeaking = true;
+        if (useVideoAvatar) playSpeakingAnimation();
     };
     
     currentAudio.onended = function() {
-        console.log('⏹️ Google TTS ended');
-        if (callback) callback();
-    };
-    
-    currentAudio.onerror = function(e) {
-        console.error('❌ Google TTS error, using Web Speech API');
-        fallbackToWebSpeech(text, langCode);
-        if (callback) callback();
-    };
-    
-    currentAudio.src = ttsUrl;
-    currentAudio.load();
-}
-
-function fallbackToWebSpeech(text, langCode) {
-    if (!window.speechSynthesis) {
-        isSpeaking = false;
-        window.isSpeaking = false;
-        updateStatus('Ready to chat', false);
-        
-        if (useVideoAvatar) {
-            stopSpeakingAnimation();
-        }
-        
-        Swal.fire({
-            icon: 'warning',
-            title: 'TTS Not Available',
-            text: 'Text-to-speech is not available. Please try using Chrome or Edge browser.',
-            toast: true,
-            position: 'top-end',
-            showConfirmButton: false,
-            timer: 4000
-        });
-        return;
-    }
-    
-    console.log('🔄 Using Web Speech API fallback');
-    
-    window.speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    
-    if (langCode === 'th') {
-        utterance.lang = 'th-TH';
-    } else if (langCode === 'cn') {
-        utterance.lang = 'zh-CN';
-    } else if (langCode === 'jp') {
-        utterance.lang = 'ja-JP';
-    } else if (langCode === 'kr') {
-        utterance.lang = 'ko-KR';
-    } else {
-        utterance.lang = 'en-US';
-    }
-    
-    utterance.rate = 0.85;
-    utterance.pitch = 1.0;
-    utterance.volume = 1.0;
-    
-    utterance.onstart = function() {
-        isSpeaking = true;
-        window.isSpeaking = true;
-    };
-    
-    utterance.onend = function() {
         isSpeaking = false;
         window.isSpeaking = false;
         updateStatus('Ready to chat', false);
         $('#currentMessage').fadeOut();
-        
-        if (mouth) mouth.scale.y = 1;
-        if (useVideoAvatar) {
-            stopSpeakingAnimation();
-        }
+        if (useVideoAvatar) stopSpeakingAnimation();
     };
     
-    utterance.onerror = function(event) {
-        console.error('Web Speech error:', event);
-        isSpeaking = false;
-        window.isSpeaking = false;
-        updateStatus('Ready to chat', false);
-        
-        if (useVideoAvatar) {
-            stopSpeakingAnimation();
-        }
-    };
-    
-    window.speechSynthesis.speak(utterance);
+    currentAudio.load();
 }
-
-// ========== Utility Functions ==========
 
 function updateStatus(text, speaking) {
     $('#statusText').text(text);
@@ -1304,4 +1145,4 @@ function goToPreferences() {
     window.location.href = url;
 }
 
-console.log('✅ AI Chat 3D with Audio Preload loaded');
+console.log('✅ AI Chat 3D with TTS Cache System loaded');
