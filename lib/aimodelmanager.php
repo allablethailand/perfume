@@ -1057,96 +1057,127 @@ class AIModelManager {
     /**
      * ✅ FIXED: buildSystemPrompt - เพิ่ม raw_sections เพื่อใช้ใน DevRev Article
      */
-    public function buildSystemPrompt($ai_companion, $user_personality, $language = 'th') {
-        $ai_name = $ai_companion['ai_name'] ?? 'AI Assistant';
+    public function buildSystemPrompt($ai_companion, $user_personality = []) {
+        $sections = [];
+        $raw_sections = []; // เก็บข้อมูลดิบแยกส่วน
         
-        $core_personality = trim($ai_companion['system_prompt'] ?? '');
-        $perfume_knowledge = trim($ai_companion['perfume_knowledge'] ?? '');
-        $style_suggestions = trim($ai_companion['style_suggestions'] ?? '');
+        // ========================================
+        // 1. Core Personality (จาก system_prompt)
+        // ========================================
+        if (!empty($ai_companion['system_prompt'])) {
+            $sections[] = "=== YOUR CORE PERSONALITY ===\n" . trim($ai_companion['system_prompt']);
+            $raw_sections['core_personality'] = trim($ai_companion['system_prompt']);
+        }
         
-        $expertise = '';
-        if (!empty($perfume_knowledge))
-            $expertise .= "\n\n=== ความรู้เกี่ยวกับน้ำหอม ===\n" . $perfume_knowledge;
-        if (!empty($style_suggestions))
-            $expertise .= "\n\n=== คำแนะนำด้านสไตล์ ===\n" . $style_suggestions;
+        // ========================================
+        // 2. Perfume Knowledge
+        // ========================================
+        if (!empty($ai_companion['perfume_knowledge'])) {
+            $sections[] = "=== PERFUME KNOWLEDGE ===\n" . trim($ai_companion['perfume_knowledge']);
+            $raw_sections['perfume_knowledge'] = trim($ai_companion['perfume_knowledge']);
+        }
         
-        $user_context = '';
+        // ========================================
+        // 3. Style Suggestions
+        // ========================================
+        if (!empty($ai_companion['style_suggestions'])) {
+            $sections[] = "=== STYLE & FASHION GUIDANCE ===\n" . trim($ai_companion['style_suggestions']);
+            $raw_sections['style_suggestions'] = trim($ai_companion['style_suggestions']);
+        }
+        
+        // ========================================
+        // 4. User Context (จาก personality answers)
+        // ========================================
         if (!empty($user_personality)) {
-            $user_context = "\n\n=== ข้อมูลเพิ่มเติมเกี่ยวกับผู้ใช้ (นิสัยรอง) ===\n";
-            foreach ($user_personality as $answer) {
-                $user_context .= "• {$answer['question']}: ";
-                if (!empty($answer['choice_text']))       $user_context .= $answer['choice_text'];
-                elseif (!empty($answer['text_answer']))   $user_context .= $answer['text_answer'];
-                elseif ($answer['scale_value'] !== null)  $user_context .= "คะแนน {$answer['scale_value']}/5";
+            $user_context = "=== USER PERSONALITY & PREFERENCES ===\n";
+            $user_context .= "Please take the following user traits into account:\n\n";
+            
+            foreach ($user_personality as $idx => $answer) {
+                $num = $idx + 1;
+                $q = $answer['question'] ?? 'Question';
+                $user_context .= "{$num}. {$q}\n";
+                
+                if (!empty($answer['choice_text'])) {
+                    $user_context .= "   → {$answer['choice_text']}\n";
+                } elseif (!empty($answer['text_answer'])) {
+                    $user_context .= "   → {$answer['text_answer']}\n";
+                } elseif (isset($answer['scale_value'])) {
+                    $user_context .= "   → Scale: {$answer['scale_value']}/10\n";
+                }
                 $user_context .= "\n";
             }
-            $user_context .= "\n💡 ใช้เป็นบริบทเสริม แต่รักษานิสัยหลักไว้";
+            
+            $sections[] = $user_context;
+            $raw_sections['user_context'] = $user_context;
         }
         
-        $language_rules = $this->getLanguageRules($language);
-        $response_rules = $this->getResponseRules($language);
+        // ========================================
+        // 5. ✅ Language Flexibility (ไม่บังคับภาษา)
+        // ========================================
+        $language_rules = "=== LANGUAGE FLEXIBILITY ===\n";
+        $language_rules .= "🌐 MULTILINGUAL SUPPORT:\n\n";
+        $language_rules .= "RULES:\n";
+        $language_rules .= "1. You CAN respond in ANY language the user prefers\n";
+        $language_rules .= "2. Mirror the user's language by default:\n";
+        $language_rules .= "   - User writes in Thai → Respond in Thai\n";
+        $language_rules .= "   - User writes in English → Respond in English\n";
+        $language_rules .= "   - User writes in Japanese → Respond in Japanese\n";
+        $language_rules .= "3. If the user EXPLICITLY requests a specific language (e.g., 'please answer in English'), honor that request\n";
+        $language_rules .= "4. You are fluent in: Thai, English, Chinese, Japanese, and Korean\n";
+        $language_rules .= "5. Be natural and adaptive - the goal is comfortable communication\n\n";
+        $language_rules .= "💡 Examples:\n";
+        $language_rules .= "- User: 'สวัสดี' → You: 'สวัสดีค่ะ' (Thai)\n";
+        $language_rules .= "- User: 'Hello' → You: 'Hello!' (English)\n";
+        $language_rules .= "- User (in Thai): 'ตอบเป็นภาษาอังกฤษนะ' → You respond in English\n";
         
-        $full_prompt = trim(
-            $core_personality . $expertise . $user_context .
-            "\n\n" . $language_rules .
-            "\n\n" . $response_rules
-        );
+        $sections[] = $language_rules;
+        $raw_sections['language_rules'] = $language_rules;
         
-        $details = [
-            'ai_name' => $ai_name,
-            'ai_code' => $ai_companion['ai_code'] ?? 'unknown',
-            'language' => $language,
-            'language_source' => 'preferred_language from user_ai_companions',
-            'prompt_sections' => [
-                'core_personality' => ['label' => '🎭 นิสัยหลัก', 'content' => $core_personality, 'length' => mb_strlen($core_personality)],
-                'perfume_knowledge' => ['label' => '💧 Perfume Knowledge', 'content' => $perfume_knowledge, 'length' => mb_strlen($perfume_knowledge)],
-                'style_suggestions' => ['label' => '✨ Style Suggestions', 'content' => $style_suggestions, 'length' => mb_strlen($style_suggestions)],
-                'user_personality' => ['label' => '👤 นิสัยรอง', 'content' => $user_context, 'length' => mb_strlen($user_context), 'answers_count' => count($user_personality)],
-                'language_rules' => ['label' => '🌐 Language Rules', 'content' => $language_rules, 'length' => mb_strlen($language_rules)],
-                'response_rules' => ['label' => '📋 Response Rules', 'content' => $response_rules, 'length' => mb_strlen($response_rules)]
-            ],
-            'total_prompt_length' => mb_strlen($full_prompt),
-            // ✅ เพิ่ม raw_sections เพื่อใช้ใน DevRev Article
-            'raw_sections' => [
-                'core_personality' => $core_personality,
-                'perfume_knowledge' => $perfume_knowledge,
-                'style_suggestions' => $style_suggestions,
-                'user_context' => $user_context,
-                'language_rules' => $language_rules,
-                'response_rules' => $response_rules
+        // ========================================
+        // 6. Response Guidelines
+        // ========================================
+        $response_rules = "=== RESPONSE GUIDELINES ===\n";
+        $response_rules .= "1. Be warm, friendly, and supportive\n";
+        $response_rules .= "2. Show genuine interest in the user's life and preferences\n";
+        $response_rules .= "3. Provide helpful suggestions without being pushy\n";
+        $response_rules .= "4. Use your perfume knowledge naturally in conversations\n";
+        $response_rules .= "5. Be attentive to the user's mood and needs\n";
+        $response_rules .= "6. Keep responses conversational and engaging\n";
+        $response_rules .= "7. Remember context from previous messages in the conversation\n";
+        
+        $sections[] = $response_rules;
+        $raw_sections['response_rules'] = $response_rules;
+        
+        // ========================================
+        // รวม Prompt ทั้งหมด
+        // ========================================
+        $full_prompt = implode("\n\n", $sections);
+        
+        return [
+            'prompt' => $full_prompt,
+            'details' => [
+                'sections_count' => count($sections),
+                'has_personality' => !empty($user_personality),
+                'has_perfume_knowledge' => !empty($ai_companion['perfume_knowledge']),
+                'has_style_suggestions' => !empty($ai_companion['style_suggestions']),
+                'raw_sections' => $raw_sections
             ]
         ];
-        
-        return ['prompt' => $full_prompt, 'details' => $details];
     }
-    
-    private function getLanguageRules($language) {
-        $names = ['th'=>'ภาษาไทย (Thai)','en'=>'English','jp'=>'日本語 (Japanese)','kr'=>'한국어 (Korean)','cn'=>'中文 (Chinese)'];
-        $n = $names[$language] ?? $names['th'];
-        
-        $rules = [
-            'th' => "=== กฎการใช้ภาษา ===\n🌐 คุณ**ต้อง**ตอบเป็น{$n}เท่านั้น\n🌐 ห้ามเปลี่ยนภาษาเว้นแต่ผู้ใช้จะขอเปลี่ยนอย่างชัดเจน",
-            'en' => "=== LANGUAGE ENFORCEMENT ===\n🌐 Respond in {$n} only\n🌐 Do NOT change unless explicitly requested",
-            'ja' => "=== 言語ルール ===\n🌐 {$n}でのみ回答\n🌐 明示的に要求されない限り変更しない",
-            'ko' => "=== 언어 규칙 ===\n🌐 {$n}로만 응답\n🌐 명시적 요청 없이 변경 안 함",
-            'zh' => "=== 语言规则 ===\n🌐 仅{$n}回复\n🌐 无明确要求不更改"
-        ];
-        return $rules[$language] ?? $rules['th'];
-    }
-    
-    private function getResponseRules($language) {
-        if ($language === 'th') {
-            return "=== กฎการตอบกลับ ===\n⛔ ห้ามใช้ \"ครับ/ค่ะ\" เด็ดขาด\n✅ ผู้ชาย → \"ครับ\" | ผู้หญิง → \"ค่ะ\"";
-        }
-        return "=== RESPONSE RULES ===\n✅ Be natural and conversational\n✅ Maintain consistent personality";
-    }
+
     
     public function formatConversationHistory($chat_history, $limit = 10) {
-        $messages = [];
-        foreach (array_slice($chat_history, -$limit) as $chat) {
-            $messages[] = ['role' => $chat['role'], 'content' => $chat['message_text']];
+        $formatted = [];
+        $recent = array_slice($chat_history, -$limit);
+        
+        foreach ($recent as $msg) {
+            $formatted[] = [
+                'role' => $msg['role'],
+                'content' => $msg['message_text']
+            ];
         }
-        return $messages;
+        
+        return $formatted;
     }
     
     public function getModels() {

@@ -7,7 +7,9 @@
  * ✅ รองรับ 2 โหมด:
  *    1. Login Mode: ใช้ JWT (user_id)
  *    2. Guest Mode: ใช้ user_companion_id หรือ ai_code
- * ✅ บังคับให้ AI ตอบเฉพาะภาษาจาก preferred_language
+ * ✅ ไม่บังคับภาษา - AI ตอบตามภาษาที่ user ใช้
+ * ✅ ดึง prompt จากคอลัมน์ใดก็ได้ที่มีข้อมูล (ไม่สนว่าจะเป็นภาษาอะไร)
+ * ✅ Prompt ทั้งหมดเป็นภาษาอังกฤษ
  * ✅ FIX: แยก DevRev sync ออกจาก main flow
  *    - DevRev provider: ต้อง sync ก่อนแล้วค่อยถาม DevRev AI
  *    - AI providers อื่น: ตอบได้เลย แล้วค่อย sync DevRev ทีหลังแบบ async
@@ -36,9 +38,6 @@ $dump_prompt = isset($input['dump_prompt']) ? (bool)$input['dump_prompt'] : fals
 $user_companion_id_input = isset($input['user_companion_id']) ? intval($input['user_companion_id']) : 0;
 $ai_code_input = isset($input['ai_code']) ? strtoupper(trim($input['ai_code'])) : '';
 
-// ✅ รับภาษาจาก request (ถ้ามี) จะใช้แทน preferred_language ในฐานข้อมูล
-$language_from_request = isset($input['preferred_language']) ? strtolower(trim($input['preferred_language'])) : null;
-
 // Validate message
 if (empty($user_message)) {
     echo json_encode([
@@ -53,7 +52,6 @@ $user_id = null;
 $user_companion_id = null;
 $ai_id = null;
 $is_guest_mode = false;
-$language = 'th'; // default
 
 // ลอง JWT ก่อน
 $headers = getallheaders();
@@ -76,7 +74,7 @@ if (!$user_id) {
     // ✅ วิธีที่ 1: ใช้ user_companion_id โดยตรง
     if ($user_companion_id_input > 0) {
         $stmt = $conn->prepare("
-            SELECT user_companion_id, user_id, ai_id, preferred_language
+            SELECT user_companion_id, user_id, ai_id
             FROM user_ai_companions
             WHERE user_companion_id = ? AND status = 1 AND del = 0
         ");
@@ -89,7 +87,6 @@ if (!$user_id) {
             $user_companion_id = $companion['user_companion_id'];
             $user_id = $companion['user_id'];
             $ai_id = $companion['ai_id'];
-            $language = !empty($companion['preferred_language']) ? $companion['preferred_language'] : 'th';
         }
         $stmt->close();
     }
@@ -115,7 +112,7 @@ if (!$user_id) {
                 $user_companion_id = $_SESSION['user_companion_id'];
                 
                 $stmt2 = $conn->prepare("
-                    SELECT user_id, preferred_language 
+                    SELECT user_id
                     FROM user_ai_companions 
                     WHERE user_companion_id = ?
                 ");
@@ -126,7 +123,6 @@ if (!$user_id) {
                 if ($result2->num_rows > 0) {
                     $comp_data = $result2->fetch_assoc();
                     $user_id = $comp_data['user_id'];
-                    $language = !empty($comp_data['preferred_language']) ? $comp_data['preferred_language'] : 'th';
                 }
                 $stmt2->close();
             }
@@ -149,10 +145,10 @@ if (!$user_id) {
 try {
     $conn->begin_transaction();
     
-    // ✅ ถ้ายังไม่มี user_companion_id ให้หาและดึง preferred_language
+    // ✅ ถ้ายังไม่มี user_companion_id ให้หา
     if (!$user_companion_id && $user_id) {
         $companion_stmt = $conn->prepare("
-            SELECT user_companion_id, ai_id, preferred_language 
+            SELECT user_companion_id, ai_id
             FROM user_ai_companions 
             WHERE user_id = ? AND status = 1 AND del = 0
             ORDER BY last_active_at DESC
@@ -169,7 +165,6 @@ try {
         $companion_data = $companion_result->fetch_assoc();
         $user_companion_id = $companion_data['user_companion_id'];
         $ai_id = $companion_data['ai_id'];
-        $language = !empty($companion_data['preferred_language']) ? $companion_data['preferred_language'] : 'th';
         $companion_stmt->close();
     }
     
@@ -178,21 +173,19 @@ try {
         $conv_title = mb_substr($user_message, 0, 50) . (mb_strlen($user_message) > 50 ? '...' : '');
         $conv_stmt = $conn->prepare("
             INSERT INTO ai_chat_conversations 
-            (user_companion_id, conversation_title, language_used) 
-            VALUES (?, ?, ?)
+            (user_companion_id, conversation_title) 
+            VALUES (?, ?)
         ");
-        $conv_stmt->bind_param('iss', $user_companion_id, $conv_title, $language);
+        $conv_stmt->bind_param('is', $user_companion_id, $conv_title);
         $conv_stmt->execute();
         $conversation_id = $conn->insert_id;
         $conv_stmt->close();
     } else {
-        // ✅ ดึงข้อมูล conversation และ preferred_language อีกครั้ง
+        // ✅ ดึงข้อมูล conversation
         $conv_stmt = $conn->prepare("
             SELECT 
-                c.user_companion_id, 
-                c.language_used,
-                uc.ai_id,
-                uc.preferred_language
+                c.user_companion_id,
+                uc.ai_id
             FROM ai_chat_conversations c
             INNER JOIN user_ai_companions uc ON c.user_companion_id = uc.user_companion_id
             WHERE c.conversation_id = ? AND c.is_active = 1
@@ -208,38 +201,30 @@ try {
         $conv_data = $conv_result->fetch_assoc();
         $user_companion_id = $conv_data['user_companion_id'];
         $ai_id = $conv_data['ai_id'];
-        $language = !empty($conv_data['preferred_language']) ? $conv_data['preferred_language'] : 'th';
         $conv_stmt->close();
     }
     
-    // ✅ Override ด้วย request ถ้ามี
-    if (!empty($language_from_request)) {
-        $language = $language_from_request;
-        error_log("⚠️ Language overridden by request: {$language}");
-    }
-    
-    error_log("✅ Final language used: {$language}");
-    
-    // บันทึกข้อความ user
+    // บันทึกข้อความ user (ไม่ระบุ language_used)
     $user_chat_stmt = $conn->prepare("
         INSERT INTO ai_chat_history 
-        (conversation_id, user_companion_id, user_id, ai_id, role, message_text, language_used) 
-        VALUES (?, ?, ?, ?, 'user', ?, ?)
+        (conversation_id, user_companion_id, user_id, ai_id, role, message_text) 
+        VALUES (?, ?, ?, ?, 'user', ?)
     ");
-    $user_chat_stmt->bind_param('iiiiss', $conversation_id, $user_companion_id, $user_id, $ai_id, $user_message, $language);
+    $user_chat_stmt->bind_param('iiiis', $conversation_id, $user_companion_id, $user_id, $ai_id, $user_message);
     $user_chat_stmt->execute();
     $user_chat_stmt->close();
     
-    // ดึงข้อมูล AI companion ตามภาษาที่กำหนด
-    $lang_col = $language;
+    // ========================================
+    // ✅ ดึงข้อมูล AI companion (ไม่สนใจภาษา - หาคอลัมน์แรกที่มีข้อมูล)
+    // ========================================
     $ai_stmt = $conn->prepare("
         SELECT 
             ai_id,
             ai_code,
-            ai_name_{$lang_col} as ai_name,
-            system_prompt_{$lang_col} as system_prompt,
-            perfume_knowledge_{$lang_col} as perfume_knowledge,
-            style_suggestions_{$lang_col} as style_suggestions
+            COALESCE(ai_name_en, ai_name_th, ai_name_cn, ai_name_jp, ai_name_kr) as ai_name,
+            COALESCE(system_prompt_en, system_prompt_th, system_prompt_cn, system_prompt_jp, system_prompt_kr) as system_prompt,
+            COALESCE(perfume_knowledge_en, perfume_knowledge_th, perfume_knowledge_cn, perfume_knowledge_jp, perfume_knowledge_kr) as perfume_knowledge,
+            COALESCE(style_suggestions_en, style_suggestions_th, style_suggestions_cn, style_suggestions_jp, style_suggestions_kr) as style_suggestions
         FROM ai_companions 
         WHERE ai_id = ? AND status = 1 AND del = 0
     ");
@@ -254,13 +239,13 @@ try {
     $ai_companion = $ai_result->fetch_assoc();
     $ai_stmt->close();
     
-    // ดึง personality
+    // ดึง personality (ใช้คอลัมน์แรกที่เจอ)
     $personality_stmt = $conn->prepare("
         SELECT 
-            q.question_text_{$lang_col} as question,
+            COALESCE(q.question_text_en, q.question_text_th, q.question_text_cn, q.question_text_jp, q.question_text_kr) as question,
             a.text_answer,
             a.scale_value,
-            c.choice_text_{$lang_col} as choice_text,
+            COALESCE(c.choice_text_en, c.choice_text_th, c.choice_text_cn, c.choice_text_jp, c.choice_text_kr) as choice_text,
             q.question_order
         FROM user_personality_answers a
         INNER JOIN ai_personality_questions q ON a.question_id = q.question_id
@@ -297,22 +282,17 @@ try {
     // สร้าง AI Model Manager
     $aiManager = new AIModelManager($conn);
     
-    // สร้าง system prompt
-    $system_prompt_result = $aiManager->buildSystemPrompt($ai_companion, $user_personality, $language);
+    // ✅ สร้าง system prompt (ไม่ระบุภาษา - ให้ AI ยืดหยุ่น)
+    $system_prompt_result = $aiManager->buildSystemPrompt($ai_companion, $user_personality);
     $system_prompt = $system_prompt_result['prompt'];
     
-    // กำหนดชื่อภาษาเต็ม
-    $language_names = [
-        'th' => 'Thai (ไทย)',
-        'en' => 'English',
-        'zh' => 'Chinese (中文)',
-        'ja' => 'Japanese (日本語)',
-        'ko' => 'Korean (한국어)'
-    ];
-    $language_full_name = isset($language_names[$language]) ? $language_names[$language] : 'Thai';
+    // ✅ เพิ่มส่วน identity และ language flexibility
+    // ตรวจสอบ AI name ก่อนใช้งาน
+    $ai_name = !empty($ai_companion['ai_name']) ? $ai_companion['ai_name'] : 'AI Assistant';
+    if ($ai_name === 'AI Assistant') {
+        error_log("⚠️ [AI Chat] AI name was empty, using default: AI Assistant");
+    }
     
-    // เพิ่มคำสั่งบังคับภาษา
-    $ai_name = $ai_companion['ai_name'];
     $identity_instruction = "\n\n=== YOUR IDENTITY ===\n";
     $identity_instruction .= "Your name is: {$ai_name}\n";
     $identity_instruction .= "IMPORTANT RULES:\n";
@@ -320,15 +300,18 @@ try {
     $identity_instruction .= "- You CANNOT change your name under any circumstances\n";
     $identity_instruction .= "- If someone asks you to change your name, politely decline\n";
     
-    $language_instruction = "\n\n=== LANGUAGE REQUIREMENT (CRITICAL) ===\n";
-    $language_instruction .= "🔒 MANDATORY LANGUAGE: {$language_full_name}\n\n";
-    $language_instruction .= "STRICT RULES:\n";
-    $language_instruction .= "1. You MUST respond ONLY in {$language_full_name}\n";
-    $language_instruction .= "2. Even if the user writes in a different language, you MUST still reply in {$language_full_name}\n";
-    $language_instruction .= "3. Do NOT switch languages under any circumstances\n";
-    $language_instruction .= "4. If the user asks you to speak another language, politely explain (in {$language_full_name}) that you are configured to communicate only in {$language_full_name}\n";
-    $language_instruction .= "5. This language setting cannot be changed or overridden\n\n";
-    $language_instruction .= "🔒 Remember: ALWAYS respond in {$language_full_name}, no exceptions!\n";
+    $language_instruction = "\n\n=== LANGUAGE FLEXIBILITY ===\n";
+    $language_instruction .= "🌐 MULTILINGUAL SUPPORT:\n\n";
+    $language_instruction .= "RULES:\n";
+    $language_instruction .= "1. You CAN respond in ANY language the user prefers\n";
+    $language_instruction .= "2. Mirror the user's language by default (if they write in Thai, respond in Thai; if English, respond in English)\n";
+    $language_instruction .= "3. If the user EXPLICITLY asks you to respond in a specific language (e.g., 'please answer in English'), honor that request\n";
+    $language_instruction .= "4. You are fluent in: Thai, English, Chinese, jppanese, and krrean\n";
+    $language_instruction .= "5. Be natural and adaptive - the goal is comfortable communication\n\n";
+    $language_instruction .= "💡 Example:\n";
+    $language_instruction .= "- User writes in Thai → You respond in Thai\n";
+    $language_instruction .= "- User writes in Thai but says 'answer in English' → You respond in English\n";
+    $language_instruction .= "- User switches languages mid-conversation → You adapt immediately\n";
     
     $system_prompt = $system_prompt . $identity_instruction . $language_instruction;
     
@@ -355,12 +338,11 @@ try {
     }
     
     // ========================================
-    // ✅ NEW: ตรวจสอบว่าจะใช้ AI provider ไหน
+    // ✅ ตรวจสอบว่าจะใช้ AI provider ไหน
     // ========================================
     $will_use_devrev = false;
     $selected_provider = null;
     
-    // ดูว่า AI models ที่ active มี DevRev ไหม
     $models_stmt = $conn->prepare("
         SELECT provider 
         FROM ai_models 
@@ -389,7 +371,6 @@ try {
         error_log("🔵 [AI Chat] Using DevRev provider → Syncing BEFORE AI call");
         
         try {
-            // ดึงข้อมูล user
             $user_stmt = $conn->prepare("
                 SELECT user_id, first_name, last_name, email, devrev_dev_user_id, devrev_display_id
                 FROM mb_user
@@ -407,13 +388,20 @@ try {
                 $email = $user_data['email'] ?: "user{$user_id}@example.com";
                 $display_name = trim($user_data['first_name'] . ' ' . $user_data['last_name']) ?: "User {$user_id}";
                 
+                // ✅ ตรวจสอบ AI name ก่อน sync
+                if (empty($ai_companion['ai_name'])) {
+                    $ai_companion['ai_name'] = 'AI Assistant';
+                    error_log("⚠️ [AI Chat] Fixed empty AI name before DevRev sync");
+                }
+                
                 $devrev_debug = [
                     'mode' => 'sync_before_ai_call',
                     'conversation_id' => $conversation_id,
                     'user_id' => $user_id,
                     'user_companion_id' => $user_companion_id,
                     'email_used' => $email,
-                    'display_name_used' => $display_name
+                    'display_name_used' => $display_name,
+                    'ai_name' => $ai_companion['ai_name']
                 ];
 
                 $devrev_result = $devrev->processChat(
@@ -423,8 +411,7 @@ try {
                     $email,
                     $display_name,
                     $ai_companion, 
-                    $user_personality,
-                    $language
+                    $user_personality
                 );
 
                 error_log("✅ [AI Chat] DevRev synced BEFORE AI call — Chat: " . ($devrev_result['chat_article_id'] ?? 'NULL') . ", Prompt: " . ($devrev_result['prompt_article_id'] ?? 'NULL'));
@@ -441,7 +428,7 @@ try {
     }
     
     // ========================================
-    // ✅ ส่งไปยัง AI (DevRev หรือ provider อื่น)
+    // ✅ ส่งไปยัง AI
     // ========================================
     $ai_response = $aiManager->chat($messages, [
         'max_tokens' => 1024,
@@ -459,13 +446,13 @@ try {
     $response_time = $ai_response['response_time_ms'];
     $provider_used = $ai_response['provider'];
     
-    // บันทึกคำตอบ AI
+    // บันทึกคำตอบ AI (ไม่ระบุ language_used)
     $ai_chat_stmt = $conn->prepare("
         INSERT INTO ai_chat_history 
-        (conversation_id, user_companion_id, user_id, ai_id, role, message_text, ai_model_used, tokens_used, response_time_ms, language_used) 
-        VALUES (?, ?, ?, ?, 'assistant', ?, ?, ?, ?, ?)
+        (conversation_id, user_companion_id, user_id, ai_id, role, message_text, ai_model_used, tokens_used, response_time_ms) 
+        VALUES (?, ?, ?, ?, 'assistant', ?, ?, ?, ?)
     ");
-    $ai_chat_stmt->bind_param('iiiissiii', $conversation_id, $user_companion_id, $user_id, $ai_id, $ai_message, $ai_model, $tokens_used, $response_time, $language);
+    $ai_chat_stmt->bind_param('iiiissii', $conversation_id, $user_companion_id, $user_id, $ai_id, $ai_message, $ai_model, $tokens_used, $response_time);
     $ai_chat_stmt->execute();
     $ai_chat_stmt->close();
     
@@ -498,17 +485,21 @@ try {
     if (!$will_use_devrev) {
         error_log("🔵 [AI Chat] NOT using DevRev provider → Scheduling async sync AFTER response");
         
-        // เก็บข้อมูลไว้สำหรับ async sync
+        // ✅ ตรวจสอบและแก้ไข ai_companion ก่อน queue
+        if (empty($ai_companion['ai_name'])) {
+            $ai_companion['ai_name'] = 'AI Assistant';
+            error_log("⚠️ [AI Chat] Fixed empty AI name before queue");
+        }
+        
+        // ✅ ไม่เก็บ language อีกต่อไป (ให้ AI ยืดหยุ่น)
         $sync_data = json_encode([
             'conversation_id' => $conversation_id,
             'user_id' => $user_id,
             'user_companion_id' => $user_companion_id,
             'ai_companion' => $ai_companion,
-            'user_personality' => $user_personality,
-            'language' => $language
+            'user_personality' => $user_personality
         ], JSON_UNESCAPED_UNICODE);
         
-        // บันทึกลง queue table (สร้างตาราง devrev_sync_queue ถ้ายังไม่มี)
         try {
             $queue_stmt = $conn->prepare("
                 INSERT INTO devrev_sync_queue 
@@ -550,7 +541,6 @@ try {
         'guest_mode' => $is_guest_mode,
         'conversation_id' => $conversation_id,
         'user_companion_id' => $user_companion_id,
-        'language_used' => $language,
         'ai_message' => $ai_message,
         'ai_name' => $ai_name,
         'tokens_used' => $tokens_used,
