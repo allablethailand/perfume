@@ -15,7 +15,7 @@ try {
         throw new Exception("AI code is required");
     }
     
-    // ดึงข้อมูล AI จาก database
+    // ดึงข้อมูล AI จาก database (รวม idle_video_urls และ talking_video_urls)
     $stmt = $conn->prepare("
         SELECT 
             ai_id,
@@ -26,14 +26,12 @@ try {
             ai_name_cn,
             ai_name_jp,
             ai_name_kr,
-            ai_avatar_path,
             ai_avatar_url,
-            ai_video_path,
             ai_video_url,
-            idle_video_path,
             idle_video_url,
-            talking_video_path,
+            idle_video_urls,
             talking_video_url,
+            talking_video_urls,
             system_prompt_th,
             system_prompt_en,
             system_prompt_cn,
@@ -72,6 +70,34 @@ try {
     }
     
     error_log("✅ AI Data found: ai_id=" . $ai_data['ai_id'] . ", name=" . $ai_data['ai_name_th'] . ", voice_id=" . $ai_data['voice_id']);
+    
+    // ✅ สุ่มเลือกวิดีโอจาก arrays
+    $idle_videos = json_decode($ai_data['idle_video_urls'] ?? '[]', true);
+    $talking_videos = json_decode($ai_data['talking_video_urls'] ?? '[]', true);
+    
+    // สุ่ม idle video
+    $idle_video_url = null;
+    if (!empty($idle_videos) && is_array($idle_videos)) {
+        $random_index = array_rand($idle_videos);
+        $idle_video_url = $idle_videos[$random_index];
+        error_log("✅ Random idle video selected: " . $idle_video_url);
+    }
+    
+    // สุ่ม talking video
+    $talking_video_url = null;
+    if (!empty($talking_videos) && is_array($talking_videos)) {
+        $random_index = array_rand($talking_videos);
+        $talking_video_url = $talking_videos[$random_index];
+        error_log("✅ Random talking video selected: " . $talking_video_url);
+    }
+    
+    // เพิ่ม URLs ที่สุ่มแล้วเข้าไปใน response
+    $ai_data['idle_video_url'] = $idle_video_url;
+    $ai_data['talking_video_url'] = $talking_video_url;
+    
+    // เก็บ arrays ไว้ด้วยในกรณีต้องการใช้งาน
+    $ai_data['idle_video_urls_array'] = $idle_videos;
+    $ai_data['talking_video_urls_array'] = $talking_videos;
     
     $response = [
         'status' => 'success',

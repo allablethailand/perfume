@@ -1,18 +1,9 @@
 /**
- * AI Setup Chat - Conversational Setup Flow (WITH ELEVENLABS)
- * ✅ Chat-style interface like ai_chat_3d
- * ✅ AI asks questions one by one
- * ✅ Avatar moves left when choices appear
- * ✅ Support all question types (choice, scale, text)
- * ✅ Multi-language voice support with ElevenLabs
- * ✅ Added Last Name field
- * ✅ Voice feedback when selecting language
- * ✅ Voice feedback when selecting choices
- * ✅ Back button to edit previous answers
- * ✅ Better login UI with chat display
- * ✅ Edit registration fields before confirm
- * ✅ Fixed duplicate voice issue
- * ✅ Now using ElevenLabs TTS API
+ * AI Setup Chat - Conversational Setup Flow
+ * ✅ Random idle videos (loaded on init)
+ * ✅ Random speaking videos (lazy loaded on first speak)
+ * ✅ Videos change every time they end (no loop)
+ * ✅ Chat-style interface with ElevenLabs TTS
  */
 
 // ========== Global Variables ==========
@@ -26,21 +17,21 @@ let aiCompanionData = null;
 let questions = [];
 let currentQuestionIndex = 0;
 let answers = {};
-let currentStep = 'intro'; // intro, language, register, otp, login, questions
+let currentStep = 'intro';
 let chatHistory = [];
-let stepHistory = []; // Track step history for back button
+let stepHistory = [];
 
-// ✅ Flags to prevent duplicate calls
 let isCheckingSetup = false;
 let isStartingQuestions = false;
 
-// Avatar video URLs
-let idleVideoUrl = '';
-let speakingVideoUrl = '';
+// ✅ Video Arrays for Random Selection
+let IDLE_VIDEO_URLS = [];
+let SPEAKING_VIDEO_URLS = [];
 let isSpeaking = false;
 let currentAudio = null;
+let currentVideoState = 'idle';
+let currentVideo = null;
 
-// Global for wave animation
 window.isSpeaking = false;
 window.waveIntensity = 0;
 
@@ -146,7 +137,6 @@ const conversationMessages = {
     }
 };
 
-// ========== Choice Feedback Templates ==========
 const choiceFeedbackTemplates = {
     th: [
         "เข้าใจแล้ว คุณเลือก {choice}",
@@ -185,7 +175,6 @@ const choiceFeedbackTemplates = {
     ]
 };
 
-// ========== Scale Feedback Templates ==========
 const scaleFeedbackTemplates = {
     th: [
         "โอเค คุณให้คะแนน {value} คะแนน",
@@ -219,7 +208,6 @@ const scaleFeedbackTemplates = {
     ]
 };
 
-// ========== Get Random Feedback ==========
 function getChoiceFeedback(choiceText) {
     const templates = choiceFeedbackTemplates[selectedLanguage] || choiceFeedbackTemplates['en'];
     const randomTemplate = templates[Math.floor(Math.random() * templates.length)];
@@ -234,21 +222,17 @@ function getScaleFeedback(scaleValue) {
 
 // ========== Initialize ==========
 $(document).ready(function() {
-    console.log('🚀 Starting AI Setup Chat with ElevenLabs...');
+    console.log('🚀 Starting AI Setup Chat with Random Videos...');
     console.log('AI Code:', aiCode);
     
     loadAIData().then(() => {
         initAvatar();
         createWaterWave();
         createParticles();
-        
-        // ✅ Unlock audio on first user interaction
         unlockAudioContext();
-        
         startConversation();
     });
     
-    // Send message on Enter
     $('#messageInput').on('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -261,7 +245,6 @@ $(document).ready(function() {
     $('#backBtn').on('click', handleBackButton);
 });
 
-// ========== Unlock Audio Context ==========
 function unlockAudioContext() {
     const unlockAudio = () => {
         const silentAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
@@ -276,7 +259,7 @@ function unlockAudioContext() {
     document.addEventListener('touchstart', unlockAudio, { once: true });
 }
 
-// ========== Load AI Data ==========
+// ========== ✅ Load AI Data with Video Arrays ==========
 async function loadAIData() {
     try {
         const response = await $.ajax({
@@ -288,13 +271,14 @@ async function loadAIData() {
 
         if (response.status === 'success') {
             aiCompanionData = response.ai_data;
-            idleVideoUrl = aiCompanionData.idle_video_url || '';
-            speakingVideoUrl = aiCompanionData.talking_video_url || '';
+            
+            // ✅ Load idle video arrays only (lazy load speaking videos)
+            IDLE_VIDEO_URLS = aiCompanionData.idle_video_urls_array || [];
             
             console.log('✅ AI Data loaded:', {
                 name: aiCompanionData.ai_name_en,
                 ai_id: aiCompanionData.ai_id,
-                user_id: aiCompanionData.user_id,
+                idle_videos: IDLE_VIDEO_URLS.length,
                 voice_id: aiCompanionData.voice_id
             });
         }
@@ -303,33 +287,83 @@ async function loadAIData() {
     }
 }
 
-// ========== Initialize Avatar ==========
-function initAvatar() {
-    const video = $('#avatarVideo')[0];
+// ========== ✅ Random Video Selection Functions ==========
+function loadSpeakingVideosIfNeeded() {
+    if (SPEAKING_VIDEO_URLS.length === 0 && aiCompanionData) {
+        SPEAKING_VIDEO_URLS = aiCompanionData.talking_video_urls_array || [];
+        console.log('📥 Loaded speaking videos on demand:', SPEAKING_VIDEO_URLS.length);
+    }
+}
+
+function getRandomIdleVideo() {
+    if (IDLE_VIDEO_URLS.length === 0) return null;
+    const randomIndex = Math.floor(Math.random() * IDLE_VIDEO_URLS.length);
+    const selectedVideo = IDLE_VIDEO_URLS[randomIndex];
+    console.log(`🎲 Random IDLE video ${randomIndex + 1}/${IDLE_VIDEO_URLS.length}`);
+    return selectedVideo;
+}
+
+function getRandomSpeakingVideo() {
+    loadSpeakingVideosIfNeeded();
     
-    if (idleVideoUrl) {
-        video.src = idleVideoUrl;
-        video.load();
-        video.addEventListener('loadeddata', () => {
-            video.play().catch(e => console.log('Autoplay prevented'));
+    if (SPEAKING_VIDEO_URLS.length === 0) return null;
+    const randomIndex = Math.floor(Math.random() * SPEAKING_VIDEO_URLS.length);
+    const selectedVideo = SPEAKING_VIDEO_URLS[randomIndex];
+    console.log(`🎲 Random SPEAKING video ${randomIndex + 1}/${SPEAKING_VIDEO_URLS.length}`);
+    return selectedVideo;
+}
+
+// ========== ✅ Initialize Avatar with Random Video ==========
+function initAvatar() {
+    currentVideo = $('#avatarVideo')[0];
+    
+    if (IDLE_VIDEO_URLS.length > 0) {
+        const initialIdleVideo = getRandomIdleVideo();
+        currentVideo.src = initialIdleVideo;
+        currentVideo.loop = false; // ✅ ไม่ให้ loop
+        currentVideo.load();
+        
+        // ✅ เมื่อวิดีโอจบให้สุ่มใหม่
+        currentVideo.addEventListener('ended', onVideoEnded);
+        
+        currentVideo.addEventListener('loadeddata', () => {
+            currentVideo.play().catch(e => console.log('Autoplay prevented'));
         });
+    }
+}
+
+// ========== ✅ Handle Video Ended - Random New Video ==========
+function onVideoEnded() {
+    console.log('🔄 Video ended, loading new random video...');
+    
+    if (currentVideoState === 'idle') {
+        const newIdleVideo = getRandomIdleVideo();
+        if (newIdleVideo) {
+            currentVideo.src = newIdleVideo;
+            currentVideo.load();
+            currentVideo.play().catch(e => console.error('Play error:', e));
+        }
+    } else if (currentVideoState === 'speaking') {
+        const newSpeakingVideo = getRandomSpeakingVideo();
+        if (newSpeakingVideo) {
+            currentVideo.src = newSpeakingVideo;
+            currentVideo.load();
+            currentVideo.play().catch(e => console.error('Play error:', e));
+        }
     }
 }
 
 // ========== Start Conversation ==========
 function startConversation() {
-    // Check if user is logged in
     if (jwt) {
         checkSetupStatus();
     } else {
-        // Start with intro
         setTimeout(() => {
             const aiName = aiCompanionData?.ai_name_en || 'AI';
             const message = conversationMessages.intro.en.replace('{ai_name}', aiName);
             addChatMessage('ai', message);
             speakText(message, 'conversation');
             
-            // After intro, ask for language
             setTimeout(() => {
                 askLanguage();
             }, 4000);
@@ -337,12 +371,10 @@ function startConversation() {
     }
 }
 
-// ========== Chat Display Functions ==========
 function addChatMessage(sender, text) {
     const chatDisplay = $('#chatDisplay');
     
     if (!chatDisplay.length) {
-        // Create chat display if not exists
         $('<div id="chatDisplay" class="chat-display"></div>').insertBefore('#messageInput').parent();
     }
     
@@ -358,18 +390,15 @@ function addChatMessage(sender, text) {
     
     $('#chatDisplay').append(messageHtml);
     
-    // Scroll to bottom
     setTimeout(() => {
         $('#chatDisplay').scrollTop($('#chatDisplay')[0].scrollHeight);
     }, 100);
     
-    // Also show in speech bubble for AI messages
     if (sender === 'ai') {
         showAIMessage(text, 0);
     }
 }
 
-// ========== Check Setup Status ==========
 async function checkSetupStatus() {
     if (isCheckingSetup) {
         console.log('⚠️ Already checking setup, skipping...');
@@ -416,7 +445,6 @@ async function checkSetupStatus() {
         isCheckingSetup = false;
         console.error('Check setup error:', error);
         
-        // Start fresh
         const aiName = aiCompanionData?.ai_name_en || 'AI';
         const message = conversationMessages.intro.en.replace('{ai_name}', aiName);
         addChatMessage('ai', message);
@@ -428,7 +456,6 @@ async function checkSetupStatus() {
     }
 }
 
-// ========== Ask Language ==========
 function askLanguage() {
     currentStep = 'language';
     stepHistory.push({step: 'language'});
@@ -437,7 +464,6 @@ function askLanguage() {
     addChatMessage('ai', message);
     speakText(message, 'conversation');
     
-    // Show language choices
     setTimeout(() => {
         showLanguageChoices();
     }, 2000);
@@ -473,18 +499,15 @@ function showLanguageChoices() {
         selectedLanguage = $(this).data('value');
         const langName = $(this).data('name');
         
-        // ✅ Play voice feedback when language is selected
         const confirmMessage = conversationMessages.language_selected[selectedLanguage];
         speakText(confirmMessage, 'conversation');
         
-        // Add to chat display
         addChatMessage('user', langName);
         
         $('#confirmBtn').prop('disabled', false);
     });
 }
 
-// ========== Start Registration ==========
 function startRegistration() {
     currentStep = 'register_name';
     stepHistory.push({step: 'register_name'});
@@ -503,17 +526,13 @@ function handleUserInput() {
     
     if (!input) return;
     
-    // Add user message to chat
     addChatMessage('user', input);
     
-    // Clear input
     $('#messageInput').val('');
     disableInput();
     
-    // Show thinking icon briefly
     showThinkingIcon();
     
-    // Process based on current step
     setTimeout(() => {
         hideThinkingIcon();
         
@@ -527,9 +546,7 @@ function handleUserInput() {
                 addChatMessage('ai', askLastnameMsg);
                 speakText(askLastnameMsg);
                 
-                setTimeout(() => {
-                    enableInput();
-                }, 500);
+                setTimeout(() => enableInput(), 500);
                 break;
                 
             case 'register_lastname':
@@ -543,9 +560,7 @@ function handleUserInput() {
                 addChatMessage('ai', askEmailMsg);
                 speakText(askEmailMsg);
                 
-                setTimeout(() => {
-                    enableInput();
-                }, 500);
+                setTimeout(() => enableInput(), 500);
                 break;
                 
             case 'register_email':
@@ -556,9 +571,7 @@ function handleUserInput() {
                     addChatMessage('ai', errorMsg);
                     speakText(errorMsg);
                     
-                    setTimeout(() => {
-                        enableInput();
-                    }, 500);
+                    setTimeout(() => enableInput(), 500);
                     return;
                 }
                 registrationData.email = input;
@@ -569,9 +582,7 @@ function handleUserInput() {
                 addChatMessage('ai', askPhoneMsg);
                 speakText(askPhoneMsg);
                 
-                setTimeout(() => {
-                    enableInput();
-                }, 500);
+                setTimeout(() => enableInput(), 500);
                 break;
                 
             case 'register_phone':
@@ -583,9 +594,7 @@ function handleUserInput() {
                 addChatMessage('ai', askPasswordMsg);
                 speakText(askPasswordMsg);
                 
-                setTimeout(() => {
-                    enableInput('password');
-                }, 500);
+                setTimeout(() => enableInput('password'), 500);
                 break;
                 
             case 'register_password':
@@ -596,15 +605,12 @@ function handleUserInput() {
                     addChatMessage('ai', errorMsg);
                     speakText(errorMsg);
                     
-                    setTimeout(() => {
-                        enableInput('password');
-                    }, 500);
+                    setTimeout(() => enableInput('password'), 500);
                     return;
                 }
                 registrationData.password = input;
                 stepHistory.push({step: 'register_password', data: {password: input}});
                 
-                // Show confirmation
                 showRegistrationConfirmation();
                 break;
                 
@@ -621,9 +627,7 @@ function handleUserInput() {
                 addChatMessage('ai', askPwdMsg);
                 speakText(askPwdMsg);
                 
-                setTimeout(() => {
-                    enableInput('password');
-                }, 500);
+                setTimeout(() => enableInput('password'), 500);
                 break;
                 
             case 'login_password':
@@ -632,7 +636,6 @@ function handleUserInput() {
                 break;
                 
             case 'question_text':
-                // Save text answer
                 const currentQuestion = questions[currentQuestionIndex];
                 answers[currentQuestion.question_id] = {
                     question_id: currentQuestion.question_id,
@@ -646,7 +649,6 @@ function handleUserInput() {
     }, 800);
 }
 
-// ========== Show Registration Confirmation (WITH EDIT BUTTONS) ==========
 function showRegistrationConfirmation() {
     const message = conversationMessages.confirm_registration[selectedLanguage];
     addChatMessage('ai', message);
@@ -654,7 +656,6 @@ function showRegistrationConfirmation() {
     
     const html = `
         <div class="registration-summary">
-            <!-- First Name -->
             <div class="summary-item" id="summaryName">
                 <div style="flex: 1;">
                     <span class="summary-label">${selectedLanguage === 'th' ? 'ชื่อ' : 'First Name'}:</span>
@@ -665,7 +666,6 @@ function showRegistrationConfirmation() {
                 </button>
             </div>
             
-            <!-- Last Name -->
             <div class="summary-item" id="summaryLastname">
                 <div style="flex: 1;">
                     <span class="summary-label">${selectedLanguage === 'th' ? 'นามสกุล' : 'Last Name'}:</span>
@@ -676,7 +676,6 @@ function showRegistrationConfirmation() {
                 </button>
             </div>
             
-            <!-- Email -->
             <div class="summary-item" id="summaryEmail">
                 <div style="flex: 1;">
                     <span class="summary-label">${selectedLanguage === 'th' ? 'อีเมล' : 'Email'}:</span>
@@ -687,7 +686,6 @@ function showRegistrationConfirmation() {
                 </button>
             </div>
             
-            <!-- Phone -->
             <div class="summary-item" id="summaryPhone">
                 <div style="flex: 1;">
                     <span class="summary-label">${selectedLanguage === 'th' ? 'เบอร์โทร' : 'Phone'}:</span>
@@ -698,7 +696,6 @@ function showRegistrationConfirmation() {
                 </button>
             </div>
             
-            <!-- Password -->
             <div class="summary-item" id="summaryPassword">
                 <div style="flex: 1;">
                     <span class="summary-label">${selectedLanguage === 'th' ? 'รหัสผ่าน' : 'Password'}:</span>
@@ -720,14 +717,12 @@ function showRegistrationConfirmation() {
     
     $('#confirmBtn').prop('disabled', false).html(`<i class="fas fa-check"></i> ${selectedLanguage === 'th' ? 'ลงทะเบียน' : 'Register'}`);
     
-    // Handle edit buttons
     $('.edit-field-btn').on('click', function() {
         const field = $(this).data('field');
         editRegistrationField(field);
     });
 }
 
-// ========== Edit Registration Field ==========
 function editRegistrationField(field) {
     const labels = {
         name: selectedLanguage === 'th' ? 'ชื่อ' : 'First Name',
@@ -759,16 +754,13 @@ function editRegistrationField(field) {
         </button>
     `);
     
-    // Focus on input
     $(`#edit${field}`).focus();
     
-    // Handle save button
     $('.save-field-btn').on('click', function() {
         const fieldName = $(this).data('field');
         saveEditedField(fieldName);
     });
     
-    // Handle Enter key
     $(`#edit${field}`).on('keydown', function(e) {
         if (e.key === 'Enter') {
             e.preventDefault();
@@ -777,7 +769,6 @@ function editRegistrationField(field) {
     });
 }
 
-// ========== Save Edited Field ==========
 function saveEditedField(field) {
     const newValue = $(`#edit${field}`).val().trim();
     
@@ -789,7 +780,6 @@ function saveEditedField(field) {
         password: selectedLanguage === 'th' ? 'รหัสผ่าน' : 'Password'
     };
     
-    // Validate
     if (!newValue) {
         alert(selectedLanguage === 'th' ? 'กรุณากรอกข้อมูล' : 'Please enter a value');
         return;
@@ -805,10 +795,8 @@ function saveEditedField(field) {
         return;
     }
     
-    // Save new value
     registrationData[field] = newValue;
     
-    // Update display
     const displayValue = field === 'password' ? '••••••••' : escapeHtml(newValue);
     const summaryItem = $(`#summary${field.charAt(0).toUpperCase() + field.slice(1)}`);
     
@@ -822,14 +810,12 @@ function saveEditedField(field) {
         </button>
     `);
     
-    // Re-bind edit button
     $('.edit-field-btn').on('click', function() {
         const fieldToEdit = $(this).data('field');
         editRegistrationField(fieldToEdit);
     });
 }
 
-// ========== Submit Registration ==========
 function submitRegistration() {
     hideAIMessage();
     hideChoices();
@@ -868,7 +854,6 @@ function submitRegistration() {
                 addChatMessage('ai', otpMsg);
                 speakText(otpMsg);
                 
-                // Show OTP input
                 setTimeout(() => {
                     showOTPInput();
                 }, 2500);
@@ -877,7 +862,6 @@ function submitRegistration() {
                 addChatMessage('ai', errorMsg);
                 speakText(selectedLanguage === 'th' ? 'การลงทะเบียนล้มเหลว' : 'Registration failed');
                 
-                // Allow retry
                 setTimeout(() => {
                     showRegistrationConfirmation();
                 }, 1500);
@@ -898,7 +882,6 @@ function submitRegistration() {
     });
 }
 
-// ========== Show OTP Input ==========
 function showOTPInput() {
     const html = `
         <div class="otp-container">
@@ -920,7 +903,6 @@ function showOTPInput() {
     
     $('#otp1').focus();
     
-    // Handle Paste Event
     $('.otp-input').on('paste', function(e) {
         e.preventDefault();
         
@@ -941,7 +923,6 @@ function showOTPInput() {
         }
     });
     
-    // Handle typing
     $('.otp-input').on('input', function() {
         this.value = this.value.replace(/\D/g, '');
         
@@ -959,7 +940,6 @@ function showOTPInput() {
         }
     });
     
-    // Handle backspace
     $('.otp-input').on('keydown', function(e) {
         if (e.key === 'Backspace' && !this.value) {
             $(this).prev('.otp-input').focus();
@@ -1019,7 +999,6 @@ function verifyOTP(otp) {
     });
 }
 
-// ========== Show Login Prompt ==========
 function showLoginPrompt() {
     currentStep = 'login_username';
     stepHistory.push({step: 'login_username'});
@@ -1033,7 +1012,6 @@ function showLoginPrompt() {
     }, 500);
 }
 
-// ========== Submit Login ==========
 function submitLogin(username, password) {
     hideAIMessage();
     showLoading(selectedLanguage === 'th' ? 'กำลังเข้าสู่ระบบ...' : 'Logging in...');
@@ -1078,7 +1056,6 @@ function submitLogin(username, password) {
     });
 }
 
-// ========== Start Questions ==========
 async function startQuestions() {
     if (isStartingQuestions) {
         console.log('⚠️ Already starting questions, skipping...');
@@ -1120,20 +1097,16 @@ function askQuestion(index) {
     currentQuestionIndex = index;
     const question = questions[index];
     
-    // Update progress
     const progress = ((index + 1) / questions.length) * 100;
     $('#progressFill').css('width', progress + '%');
     $('#currentQ').text(index + 1);
     
-    // Get question text in selected language
     const langCol = 'question_text_' + selectedLanguage;
     const questionText = question[langCol] || question.question_text_th;
     
-    // Show AI message
     addChatMessage('ai', questionText);
     speakText(questionText, 'question');
     
-    // Show appropriate input
     setTimeout(() => {
         if (question.question_type === 'choice') {
             showQuestionChoices(question);
@@ -1146,7 +1119,6 @@ function askQuestion(index) {
     }, 2000);
 }
 
-// ========== Show Question Choices ==========
 function showQuestionChoices(question) {
     const choiceLangCol = 'choice_text_' + selectedLanguage;
     
@@ -1186,7 +1158,6 @@ function showQuestionChoices(question) {
     });
 }
 
-// ========== Show Scale Options ==========
 function showScaleOptions(question) {
     const html = `
         <div class="scale-container">
@@ -1253,7 +1224,6 @@ function handleChoiceConfirm() {
         
         submitRegistration();
     } else {
-        // Question answered
         hideChoices();
         
         showThinkingIcon();
@@ -1273,7 +1243,6 @@ function nextQuestion() {
     }, 500);
 }
 
-// ========== Back Button Handler ==========
 function handleBackButton() {
     if (stepHistory.length <= 1) {
         console.log('Cannot go back further');
@@ -1328,7 +1297,6 @@ function handleBackButton() {
     }
 }
 
-// ========== Complete Setup ==========
 function completeSetup() {
     hideChoices();
     showLoading(selectedLanguage === 'th' ? 'กำลังบันทึกคำตอบ...' : 'Saving your answers...');
@@ -1429,14 +1397,10 @@ function disableInput() {
     $('#sendBtn').prop('disabled', true);
 }
 
-// ========== 🎙️ TTS Functions with ElevenLabs ==========
-/**
- * ✅ Speak text using ElevenLabs API (same as ai_chat_3d.js)
- */
+// ========== ✅ TTS Functions with Random Video Switching ==========
 function speakText(text, cacheType = 'conversation') {
-    console.log('🔊 Speaking with cache:', text.substring(0, 50) + '...', '| Type:', cacheType);
+    console.log('🔊 Speaking:', text.substring(0, 50) + '...', '| Type:', cacheType);
     
-    // Stop any currently playing audio
     if (currentAudio) {
         currentAudio.pause();
         currentAudio = null;
@@ -1445,12 +1409,13 @@ function speakText(text, cacheType = 'conversation') {
     isSpeaking = true;
     window.isSpeaking = true;
     
-    // Switch to speaking video
-    if (speakingVideoUrl) {
-        switchToVideo(speakingVideoUrl);
+    // ✅ Switch to random speaking video
+    currentVideoState = 'speaking';
+    const randomSpeakingVideo = getRandomSpeakingVideo();
+    if (randomSpeakingVideo) {
+        switchToVideo(randomSpeakingVideo);
     }
     
-    // Split text into chunks if needed
     const maxLength = 200;
     const chunks = [];
     
@@ -1474,16 +1439,16 @@ function speakText(text, cacheType = 'conversation') {
     playTTSChunks(chunks, 0, selectedLanguage, cacheType);
 }
 
-/**
- * 🎙️ Play TTS chunks with ElevenLabs v3 API
- */
 function playTTSChunks(chunks, index, langCode, cacheType = 'conversation') {
     if (index >= chunks.length) {
         isSpeaking = false;
         window.isSpeaking = false;
         
-        if (idleVideoUrl) {
-            switchToVideo(idleVideoUrl);
+        // ✅ Switch back to random idle video
+        currentVideoState = 'idle';
+        const randomIdleVideo = getRandomIdleVideo();
+        if (randomIdleVideo) {
+            switchToVideo(randomIdleVideo);
         }
         
         console.log('✅ TTS completed');
@@ -1494,24 +1459,20 @@ function playTTSChunks(chunks, index, langCode, cacheType = 'conversation') {
     
     console.log(`🔊 Playing chunk ${index + 1}/${chunks.length} | Type: ${cacheType}`);
     
-    // ✅ Prepare request data
     const requestData = {
         text: chunk,
         language: langCode,
         cache_type: cacheType
     };
     
-    // ✅ Send user_companion_id if available
     if (companionId) {
         requestData.user_companion_id = companionId;
     }
     
-    // ✅ Send ai_id if available
     if (aiCompanionData && aiCompanionData.ai_id) {
         requestData.ai_id = aiCompanionData.ai_id;
     }
     
-    // ✅ Send voice_id if available
     if (aiCompanionData && aiCompanionData.voice_id) {
         requestData.voice_id = aiCompanionData.voice_id;
     }
@@ -1553,9 +1514,6 @@ function playTTSChunks(chunks, index, langCode, cacheType = 'conversation') {
     });
 }
 
-/**
- * 🔊 Play audio from URL with callbacks
- */
 function playAudioFromURL(audioUrl, onEndCallback, onErrorCallback) {
     if (currentAudio) {
         currentAudio.pause();
@@ -1590,15 +1548,15 @@ function playAudioFromURL(audioUrl, onEndCallback, onErrorCallback) {
     currentAudio.load();
 }
 
-/**
- * 🔄 Fallback TTS (Web Speech API)
- */
 function playFallbackTTS(text, langCode, callback) {
     if (!window.speechSynthesis) {
         console.error('❌ Web Speech API not available');
         isSpeaking = false;
         window.isSpeaking = false;
-        if (idleVideoUrl) switchToVideo(idleVideoUrl);
+        
+        const randomIdleVideo = getRandomIdleVideo();
+        if (randomIdleVideo) switchToVideo(randomIdleVideo);
+        
         if (callback) callback();
         return;
     }
@@ -1609,7 +1567,6 @@ function playFallbackTTS(text, langCode, callback) {
     
     const utterance = new SpeechSynthesisUtterance(text);
     
-    // Map language codes
     if (langCode === 'th') {
         utterance.lang = 'th-TH';
     } else if (langCode === 'cn') {
@@ -1641,7 +1598,10 @@ function playFallbackTTS(text, langCode, callback) {
         console.error('Web Speech error:', event);
         isSpeaking = false;
         window.isSpeaking = false;
-        if (idleVideoUrl) switchToVideo(idleVideoUrl);
+        
+        const randomIdleVideo = getRandomIdleVideo();
+        if (randomIdleVideo) switchToVideo(randomIdleVideo);
+        
         if (callback) callback();
     };
     
@@ -1649,22 +1609,22 @@ function playFallbackTTS(text, langCode, callback) {
 }
 
 function switchToVideo(videoUrl) {
-    const video = $('#avatarVideo')[0];
+    if (!currentVideo) return;
     
-    video.style.opacity = '0.3';
+    currentVideo.style.opacity = '0.3';
     
     setTimeout(() => {
-        video.src = videoUrl;
-        video.load();
+        currentVideo.src = videoUrl;
+        currentVideo.load();
         
-        video.addEventListener('canplay', function onCanPlay() {
-            video.removeEventListener('canplay', onCanPlay);
+        currentVideo.addEventListener('canplay', function onCanPlay() {
+            currentVideo.removeEventListener('canplay', onCanPlay);
             
-            video.play().then(() => {
-                video.style.opacity = '1';
+            currentVideo.play().then(() => {
+                currentVideo.style.opacity = '1';
             }).catch(e => {
                 console.error('Play error:', e);
-                video.style.opacity = '1';
+                currentVideo.style.opacity = '1';
             });
         });
     }, 300);
@@ -1754,6 +1714,7 @@ function validateEmail(email) {
 }
 
 function escapeHtml(text) {
+    if (!text) return '';
     const map = {
         '&': '&amp;',
         '<': '&lt;',
@@ -1764,4 +1725,4 @@ function escapeHtml(text) {
     return text.replace(/[&<>"']/g, m => map[m]);
 }
 
-console.log('✅ AI Setup Chat System with ElevenLabs TTS Loaded');
+console.log('✅ AI Setup Chat System with Random Video Selection Loaded');
