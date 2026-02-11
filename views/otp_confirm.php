@@ -23,9 +23,17 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
     <link href="app/css/index_.css?v=<?php echo time(); ?>" rel="stylesheet">
 
     <style>
+        :root {
+            --luxury-black: #000000;
+            --luxury-white: #ffffff;
+            --luxury-gray: #666666;
+            --luxury-light-gray: #f5f5f5;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: #f8f8f8;
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            min-height: 100vh;
         }
 
         .height-100 {
@@ -40,58 +48,82 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
             width: 100%;
             max-width: 450px;
             border: none;
-            box-shadow: 0px 5px 20px 0px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
             z-index: 1;
             justify-content: center;
             align-items: center;
-            border-radius: 10px;
+            border-radius: 12px;
             padding: 40px;
-            background: #fff;
+            background: var(--luxury-white);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--luxury-black) 0%, #333 100%);
         }
 
         .card h6 {
-            color: #ff9800;
-            font-size: 20px;
-            margin-bottom: 20px;
+            color: var(--luxury-black);
+            font-size: 22px;
+            margin-bottom: 25px;
             text-align: center;
+            font-weight: 600;
+            letter-spacing: 0.5px;
         }
 
         .verification-type {
-            background: #f8f9fa;
-            padding: 10px 20px;
-            border-radius: 5px;
-            margin: 15px 0;
+            background: var(--luxury-black);
+            padding: 12px 24px;
+            border-radius: 8px;
+            margin: 20px 0;
             font-size: 14px;
-            color: #666;
+            color: var(--luxury-white);
             text-align: center;
+            letter-spacing: 0.5px;
         }
 
         .verification-type i {
-            margin-right: 8px;
-            color: #ff9800;
+            margin-right: 10px;
+            color: var(--luxury-white);
+        }
+
+        .card > div:nth-child(3) {
+            color: var(--luxury-gray);
+            margin: 20px 0;
         }
 
         .inputs {
             display: flex;
             flex-wrap: wrap;
             justify-content: center;
-            gap: 8px;
+            gap: 10px;
         }
 
         .inputs input {
-            width: 45px;
-            height: 45px;
+            width: 50px;
+            height: 50px;
             text-align: center;
-            font-size: 20px;
+            font-size: 24px;
             font-weight: bold;
             border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            background: var(--luxury-white);
+            color: var(--luxury-black);
         }
 
         .inputs input:focus {
-            border-color: #ff9800;
+            border-color: var(--luxury-black);
             outline: none;
-            box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
+            box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.1);
+            transform: scale(1.05);
         }
 
         input[type=number]::-webkit-inner-spin-button,
@@ -103,21 +135,26 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
         }
 
         .validate {
-            border-radius: 20px;
-            height: 40px;
-            background-color: #FF9800;
-            border: 1px solid #FF9800;
-            width: 140px;
-            color: #ffffff;
+            border-radius: 25px;
+            height: 48px;
+            background-color: var(--luxury-black);
+            border: 2px solid var(--luxury-black);
+            width: 160px;
+            color: var(--luxury-white);
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            font-size: 14px;
         }
 
         .validate:hover {
-            color: #ffffff;
-            box-shadow: 1px 2px 8px #FF9800;
+            background-color: #333;
+            border-color: #333;
+            color: var(--luxury-white);
             transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
         }
 
         .validate:active {
@@ -126,24 +163,27 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
 
         #maskedNumber {
             font-size: 16px;
-            color: #333;
-            font-weight: 500;
+            color: var(--luxury-black);
+            font-weight: 600;
+            letter-spacing: 1px;
         }
 
         .resend-link {
-            margin-top: 15px;
-            font-size: 13px;
-            color: #666;
+            margin-top: 20px;
+            font-size: 14px;
+            color: var(--luxury-gray);
         }
 
         .resend-link a {
-            color: #ff9800;
+            color: var(--luxury-black);
             text-decoration: none;
             font-weight: 600;
+            transition: all 0.3s ease;
+            border-bottom: 1px solid transparent;
         }
 
         .resend-link a:hover {
-            text-decoration: underline;
+            border-bottom: 1px solid var(--luxury-black);
         }
 
         #loading-overlay {
@@ -152,7 +192,8 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
             display: none;
             justify-content: center;
             align-items: center;
@@ -164,10 +205,10 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
         }
 
         .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5px solid #ff9800;
+            width: 60px;
+            height: 60px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top: 4px solid var(--luxury-white);
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
@@ -175,6 +216,29 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        /* Mobile responsive */
+        @media (max-width: 480px) {
+            .card {
+                padding: 30px 20px;
+            }
+
+            .card h6 {
+                font-size: 18px;
+            }
+
+            .inputs input {
+                width: 45px;
+                height: 45px;
+                font-size: 20px;
+            }
+
+            .validate {
+                width: 140px;
+                height: 44px;
+                font-size: 13px;
+            }
         }
     </style>
 
@@ -250,7 +314,7 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
                         <input class="text-center form-control rounded" type="text" id="sixth" maxlength="1" autocomplete="off" />
                     </div>
                     
-                    <div class="mt-4">
+                    <div class="mt-4" style="padding-top: 1em; display: flex; justify-content: center;">
                         <button id="confirm_emailBtn" class="px-4 validate">Confirm</button>
                     </div>
                     
@@ -295,8 +359,8 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
                         <input class="text-center form-control rounded" type="text" id="sixth" maxlength="1" autocomplete="off" />
                     </div>
                     
-                    <div class="mt-4">
-                        <button id="confirm_resetBtn" class="px-4 validate">Confirm</button>
+                    <div class="mt-4" style="padding-top: 1em;">
+                        <button id="confirm_resetBtn" class="px-4 validate" style="padding-top: 1em;">Confirm</button>
                     </div>
                     
                     <div class="resend-link">
@@ -537,7 +601,7 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
                                 title: 'Registration Complete!',
                                 text: 'Please login to continue activating your AI companion',
                                 showConfirmButton: true,
-                                confirmButtonColor: '#ff9800'
+                                confirmButtonColor: '#000000'
                             }).then(() => {
                                 // เก็บ pending_ai ใน sessionStorage
                                 sessionStorage.setItem('pending_ai_code', pendingAi);
@@ -560,7 +624,7 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
                                 title: 'Registration Complete!',
                                 text: 'Please login to continue',
                                 showConfirmButton: true,
-                                confirmButtonColor: '#ff9800'
+                                confirmButtonColor: '#000000'
                             }).then(() => {
                                 window.location.href = '?lang=' + currentLang;
                             });
@@ -573,7 +637,7 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
                             title: 'Error!',
                             text: response.message || 'Invalid OTP code',
                             showConfirmButton: true,
-                            confirmButtonColor: '#ff9800'
+                            confirmButtonColor: '#000000'
                         });
                     }
                 },
@@ -588,7 +652,7 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
                         title: 'Connection Error',
                         text: 'Unable to verify OTP. Please try again.',
                         showConfirmButton: true,
-                        confirmButtonColor: '#ff9800'
+                        confirmButtonColor: '#000000'
                     });
                 }
             });
