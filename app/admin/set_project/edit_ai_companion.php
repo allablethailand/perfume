@@ -13,7 +13,7 @@
     <script src="../../../inc/bootstrap/js/bootstrap.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/fontawesome5-fullcss@1.1.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="../../../inc/sweetalert2/css/sweetalert2.min.css" rel="stylesheet">
     <script src="../../../inc/sweetalert2/js/sweetalert2.all.min.js"></script>
     <link href='../css/index_.css?v=<?php echo time(); ?>' rel='stylesheet'>
@@ -93,9 +93,9 @@ include '../template/header.php';
                             </div>
                             <div class="card-body">
                                 
-                                <!-- Item Selection (ขวดน้ำหอม) -->
+                                <!-- Item Selection -->
                                 <div class="form-group mb-4">
-                                    <label><i class="fas fa-bottle-droplet"></i> Select Perfume Bottle (ขวด) *</label>
+                                    <label><i class="fas fa-bottle-droplet"></i> Select Perfume Bottle *</label>
                                     <select class="form-control" id="item_id" name="item_id" required>
                                         <option value="">-- Select Bottle --</option>
                                         <?php foreach ($items as $item): ?>
@@ -121,13 +121,13 @@ include '../template/header.php';
                                 <!-- AI Avatar -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-image"></i> AI Avatar Image</label>
-                                    <div class="ai-avatar-upload" onclick="document.getElementById('aiAvatar').click()">
-                                        <div id="avatarPreview" class="avatar-preview">
+                                    <div class="upload-zone" onclick="document.getElementById('aiAvatar').click()">
+                                        <div id="avatarPreview">
                                             <?php if ($ai['ai_avatar_url']): ?>
-                                                <div style="position: relative;">
-                                                    <img src="<?= htmlspecialchars($ai['ai_avatar_url']) ?>" style="width: 100%; height: 250px; object-fit: cover; border-radius: 8px;">
-                                                    <button type="button" class="btn btn-danger btn-sm" id="deleteAvatar" style="position: absolute; top: 10px; right: 10px;">
-                                                        <i class="fas fa-trash"></i> Delete
+                                                <div class="upload-preview-avatar">
+                                                    <img src="<?= htmlspecialchars($ai['ai_avatar_url']) ?>">
+                                                    <button type="button" class="delete-btn" id="deleteAvatar">
+                                                        <i class="fas fa-trash"></i>
                                                     </button>
                                                 </div>
                                             <?php else: ?>
@@ -141,18 +141,18 @@ include '../template/header.php';
                                     <input type="hidden" id="deleteAvatarFlag" name="delete_avatar" value="0">
                                 </div>
 
-                                <!-- AI Video (วิดีโอเปิดตัว) -->
+                                <!-- AI Intro Video -->
                                 <div class="form-group mb-4">
-                                    <label><i class="fas fa-video"></i> AI Intro Video (วิดีโอเปิดตัว)</label>
-                                    <div class="ai-video-upload" onclick="document.getElementById('aiVideo').click()">
-                                        <div id="videoPreview" class="video-preview">
+                                    <label><i class="fas fa-video"></i> AI Intro Video</label>
+                                    <div class="upload-zone" onclick="document.getElementById('aiVideo').click()">
+                                        <div id="videoPreview">
                                             <?php if ($ai['ai_video_url']): ?>
-                                                <div style="position: relative;">
-                                                    <video controls style="width: 100%; height: 250px; border-radius: 8px;">
+                                                <div class="upload-preview-video">
+                                                    <video controls>
                                                         <source src="<?= htmlspecialchars($ai['ai_video_url']) ?>">
                                                     </video>
-                                                    <button type="button" class="btn btn-danger btn-sm" id="deleteVideo" style="position: absolute; top: 10px; right: 10px;">
-                                                        <i class="fas fa-trash"></i> Delete
+                                                    <button type="button" class="delete-btn" id="deleteVideo">
+                                                        <i class="fas fa-trash"></i>
                                                     </button>
                                                 </div>
                                             <?php else: ?>
@@ -166,121 +166,102 @@ include '../template/header.php';
                                     <input type="hidden" id="deleteVideoFlag" name="delete_video" value="0">
                                     <small class="text-muted">วิดีโอแนะนำตัวเมื่อเริ่มต้นใช้งาน AI</small>
                                 </div>
-<!-- แทนที่ส่วน Idle Video และ Talking Video เดิมด้วยโค้ดนี้ -->
 
-<!-- Idle Videos (Multiple) -->
-<div class="form-group mb-4">
-    <label><i class="fas fa-video"></i> Idle Videos (วิดีโอก่อนพูด/ไม่พูด) - หลายไฟล์</label>
-    
-    <!-- Existing Videos -->
-    <div id="existingIdleVideos" class="existing-videos-grid mb-3" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
-        <?php 
-        $idle_urls = json_decode($ai['idle_video_urls'] ?? '[]', true);
-        if (!empty($idle_urls)):
-            foreach ($idle_urls as $idx => $url): 
-        ?>
-            <div class="video-item" data-url="<?= htmlspecialchars($url) ?>" style="position: relative;">
-                <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
-                    <source src="<?= htmlspecialchars($url) ?>">
-                </video>
-                <button type="button" class="btn btn-danger btn-sm delete-idle-video" 
-                        data-url="<?= htmlspecialchars($url) ?>" 
-                        style="position: absolute; top: 5px; right: 5px; padding: 2px 6px;">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        <?php 
-            endforeach;
-        endif; 
-        ?>
-    </div>
-    
-    <!-- Upload New Videos -->
-    <div class="ai-video-upload" onclick="document.getElementById('idleVideos').click()">
-        <div class="video-preview">
-            <i class="fas fa-pause-circle"></i>
-            <p>Click to add more idle videos</p>
-            <small>MP4, WebM (Max 50MB each) - Multiple files allowed</small>
-        </div>
-    </div>
-    
-    <input type="file" id="idleVideos" name="idle_videos[]" accept="video/*" multiple style="display: none;">
-    <input type="hidden" id="deletedIdleVideos" name="deleted_idle_videos" value="[]">
-    
-    <!-- Preview Container for New Videos -->
-    <div id="newIdleVideosPreview" class="mt-3" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
-        <!-- New videos will be displayed here -->
-    </div>
-    
-    <small class="text-muted d-block mt-2">วิดีโอที่แสดงเมื่อ AI ไม่ได้พูด (จะ Random เล่น)</small>
-</div>
+                                <!-- Idle Videos (Multiple) -->
+                                <div class="form-group mb-4">
+                                    <label><i class="fas fa-pause-circle"></i> Idle Videos (หลายไฟล์)</label>
+                                    
+                                    <!-- Existing Videos -->
+                                    <?php 
+                                    $idle_urls = json_decode($ai['idle_video_urls'] ?? '[]', true);
+                                    if (!empty($idle_urls)): 
+                                    ?>
+                                        <div id="existingIdleVideos" class="video-grid mb-3">
+                                            <?php foreach ($idle_urls as $idx => $url): ?>
+                                                <div class="video-item" data-url="<?= htmlspecialchars($url) ?>">
+                                                    <video controls>
+                                                        <source src="<?= htmlspecialchars($url) ?>">
+                                                    </video>
+                                                    <button type="button" class="delete-btn delete-idle-video" data-url="<?= htmlspecialchars($url) ?>">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                    <div class="video-label">Idle Video <?= $idx + 1 ?></div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <!-- Upload New Videos -->
+                                    <div class="upload-zone" onclick="document.getElementById('idleVideos').click()">
+                                        <i class="fas fa-pause-circle"></i>
+                                        <p>Click to add more idle videos</p>
+                                        <small>MP4, WebM (Max 50MB each) - Multiple files allowed</small>
+                                    </div>
+                                    
+                                    <input type="file" id="idleVideos" name="idle_videos[]" accept="video/*" multiple style="display: none;">
+                                    <input type="hidden" id="deletedIdleVideos" name="deleted_idle_videos" value="[]">
+                                    
+                                    <!-- Preview Container for New Videos -->
+                                    <div id="newIdleVideosPreview" class="video-grid mt-3"></div>
+                                    
+                                    <small class="text-muted">วิดีโอที่แสดงเมื่อ AI ไม่ได้พูด (จะ Random เล่น)</small>
+                                </div>
 
-<!-- Talking Videos (Multiple) -->
-<div class="form-group mb-4">
-    <label><i class="fas fa-video"></i> Talking Videos (วิดีโอกำลังพูด) - หลายไฟล์</label>
-    
-    <!-- Existing Videos -->
-    <div id="existingTalkingVideos" class="existing-videos-grid mb-3" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
-        <?php 
-        $talking_urls = json_decode($ai['talking_video_urls'] ?? '[]', true);
-        if (!empty($talking_urls)):
-            foreach ($talking_urls as $idx => $url): 
-        ?>
-            <div class="video-item" data-url="<?= htmlspecialchars($url) ?>" style="position: relative;">
-                <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
-                    <source src="<?= htmlspecialchars($url) ?>">
-                </video>
-                <button type="button" class="btn btn-danger btn-sm delete-talking-video" 
-                        data-url="<?= htmlspecialchars($url) ?>" 
-                        style="position: absolute; top: 5px; right: 5px; padding: 2px 6px;">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        <?php 
-            endforeach;
-        endif; 
-        ?>
-    </div>
-    
-    <!-- Upload New Videos -->
-    <div class="ai-video-upload" onclick="document.getElementById('talkingVideos').click()">
-        <div class="video-preview">
-            <i class="fas fa-play-circle"></i>
-            <p>Click to add more talking videos</p>
-            <small>MP4, WebM (Max 50MB each) - Multiple files allowed</small>
-        </div>
-    </div>
-    
-    <input type="file" id="talkingVideos" name="talking_videos[]" accept="video/*" multiple style="display: none;">
-    <input type="hidden" id="deletedTalkingVideos" name="deleted_talking_videos" value="[]">
-    
-    <!-- Preview Container for New Videos -->
-    <div id="newTalkingVideosPreview" class="mt-3" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
-        <!-- New videos will be displayed here -->
-    </div>
-    
-    <small class="text-muted d-block mt-2">วิดีโอที่แสดงเมื่อ AI กำลังพูด (จะ Random เล่น)</small>
-</div>
+                                <!-- Talking Videos (Multiple) -->
+                                <div class="form-group mb-4">
+                                    <label><i class="fas fa-play-circle"></i> Talking Videos (หลายไฟล์)</label>
+                                    
+                                    <!-- Existing Videos -->
+                                    <?php 
+                                    $talking_urls = json_decode($ai['talking_video_urls'] ?? '[]', true);
+                                    if (!empty($talking_urls)): 
+                                    ?>
+                                        <div id="existingTalkingVideos" class="video-grid mb-3">
+                                            <?php foreach ($talking_urls as $idx => $url): ?>
+                                                <div class="video-item" data-url="<?= htmlspecialchars($url) ?>">
+                                                    <video controls>
+                                                        <source src="<?= htmlspecialchars($url) ?>">
+                                                    </video>
+                                                    <button type="button" class="delete-btn delete-talking-video" data-url="<?= htmlspecialchars($url) ?>">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                    <div class="video-label">Talking Video <?= $idx + 1 ?></div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                    
+                                    <!-- Upload New Videos -->
+                                    <div class="upload-zone" onclick="document.getElementById('talkingVideos').click()">
+                                        <i class="fas fa-play-circle"></i>
+                                        <p>Click to add more talking videos</p>
+                                        <small>MP4, WebM (Max 50MB each) - Multiple files allowed</small>
+                                    </div>
+                                    
+                                    <input type="file" id="talkingVideos" name="talking_videos[]" accept="video/*" multiple style="display: none;">
+                                    <input type="hidden" id="deletedTalkingVideos" name="deleted_talking_videos" value="[]">
+                                    
+                                    <!-- Preview Container for New Videos -->
+                                    <div id="newTalkingVideosPreview" class="video-grid mt-3"></div>
+                                    
+                                    <small class="text-muted">วิดีโอที่แสดงเมื่อ AI กำลังพูด (จะ Random เล่น)</small>
+                                </div>
                                 
-                                <!-- เพิ่มใน Left Column หลังจาก Talking Video -->
+                                <!-- AI Voice (ElevenLabs) -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-volume-up"></i> AI Voice (ElevenLabs)</label>
                                     
-                                    <!-- Voice ID Input -->
                                     <input type="text" class="form-control mb-2" id="voice_id" name="voice_id" 
                                         placeholder="Enter Voice ID (e.g., UdFuclGJ1KL5tAeoBeE0)"
                                         value="<?= htmlspecialchars($ai['voice_id'] ?? '') ?>">
                                     
-                                    <!-- Voice Name Input -->
                                     <input type="text" class="form-control mb-2" id="voice_name" name="voice_name" 
                                         placeholder="Voice Name (e.g., Rachel - Female, Multilingual)"
                                         value="<?= htmlspecialchars($ai['voice_name'] ?? '') ?>">
                                     
                                     <small class="text-muted">
                                         <i class="fas fa-info-circle"></i> 
-                                        Enter ElevenLabs Voice ID and name. This voice will be used for all languages (TH, EN, CN, JP, KR)
-                                        <br>
-                                        <strong>Popular voices:</strong> Rachel (UdFuclGJ1KL5tAeoBeE0), Adam (pNInz6obpgDQGcFmaJgB), Antoni (ErXwobaYiN019PkySvjV)
+                                        Enter ElevenLabs Voice ID and name
                                     </small>
                                 </div>
                                 
@@ -303,27 +284,27 @@ include '../template/header.php';
                             <div class="card-header p-0">
                                 <ul class="nav nav-tabs" id="languageTabs" role="tablist">
                                     <li class="nav-item">
-                                        <button class="nav-link active" id="th-tab" data-bs-toggle="tab" data-bs-target="#th" type="button">
+                                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#th">
                                             <img src="https://flagcdn.com/w20/th.png" class="flag-icon"> ไทย
                                         </button>
                                     </li>
                                     <li class="nav-item">
-                                        <button class="nav-link" id="en-tab" data-bs-toggle="tab" data-bs-target="#en" type="button">
+                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#en">
                                             <img src="https://flagcdn.com/w20/gb.png" class="flag-icon"> English
                                         </button>
                                     </li>
                                     <li class="nav-item">
-                                        <button class="nav-link" id="cn-tab" data-bs-toggle="tab" data-bs-target="#cn" type="button">
+                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#cn">
                                             <img src="https://flagcdn.com/w20/cn.png" class="flag-icon"> 中文
                                         </button>
                                     </li>
                                     <li class="nav-item">
-                                        <button class="nav-link" id="jp-tab" data-bs-toggle="tab" data-bs-target="#jp" type="button">
+                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#jp">
                                             <img src="https://flagcdn.com/w20/jp.png" class="flag-icon"> 日本語
                                         </button>
                                     </li>
                                     <li class="nav-item">
-                                        <button class="nav-link" id="kr-tab" data-bs-toggle="tab" data-bs-target="#kr" type="button">
+                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#kr">
                                             <img src="https://flagcdn.com/w20/kr.png" class="flag-icon"> 한국어
                                         </button>
                                     </li>

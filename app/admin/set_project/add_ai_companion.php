@@ -13,7 +13,7 @@
     <script src="../../../inc/bootstrap/js/bootstrap.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/fontawesome5-fullcss@1.1.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="../../../inc/sweetalert2/css/sweetalert2.min.css" rel="stylesheet">
     <script src="../../../inc/sweetalert2/js/sweetalert2.all.min.js"></script>
     <link href='../css/index_.css?v=<?php echo time(); ?>' rel='stylesheet'>
@@ -86,7 +86,7 @@ include '../template/header.php';
                                 
                                 <!-- Item Selection (ขวดน้ำหอม) -->
                                 <div class="form-group mb-4">
-                                    <label><i class="fas fa-bottle-droplet"></i> Select Perfume Bottle (ขวด) *</label>
+                                    <label><i class="fas fa-bottle-droplet"></i> Select Perfume Bottle *</label>
                                     <select class="form-control" id="item_id" name="item_id" required>
                                         <option value="">-- Select Bottle --</option>
                                         <?php foreach ($items as $item): ?>
@@ -116,8 +116,8 @@ include '../template/header.php';
                                 <!-- AI Avatar -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-image"></i> AI Avatar Image</label>
-                                    <div class="ai-avatar-upload" onclick="document.getElementById('aiAvatar').click()">
-                                        <div id="avatarPreview" class="avatar-preview">
+                                    <div class="upload-zone" onclick="document.getElementById('aiAvatar').click()">
+                                        <div id="avatarPreview">
                                             <i class="fas fa-cloud-upload-alt"></i>
                                             <p>Click to upload avatar</p>
                                             <small>PNG, JPG, GIF (Max 5MB)</small>
@@ -126,11 +126,11 @@ include '../template/header.php';
                                     <input type="file" id="aiAvatar" name="ai_avatar" accept="image/*" style="display: none;">
                                 </div>
 
-                                <!-- AI Video (วิดีโอเปิดตัว) -->
+                                <!-- AI Intro Video -->
                                 <div class="form-group mb-4">
-                                    <label><i class="fas fa-video"></i> AI Intro Video (วิดีโอเปิดตัว)</label>
-                                    <div class="ai-video-upload" onclick="document.getElementById('aiVideo').click()">
-                                        <div id="videoPreview" class="video-preview">
+                                    <label><i class="fas fa-video"></i> AI Intro Video</label>
+                                    <div class="upload-zone" onclick="document.getElementById('aiVideo').click()">
+                                        <div id="videoPreview">
                                             <i class="fas fa-film"></i>
                                             <p>Click to upload intro video</p>
                                             <small>MP4, WebM (Max 50MB)</small>
@@ -140,51 +140,35 @@ include '../template/header.php';
                                     <small class="text-muted">วิดีโอแนะนำตัวเมื่อเริ่มต้นใช้งาน AI</small>
                                 </div>
 
-<!-- Idle Videos (Multiple) -->
-<div class="form-group mb-4">
-    <label><i class="fas fa-video"></i> Idle Videos (วิดีโอก่อนพูด/ไม่พูด) - หลายไฟล์</label>
-    
-    <div class="ai-video-upload" onclick="document.getElementById('idleVideos').click()">
-        <div class="video-preview">
-            <i class="fas fa-pause-circle"></i>
-            <p>Click to upload idle videos</p>
-            <small>MP4, WebM (Max 50MB each) - Multiple files allowed</small>
-        </div>
-    </div>
-    
-    <input type="file" id="idleVideos" name="idle_videos[]" accept="video/*" multiple style="display: none;">
-    
-    <!-- Preview Container for Multiple Videos -->
-    <div id="idleVideosPreview" class="mt-3" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
-        <!-- Videos will be displayed here -->
-    </div>
-    
-    <small class="text-muted d-block mt-2">วิดีโอที่แสดงเมื่อ AI ไม่ได้พูด (จะ Random เล่น)</small>
-</div>
+                                <!-- Idle Videos (Multiple) -->
+                                <div class="form-group mb-4">
+                                    <label><i class="fas fa-pause-circle"></i> Idle Videos (หลายไฟล์)</label>
+                                    <div class="upload-zone" onclick="document.getElementById('idleVideos').click()">
+                                        <i class="fas fa-pause-circle"></i>
+                                        <p>Click to upload idle videos</p>
+                                        <small>MP4, WebM (Max 50MB each) - Multiple files allowed</small>
+                                    </div>
+                                    <input type="file" id="idleVideos" name="idle_videos[]" accept="video/*" multiple style="display: none;">
+                                    
+                                    <div id="idleVideosPreview" class="video-grid"></div>
+                                    <small class="text-muted">วิดีโอที่แสดงเมื่อ AI ไม่ได้พูด (จะ Random เล่น)</small>
+                                </div>
 
-<!-- Talking Videos (Multiple) -->
-<div class="form-group mb-4">
-    <label><i class="fas fa-video"></i> Talking Videos (วิดีโอกำลังพูด) - หลายไฟล์</label>
-    
-    <div class="ai-video-upload" onclick="document.getElementById('talkingVideos').click()">
-        <div class="video-preview">
-            <i class="fas fa-play-circle"></i>
-            <p>Click to upload talking videos</p>
-            <small>MP4, WebM (Max 50MB each) - Multiple files allowed</small>
-        </div>
-    </div>
-    
-    <input type="file" id="talkingVideos" name="talking_videos[]" accept="video/*" multiple style="display: none;">
-    
-    <!-- Preview Container for Multiple Videos -->
-    <div id="talkingVideosPreview" class="mt-3" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
-        <!-- Videos will be displayed here -->
-    </div>
-    
-    <small class="text-muted d-block mt-2">วิดีโอที่แสดงเมื่อ AI กำลังพูด (จะ Random เล่น)</small>
-</div>
+                                <!-- Talking Videos (Multiple) -->
+                                <div class="form-group mb-4">
+                                    <label><i class="fas fa-play-circle"></i> Talking Videos (หลายไฟล์)</label>
+                                    <div class="upload-zone" onclick="document.getElementById('talkingVideos').click()">
+                                        <i class="fas fa-play-circle"></i>
+                                        <p>Click to upload talking videos</p>
+                                        <small>MP4, WebM (Max 50MB each) - Multiple files allowed</small>
+                                    </div>
+                                    <input type="file" id="talkingVideos" name="talking_videos[]" accept="video/*" multiple style="display: none;">
+                                    
+                                    <div id="talkingVideosPreview" class="video-grid"></div>
+                                    <small class="text-muted">วิดีโอที่แสดงเมื่อ AI กำลังพูด (จะ Random เล่น)</small>
+                                </div>
 
-                                <!-- เพิ่มใน Left Column หลังจาก Talking Video -->
+                                <!-- AI Voice (ElevenLabs) -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-volume-up"></i> AI Voice (ElevenLabs)</label>
                                     
@@ -199,8 +183,6 @@ include '../template/header.php';
                                     <small class="text-muted">
                                         <i class="fas fa-info-circle"></i> 
                                         Enter ElevenLabs Voice ID and name. This voice will be used for all languages (TH, EN, CN, JP, KR)
-                                        <br>
-                                        <strong>Popular voices:</strong> Rachel (UdFuclGJ1KL5tAeoBeE0), Adam (pNInz6obpgDQGcFmaJgB), Antoni (ErXwobaYiN019PkySvjV)
                                     </small>
                                 </div>
 
