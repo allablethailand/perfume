@@ -246,30 +246,34 @@ $(document).ready(function() {
     
     // Avatar Preview
     $('#aiAvatar').on('change', function(e) {
-        let file = e.target.files[0];
-        if (file) {
-            let reader = new FileReader();
-            reader.onload = function(event) {
-                $('#avatarPreview').html(`
-                    <img src="${event.target.result}" style="width: 100%; height: 250px; object-fit: cover; border-radius: 8px;">
-                `);
-            };
-            reader.readAsDataURL(file);
-        }
-    });
+    let file = e.target.files[0];
+    if (file) {
+        let reader = new FileReader();
+        reader.onload = function(event) {
+            $('#avatarPreview').html(`
+                <div class="upload-preview-avatar">
+                    <img src="${event.target.result}">
+                </div>
+            `);
+        };
+        reader.readAsDataURL(file);
+    }
+});
     
     // Intro Video Preview (single)
     $('#aiVideo').on('change', function(e) {
-        let file = e.target.files[0];
-        if (file) {
-            let url = URL.createObjectURL(file);
-            $('#videoPreview').html(`
-                <video controls style="width: 100%; height: 250px; border-radius: 8px;">
+    let file = e.target.files[0];
+    if (file) {
+        let url = URL.createObjectURL(file);
+        $('#videoPreview').html(`
+            <div class="upload-preview-video">
+                <video controls>
                     <source src="${url}" type="${file.type}">
                 </video>
-            `);
-        }
-    });
+            </div>
+        `);
+    }
+});
     
     // ========================================
     // MULTIPLE IDLE VIDEOS PREVIEW (ADD PAGE)
@@ -277,8 +281,6 @@ $(document).ready(function() {
     $('#idleVideos').on('change', function(e) {
     let files = e.target.files;
     let previewContainer = $('#idleVideosPreview');
-    
-    // 🔧 FIX: Clear previous previews first
     previewContainer.empty();
     
     for (let i = 0; i < files.length; i++) {
@@ -286,13 +288,11 @@ $(document).ready(function() {
         let url = URL.createObjectURL(file);
         
         let videoHtml = `
-            <div class="video-item" style="position: relative;">
-                <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
+            <div class="video-item">
+                <video controls>
                     <source src="${url}" type="${file.type}">
                 </video>
-                <div style="margin-top: 5px; font-size: 12px; color: #666; text-align: center;">
-                    ${file.name}
-                </div>
+                <div class="video-label">${file.name}</div>
             </div>
         `;
         
@@ -306,8 +306,6 @@ $(document).ready(function() {
 $('#talkingVideos').on('change', function(e) {
     let files = e.target.files;
     let previewContainer = $('#talkingVideosPreview');
-    
-    // 🔧 FIX: Clear previous previews first
     previewContainer.empty();
     
     for (let i = 0; i < files.length; i++) {
@@ -315,20 +313,17 @@ $('#talkingVideos').on('change', function(e) {
         let url = URL.createObjectURL(file);
         
         let videoHtml = `
-            <div class="video-item" style="position: relative;">
-                <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
+            <div class="video-item">
+                <video controls>
                     <source src="${url}" type="${file.type}">
                 </video>
-                <div style="margin-top: 5px; font-size: 12px; color: #666; text-align: center;">
-                    ${file.name}
-                </div>
+                <div class="video-label">${file.name}</div>
             </div>
         `;
         
         previewContainer.append(videoHtml);
     }
 });
-
     
     // Submit Add AI Companion
     $('#submitAddAI').on('click', function(e) {
