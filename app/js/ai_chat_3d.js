@@ -573,7 +573,7 @@ function initVideoAvatar() {
     
     // 🔊 เปิดเสียง idle, ปิดเสียงตอนพูด
     videoAvatar.muted = false; // ✅ เปิดเสียงตอน idle
-    videoAvatar.volume = 0.7; // ✅ ปรับระดับเสียง 70%
+    videoAvatar.volume = 1; // ✅ ปรับระดับเสียง 70%
     videoAvatar.playsInline = true;
     videoAvatar.loop = false;
     videoAvatar.preload = 'auto';
