@@ -269,11 +269,7 @@ function templateMail($url, $type_tmp, $otp)
                             <h1>' . $otp . '</h1>
                             <p style="margin: 10px 0 0 0; color: #666;">รหัสนี้จะหมดอายุใน 10 นาที</p>
                         </div>
-                        
-                        <div style="text-align: center;">
-                            <a href="' . $url . '" class="btn">ยืนยันบัญชี</a>
-                        </div>
-                        
+
                         <div class="footer">
                             <p>หากคุณไม่ได้สมัครสมาชิก กรุณาเพิกเฉยอีเมลนี้</p>
                             <p><strong>PERFUME</strong> - Your Signature Scent</p>
@@ -357,10 +353,6 @@ function templateMail($url, $type_tmp, $otp)
                         <div class="otp-code">
                             <h1>' . $otp . '</h1>
                             <p style="margin: 10px 0 0 0; color: #666;">รหัสนี้จะหมดอายุใน 10 นาที</p>
-                        </div>
-                        
-                        <div style="text-align: center;">
-                            <a href="' . $url . '" class="btn">รีเซ็ตรหัสผ่าน</a>
                         </div>
                         
                         <div class="footer">
