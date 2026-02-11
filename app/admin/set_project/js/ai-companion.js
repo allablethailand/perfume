@@ -275,53 +275,60 @@ $(document).ready(function() {
     // MULTIPLE IDLE VIDEOS PREVIEW (ADD PAGE)
     // ========================================
     $('#idleVideos').on('change', function(e) {
-        let files = e.target.files;
-        let previewContainer = $('#idleVideosPreview');
-        
-        for (let i = 0; i < files.length; i++) {
-            let file = files[i];
-            let url = URL.createObjectURL(file);
-            
-            let videoHtml = `
-                <div class="video-item" style="position: relative;">
-                    <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
-                        <source src="${url}" type="${file.type}">
-                    </video>
-                    <div style="margin-top: 5px; font-size: 12px; color: #666; text-align: center;">
-                        ${file.name}
-                    </div>
-                </div>
-            `;
-            
-            previewContainer.append(videoHtml);
-        }
-    });
+    let files = e.target.files;
+    let previewContainer = $('#idleVideosPreview');
     
-    // ========================================
-    // MULTIPLE TALKING VIDEOS PREVIEW (ADD PAGE)
-    // ========================================
-    $('#talkingVideos').on('change', function(e) {
-        let files = e.target.files;
-        let previewContainer = $('#talkingVideosPreview');
+    // 🔧 FIX: Clear previous previews first
+    previewContainer.empty();
+    
+    for (let i = 0; i < files.length; i++) {
+        let file = files[i];
+        let url = URL.createObjectURL(file);
         
-        for (let i = 0; i < files.length; i++) {
-            let file = files[i];
-            let url = URL.createObjectURL(file);
-            
-            let videoHtml = `
-                <div class="video-item" style="position: relative;">
-                    <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
-                        <source src="${url}" type="${file.type}">
-                    </video>
-                    <div style="margin-top: 5px; font-size: 12px; color: #666; text-align: center;">
-                        ${file.name}
-                    </div>
+        let videoHtml = `
+            <div class="video-item" style="position: relative;">
+                <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
+                    <source src="${url}" type="${file.type}">
+                </video>
+                <div style="margin-top: 5px; font-size: 12px; color: #666; text-align: center;">
+                    ${file.name}
                 </div>
-            `;
-            
-            previewContainer.append(videoHtml);
-        }
-    });
+            </div>
+        `;
+        
+        previewContainer.append(videoHtml);
+    }
+});
+
+// ========================================
+// MULTIPLE TALKING VIDEOS PREVIEW (ADD PAGE)
+// ========================================
+$('#talkingVideos').on('change', function(e) {
+    let files = e.target.files;
+    let previewContainer = $('#talkingVideosPreview');
+    
+    // 🔧 FIX: Clear previous previews first
+    previewContainer.empty();
+    
+    for (let i = 0; i < files.length; i++) {
+        let file = files[i];
+        let url = URL.createObjectURL(file);
+        
+        let videoHtml = `
+            <div class="video-item" style="position: relative;">
+                <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
+                    <source src="${url}" type="${file.type}">
+                </video>
+                <div style="margin-top: 5px; font-size: 12px; color: #666; text-align: center;">
+                    ${file.name}
+                </div>
+            </div>
+        `;
+        
+        previewContainer.append(videoHtml);
+    }
+});
+
     
     // Submit Add AI Companion
     $('#submitAddAI').on('click', function(e) {
@@ -430,111 +437,131 @@ $(document).ready(function() {
     // DELETE EXISTING IDLE VIDEOS (EDIT PAGE)
     // ========================================
     let deletedIdleVideos = [];
+
+$(document).on('click', '.delete-idle-video', function(e) {
+    e.stopPropagation();
     
-    $(document).on('click', '.delete-idle-video', function(e) {
-        e.stopPropagation();
-        let videoUrl = $(this).data('url');
-        let videoItem = $(this).closest('.video-item');
-        
-        Swal.fire({
-            title: 'Delete this idle video?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, delete it!'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                deletedIdleVideos.push(videoUrl);
-                $('#deletedIdleVideos').val(JSON.stringify(deletedIdleVideos));
-                videoItem.fadeOut(300, function() {
-                    $(this).remove();
-                });
-                Swal.fire('Marked!', 'Video will be deleted when you save.', 'success');
-            }
-        });
+    // 🔧 FIX: Normalize URL before storing
+    let videoUrl = $(this).data('url').replace(/\\\//g, '/');
+    let videoItem = $(this).closest('.video-item');
+    
+    console.log('Deleting idle video:', videoUrl); // Debug
+    
+    Swal.fire({
+        title: 'Delete this idle video?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            deletedIdleVideos.push(videoUrl);
+            $('#deletedIdleVideos').val(JSON.stringify(deletedIdleVideos));
+            
+            console.log('Current deleted idle videos:', deletedIdleVideos); // Debug
+            
+            videoItem.fadeOut(300, function() {
+                $(this).remove();
+            });
+            Swal.fire('Marked!', 'Video will be deleted when you save.', 'success');
+        }
     });
+});
     
     // ========================================
     // DELETE EXISTING TALKING VIDEOS (EDIT PAGE)
     // ========================================
     let deletedTalkingVideos = [];
+
+$(document).on('click', '.delete-talking-video', function(e) {
+    e.stopPropagation();
     
-    $(document).on('click', '.delete-talking-video', function(e) {
-        e.stopPropagation();
-        let videoUrl = $(this).data('url');
-        let videoItem = $(this).closest('.video-item');
-        
-        Swal.fire({
-            title: 'Delete this talking video?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Yes, delete it!'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                deletedTalkingVideos.push(videoUrl);
-                $('#deletedTalkingVideos').val(JSON.stringify(deletedTalkingVideos));
-                videoItem.fadeOut(300, function() {
-                    $(this).remove();
-                });
-                Swal.fire('Marked!', 'Video will be deleted when you save.', 'success');
-            }
-        });
+    // 🔧 FIX: Normalize URL before storing
+    let videoUrl = $(this).data('url').replace(/\\\//g, '/');
+    let videoItem = $(this).closest('.video-item');
+    
+    console.log('Deleting talking video:', videoUrl); // Debug
+    
+    Swal.fire({
+        title: 'Delete this talking video?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, delete it!'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            deletedTalkingVideos.push(videoUrl);
+            $('#deletedTalkingVideos').val(JSON.stringify(deletedTalkingVideos));
+            
+            console.log('Current deleted talking videos:', deletedTalkingVideos); // Debug
+            
+            videoItem.fadeOut(300, function() {
+                $(this).remove();
+            });
+            Swal.fire('Marked!', 'Video will be deleted when you save.', 'success');
+        }
     });
+});
     
     // ========================================
     // ADD NEW IDLE VIDEOS PREVIEW (EDIT PAGE)
     // ========================================
     $('#idleVideos').on('change', function(e) {
-        let files = e.target.files;
-        let previewContainer = $('#newIdleVideosPreview');
+    let files = e.target.files;
+    let previewContainer = $('#newIdleVideosPreview');
+    
+    // 🔧 FIX: Clear previous new previews
+    previewContainer.empty();
+    
+    for (let i = 0; i < files.length; i++) {
+        let file = files[i];
+        let url = URL.createObjectURL(file);
         
-        for (let i = 0; i < files.length; i++) {
-            let file = files[i];
-            let url = URL.createObjectURL(file);
-            
-            let videoHtml = `
-                <div class="video-item" style="position: relative;">
-                    <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
-                        <source src="${url}" type="${file.type}">
-                    </video>
-                    <div style="margin-top: 5px; font-size: 12px; color: #666; text-align: center;">
-                        ${file.name} <span class="badge badge-success">New</span>
-                    </div>
+        let videoHtml = `
+            <div class="video-item" style="position: relative;">
+                <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
+                    <source src="${url}" type="${file.type}">
+                </video>
+                <div style="margin-top: 5px; font-size: 12px; color: #666; text-align: center;">
+                    ${file.name} <span class="badge badge-success">New</span>
                 </div>
-            `;
-            
-            previewContainer.append(videoHtml);
-        }
-    });
+            </div>
+        `;
+        
+        previewContainer.append(videoHtml);
+    }
+});
     
     // ========================================
     // ADD NEW TALKING VIDEOS PREVIEW (EDIT PAGE)
     // ========================================
     $('#talkingVideos').on('change', function(e) {
-        let files = e.target.files;
-        let previewContainer = $('#newTalkingVideosPreview');
+    let files = e.target.files;
+    let previewContainer = $('#newTalkingVideosPreview');
+    
+    // 🔧 FIX: Clear previous new previews
+    previewContainer.empty();
+    
+    for (let i = 0; i < files.length; i++) {
+        let file = files[i];
+        let url = URL.createObjectURL(file);
         
-        for (let i = 0; i < files.length; i++) {
-            let file = files[i];
-            let url = URL.createObjectURL(file);
-            
-            let videoHtml = `
-                <div class="video-item" style="position: relative;">
-                    <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
-                        <source src="${url}" type="${file.type}">
-                    </video>
-                    <div style="margin-top: 5px; font-size: 12px; color: #666; text-align: center;">
-                        ${file.name} <span class="badge badge-success">New</span>
-                    </div>
+        let videoHtml = `
+            <div class="video-item" style="position: relative;">
+                <video controls style="width: 100%; height: 150px; border-radius: 8px; object-fit: cover;">
+                    <source src="${url}" type="${file.type}">
+                </video>
+                <div style="margin-top: 5px; font-size: 12px; color: #666; text-align: center;">
+                    ${file.name} <span class="badge badge-success">New</span>
                 </div>
-            `;
-            
-            previewContainer.append(videoHtml);
-        }
-    });
+            </div>
+        `;
+        
+        previewContainer.append(videoHtml);
+    }
+});
     
     // Avatar Preview on new upload (Edit page)
     $('#aiAvatar').on('change', function(e) {

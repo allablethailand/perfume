@@ -482,6 +482,9 @@ try {
         $idle_video_urls_array = json_decode($current['idle_video_urls'] ?? '[]', true);
         $talking_video_urls_array = json_decode($current['talking_video_urls'] ?? '[]', true);
         
+        logDebug("Current idle videos", $idle_video_urls_array);
+        logDebug("Videos to delete", $deleted_idle_videos);
+        
         // Handle Avatar deletion/upload
         if ($delete_avatar === '1') {
             $ai_avatar_url = null;
@@ -502,74 +505,96 @@ try {
             }
         }
         
-        // Handle Idle Videos deletion
+        // 🔧 FIX: Normalize URLs before comparison (remove backslash escapes)
         if (!empty($deleted_idle_videos)) {
-            $idle_video_urls_array = array_values(array_diff($idle_video_urls_array, $deleted_idle_videos));
+            $normalized_deleted = array_map(function($url) {
+                return str_replace('\\/', '/', $url);
+            }, $deleted_idle_videos);
+            
+            $normalized_existing = array_map(function($url) {
+                return str_replace('\\/', '/', $url);
+            }, $idle_video_urls_array);
+            
+            $idle_video_urls_array = array_values(array_diff($normalized_existing, $normalized_deleted));
+            
+            logDebug("After idle deletion", $idle_video_urls_array);
         }
         
         // Handle new Idle Videos upload
         $upload_result = handleMultipleFileUpload('idle_videos', 'video');
         if ($upload_result['success'] && !empty($upload_result['urls'])) {
             $idle_video_urls_array = array_merge($idle_video_urls_array, $upload_result['urls']);
+            logDebug("After adding new idle videos", $idle_video_urls_array);
         }
         
-        // Handle Talking Videos deletion
+        // 🔧 FIX: Normalize URLs for talking videos too
         if (!empty($deleted_talking_videos)) {
-            $talking_video_urls_array = array_values(array_diff($talking_video_urls_array, $deleted_talking_videos));
+            $normalized_deleted = array_map(function($url) {
+                return str_replace('\\/', '/', $url);
+            }, $deleted_talking_videos);
+            
+            $normalized_existing = array_map(function($url) {
+                return str_replace('\\/', '/', $url);
+            }, $talking_video_urls_array);
+            
+            $talking_video_urls_array = array_values(array_diff($normalized_existing, $normalized_deleted));
+            
+            logDebug("After talking deletion", $talking_video_urls_array);
         }
         
         // Handle new Talking Videos upload
         $upload_result = handleMultipleFileUpload('talking_videos', 'video');
         if ($upload_result['success'] && !empty($upload_result['urls'])) {
             $talking_video_urls_array = array_merge($talking_video_urls_array, $upload_result['urls']);
+            logDebug("After adding new talking videos", $talking_video_urls_array);
         }
         
-        $idle_video_urls = json_encode($idle_video_urls_array);
-$talking_video_urls = json_encode($talking_video_urls_array);
+        // 🔧 FIX: Use JSON_UNESCAPED_SLASHES to prevent \/
+        $idle_video_urls = json_encode($idle_video_urls_array, JSON_UNESCAPED_SLASHES);
+        $talking_video_urls = json_encode($talking_video_urls_array, JSON_UNESCAPED_SLASHES);
 
-logDebug("Preparing UPDATE", [
-    'idle_video_urls' => $idle_video_urls,
-    'talking_video_urls' => $talking_video_urls,
-    'voice_id' => $voice_id,
-    'voice_name' => $voice_name
-]);
+        logDebug("Preparing UPDATE", [
+            'idle_video_urls' => $idle_video_urls,
+            'talking_video_urls' => $talking_video_urls,
+            'voice_id' => $voice_id,
+            'voice_name' => $voice_name
+        ]);
 
-$update_query = "UPDATE ai_companions SET 
-    item_id = ?, ai_code = ?,
-    ai_name_th = ?, ai_name_en = ?, ai_name_cn = ?, ai_name_jp = ?, ai_name_kr = ?,
-    ai_avatar_url = ?, ai_video_url = ?, idle_video_urls = ?, talking_video_urls = ?,
-    system_prompt_th = ?, system_prompt_en = ?, system_prompt_cn = ?, system_prompt_jp = ?, system_prompt_kr = ?,
-    perfume_knowledge_th = ?, perfume_knowledge_en = ?, perfume_knowledge_cn = ?, perfume_knowledge_jp = ?, perfume_knowledge_kr = ?,
-    style_suggestions_th = ?, style_suggestions_en = ?, style_suggestions_cn = ?, style_suggestions_jp = ?, style_suggestions_kr = ?,
-    voice_id = ?, voice_name = ?, voice_preview_url = ?,
-    status = ?
-    WHERE ai_id = ?";
+        $update_query = "UPDATE ai_companions SET 
+            item_id = ?, ai_code = ?,
+            ai_name_th = ?, ai_name_en = ?, ai_name_cn = ?, ai_name_jp = ?, ai_name_kr = ?,
+            ai_avatar_url = ?, ai_video_url = ?, idle_video_urls = ?, talking_video_urls = ?,
+            system_prompt_th = ?, system_prompt_en = ?, system_prompt_cn = ?, system_prompt_jp = ?, system_prompt_kr = ?,
+            perfume_knowledge_th = ?, perfume_knowledge_en = ?, perfume_knowledge_cn = ?, perfume_knowledge_jp = ?, perfume_knowledge_kr = ?,
+            style_suggestions_th = ?, style_suggestions_en = ?, style_suggestions_cn = ?, style_suggestions_jp = ?, style_suggestions_kr = ?,
+            voice_id = ?, voice_name = ?, voice_preview_url = ?,
+            status = ?
+            WHERE ai_id = ?";
 
-$stmt = $conn->prepare($update_query);
+        $stmt = $conn->prepare($update_query);
 
-if (!$stmt) {
-    throw new Exception("Prepare statement failed: " . $conn->error);
-}
+        if (!$stmt) {
+            throw new Exception("Prepare statement failed: " . $conn->error);
+        }
 
-// FIX: Type string changed from 32 characters to 31 
-// (Removed one 's' to match the 31 placeholders in the query)
-$stmt->bind_param("issssssssssssssssssssssssssssii",
-    $item_id,              // 1 (i)
-    $ai_code,              // 2 (s)
-    $ai_name_th, $ai_name_en, $ai_name_cn, $ai_name_jp, $ai_name_kr, // 3-7 (sssss)
-    $ai_avatar_url,        // 8 (s)
-    $ai_video_url,         // 9 (s)
-    $idle_video_urls,      // 10 (s)
-    $talking_video_urls,   // 11 (s)
-    $system_prompt_th, $system_prompt_en, $system_prompt_cn, $system_prompt_jp, $system_prompt_kr, // 12-16 (sssss)
-    $perfume_knowledge_th, $perfume_knowledge_en, $perfume_knowledge_cn, $perfume_knowledge_jp, $perfume_knowledge_kr, // 17-21 (sssss)
-    $style_suggestions_th, $style_suggestions_en, $style_suggestions_cn, $style_suggestions_jp, $style_suggestions_kr, // 22-26 (sssss)
-    $voice_id,             // 27 (s)
-    $voice_name,           // 28 (s)
-    $voice_preview_url,    // 29 (s)
-    $status,               // 30 (i)
-    $ai_id                 // 31 (i)
-);
+        // 🔧 FIX: Corrected bind_param type string (31 parameters)
+        $stmt->bind_param("issssssssssssssssssssssssssssii",
+            $item_id,              // 1 (i)
+            $ai_code,              // 2 (s)
+            $ai_name_th, $ai_name_en, $ai_name_cn, $ai_name_jp, $ai_name_kr, // 3-7 (sssss)
+            $ai_avatar_url,        // 8 (s)
+            $ai_video_url,         // 9 (s)
+            $idle_video_urls,      // 10 (s)
+            $talking_video_urls,   // 11 (s)
+            $system_prompt_th, $system_prompt_en, $system_prompt_cn, $system_prompt_jp, $system_prompt_kr, // 12-16 (sssss)
+            $perfume_knowledge_th, $perfume_knowledge_en, $perfume_knowledge_cn, $perfume_knowledge_jp, $perfume_knowledge_kr, // 17-21 (sssss)
+            $style_suggestions_th, $style_suggestions_en, $style_suggestions_cn, $style_suggestions_jp, $style_suggestions_kr, // 22-26 (sssss)
+            $voice_id,             // 27 (s)
+            $voice_name,           // 28 (s)
+            $voice_preview_url,    // 29 (s)
+            $status,               // 30 (i)
+            $ai_id                 // 31 (i)
+        );
         
         if (!$stmt->execute()) {
             throw new Exception("Failed to update AI Companion: " . $stmt->error);
