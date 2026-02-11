@@ -260,82 +260,82 @@ $(document).ready(function () {
         });
     });
 
-    $('#submitForgot').on('click', function (event) {
+    // $('#submitForgot').on('click', function (event) {
 
-        var formNews = $("#forgotModal")[0];
-        var formData = new FormData(formNews);
+    //     var formNews = $("#forgotModal")[0];
+    //     var formData = new FormData(formNews);
 
-        $(".is-invalid").removeClass("is-invalid");
-        for (var tag of formData.entries()) {
+    //     $(".is-invalid").removeClass("is-invalid");
+    //     for (var tag of formData.entries()) {
 
-            if (tag[0] === 'forgot_email' && tag[1].trim() === '') {
-                $("#forgot_email").addClass("is-invalid");
-                return;
-            }
+    //         if (tag[0] === 'forgot_email' && tag[1].trim() === '') {
+    //             $("#forgot_email").addClass("is-invalid");
+    //             return;
+    //         }
 
-        }
+    //     }
 
-        formData.append("action", 'forgotPassword');
+    //     formData.append("action", 'forgotPassword');
 
-        $('#loading-overlay').fadeIn();
-        $.ajax({
-            url: 'app/actions/otp_forgot_password.php',
-            type: 'POST',
-            data: formData,
-            contentType: false,
-            processData: false,
-            success: function (response) {
+    //     $('#loading-overlay').fadeIn();
+    //     $.ajax({
+    //         url: 'app/actions/otp_forgot_password.php',
+    //         type: 'POST',
+    //         data: formData,
+    //         contentType: false,
+    //         processData: false,
+    //         success: function (response) {
 
-                if (response.status == 'succeed') {
-                    $('#loading-overlay').fadeOut();
-                    const Toast = Swal.mixin({
-                        toast: true,
-                        position: "top-end",
-                        showConfirmButton: false,
-                        timer: 3000,
-                        timerProgressBar: true,
-                        didOpen: (toast) => {
-                            toast.onmouseenter = Swal.stopTimer;
-                            toast.onmouseleave = Swal.resumeTimer;
-                        }
-                    });
+    //             if (response.status == 'succeed') {
+    //                 $('#loading-overlay').fadeOut();
+    //                 const Toast = Swal.mixin({
+    //                     toast: true,
+    //                     position: "top-end",
+    //                     showConfirmButton: false,
+    //                     timer: 3000,
+    //                     timerProgressBar: true,
+    //                     didOpen: (toast) => {
+    //                         toast.onmouseenter = Swal.stopTimer;
+    //                         toast.onmouseleave = Swal.resumeTimer;
+    //                     }
+    //                 });
                     
-                    Toast.fire({
-                        icon: "success",
-                        title: response.message
-                    }).then(() => {
-                        window.location.reload();  
-                    });
-                }else{
-                    $('#loading-overlay').fadeOut();
-                    const Toast = Swal.mixin({
-                        toast: true,
-                        position: "top-end",
-                        showConfirmButton: false,
-                        timer: 3000,
-                        timerProgressBar: true,
-                        didOpen: (toast) => {
-                            toast.onmouseenter = Swal.stopTimer;
-                            toast.onmouseleave = Swal.resumeTimer;
-                        }
-                    });
+    //                 Toast.fire({
+    //                     icon: "success",
+    //                     title: response.message
+    //                 }).then(() => {
+    //                     window.location.reload();  
+    //                 });
+    //             }else{
+    //                 $('#loading-overlay').fadeOut();
+    //                 const Toast = Swal.mixin({
+    //                     toast: true,
+    //                     position: "top-end",
+    //                     showConfirmButton: false,
+    //                     timer: 3000,
+    //                     timerProgressBar: true,
+    //                     didOpen: (toast) => {
+    //                         toast.onmouseenter = Swal.stopTimer;
+    //                         toast.onmouseleave = Swal.resumeTimer;
+    //                     }
+    //                 });
                     
-                    Toast.fire({
-                        icon: "error",
-                        title: response.message
-                    }).then(() => {
-                    });
+    //                 Toast.fire({
+    //                     icon: "error",
+    //                     title: response.message
+    //                 }).then(() => {
+    //                 });
 
-                }
+    //             }
 
-            },
-            error: function (xhr, status, error) {
-                console.error('Form submission failed:', error);
-            }
-        });
+    //         },
+    //         error: function (xhr, status, error) {
+    //             console.error('Form submission failed:', error);
+    //         }
+    //     });
         
 
-    });
+    // });
 
     $('#newsMarquee').hover(
         function () {
