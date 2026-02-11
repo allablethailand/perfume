@@ -1,9 +1,10 @@
 /**
- * AI Chat 3D - WITH TTS CACHE SYSTEM + RANDOM VIDEO FIX
+ * AI Chat 3D - WITH TTS CACHE SYSTEM + RANDOM VIDEO FIX + NO REPEAT
  * ✅ Cache: welcome, conversation messages (ไม่ cache AI responses)
  * ✅ รอให้เสียงโหลดเสร็จก่อนแสดงข้อความ
  * ✅ Sync การแสดงผลกับเสียงให้ตรงกัน
  * ✅ FIX: ใช้วิดีโอที่ PHP สุ่มมาให้แล้ว (ไม่สุ่มซ้ำใน JS)
+ * ✅ NEW: สุ่มวิดีโอถัดไปไม่ซ้ำกับอันที่เพิ่งเล่น
  */
 
 // ========== Global Variables ==========
@@ -29,6 +30,10 @@ let SPEAKING_VIDEO_URLS = []; // เก็บ array ของวิดีโอ 
 let currentVideoState = 'idle';
 let isTransitioning = false;
 let preloadedSpeakingVideo = null;
+
+// ✅ NEW: เก็บวิดีโอที่เพิ่งเล่น เพื่อป้องกันซ้ำ
+let lastPlayedIdleVideo = null;
+let lastPlayedSpeakingVideo = null;
 
 window.isSpeaking = false;
 window.waveIntensity = 0;
@@ -487,7 +492,7 @@ function playAudioUrlsSequentially(audioUrls, index, onComplete) {
     audio.load();
 }
 
-// ========== ✅ Random Video Selection Functions ==========
+// ========== ✅ Random Video Selection Functions (ป้องกันซ้ำ) ==========
 function loadSpeakingVideosIfNeeded() {
     // ✅ โหลด speaking videos เฉพาะตอนที่ต้องใช้จริงๆ
     if (SPEAKING_VIDEO_URLS.length === 0 && aiCompanionData) {
@@ -498,9 +503,27 @@ function loadSpeakingVideosIfNeeded() {
 
 function getRandomIdleVideo() {
     if (IDLE_VIDEO_URLS.length === 0) return null;
-    const randomIndex = Math.floor(Math.random() * IDLE_VIDEO_URLS.length);
-    const selectedVideo = IDLE_VIDEO_URLS[randomIndex];
-    console.log(`🎲 Random IDLE video ${randomIndex + 1}/${IDLE_VIDEO_URLS.length}: ${selectedVideo}`);
+    
+    // ถ้ามีวิดีโอเดียว ก็ return เลย
+    if (IDLE_VIDEO_URLS.length === 1) {
+        return IDLE_VIDEO_URLS[0];
+    }
+    
+    // สร้าง array ที่ไม่รวมวิดีโอที่เพิ่งเล่น
+    const availableVideos = IDLE_VIDEO_URLS.filter(video => video !== lastPlayedIdleVideo);
+    
+    // ถ้าไม่มีวิดีโอให้เลือก (ไม่น่าเกิด) ให้ใช้ทั้งหมด
+    const videoPool = availableVideos.length > 0 ? availableVideos : IDLE_VIDEO_URLS;
+    
+    const randomIndex = Math.floor(Math.random() * videoPool.length);
+    const selectedVideo = videoPool[randomIndex];
+    
+    // บันทึกวิดีโอที่เลือก
+    lastPlayedIdleVideo = selectedVideo;
+    
+    console.log(`🎲 Random IDLE video (no repeat): ${selectedVideo.split('/').pop()}`);
+    console.log(`   Available: ${videoPool.length}/${IDLE_VIDEO_URLS.length} videos`);
+    
     return selectedVideo;
 }
 
@@ -508,9 +531,27 @@ function getRandomSpeakingVideo() {
     loadSpeakingVideosIfNeeded(); // ✅ โหลด speaking videos ก่อนใช้งาน
     
     if (SPEAKING_VIDEO_URLS.length === 0) return null;
-    const randomIndex = Math.floor(Math.random() * SPEAKING_VIDEO_URLS.length);
-    const selectedVideo = SPEAKING_VIDEO_URLS[randomIndex];
-    console.log(`🎲 Random SPEAKING video ${randomIndex + 1}/${SPEAKING_VIDEO_URLS.length}: ${selectedVideo}`);
+    
+    // ถ้ามีวิดีโอเดียว ก็ return เลย
+    if (SPEAKING_VIDEO_URLS.length === 1) {
+        return SPEAKING_VIDEO_URLS[0];
+    }
+    
+    // สร้าง array ที่ไม่รวมวิดีโอที่เพิ่งเล่น
+    const availableVideos = SPEAKING_VIDEO_URLS.filter(video => video !== lastPlayedSpeakingVideo);
+    
+    // ถ้าไม่มีวิดีโอให้เลือก (ไม่น่าเกิด) ให้ใช้ทั้งหมด
+    const videoPool = availableVideos.length > 0 ? availableVideos : SPEAKING_VIDEO_URLS;
+    
+    const randomIndex = Math.floor(Math.random() * videoPool.length);
+    const selectedVideo = videoPool[randomIndex];
+    
+    // บันทึกวิดีโอที่เลือก
+    lastPlayedSpeakingVideo = selectedVideo;
+    
+    console.log(`🎲 Random SPEAKING video (no repeat): ${selectedVideo.split('/').pop()}`);
+    console.log(`   Available: ${videoPool.length}/${SPEAKING_VIDEO_URLS.length} videos`);
+    
     return selectedVideo;
 }
 
@@ -530,18 +571,22 @@ function initVideoAvatar() {
         transition: opacity 0.3s ease;
     `;
     
-    videoAvatar.muted = true;
+    // 🔊 เปิดเสียง idle, ปิดเสียงตอนพูด
+    videoAvatar.muted = false; // ✅ เปิดเสียงตอน idle
+    videoAvatar.volume = 0.7; // ✅ ปรับระดับเสียง 70%
     videoAvatar.playsInline = true;
-    videoAvatar.loop = false; // ✅ ไม่ให้วนคลิปเดิม
+    videoAvatar.loop = false;
     videoAvatar.preload = 'auto';
     
-    // ✅ เมื่อวิดีโอจบให้สุ่มคลิปใหม่
+    // ✅ เมื่อวิดีโอจบให้สุ่มคลิปใหม่ (ไม่ซ้ำ)
     videoAvatar.addEventListener('ended', function() {
-        console.log('🔄 Video ended, loading new random video...');
+        console.log('🔄 Video ended, loading new random video (no repeat)...');
         
         if (currentVideoState === 'idle') {
             const newIdleVideo = getRandomIdleVideo();
             if (newIdleVideo) {
+                this.muted = false; // ✅ เปิดเสียง idle
+                this.volume = 0.7;
                 this.src = newIdleVideo;
                 this.load();
                 this.play().catch(e => console.error('Play error:', e));
@@ -549,6 +594,7 @@ function initVideoAvatar() {
         } else if (currentVideoState === 'speaking') {
             const newSpeakingVideo = getRandomSpeakingVideo();
             if (newSpeakingVideo) {
+                this.muted = true; // ✅ ปิดเสียงตอนพูด
                 this.src = newSpeakingVideo;
                 this.load();
                 this.play().catch(e => console.error('Play error:', e));
@@ -574,7 +620,7 @@ function initVideoAvatar() {
     
     videoAvatar.addEventListener('loadeddata', function() {
         clearTimeout(loadTimeout);
-        console.log('✅ Initial idle video loaded');
+        console.log('✅ Initial idle video loaded with sound');
         videoAvatar.play().catch(e => console.log('Autoplay prevented'));
     });
     
@@ -593,7 +639,9 @@ function playIdleAnimation() {
     if (!videoAvatar || isTransitioning) return;
     if (currentVideoState === 'idle') return;
     
-    // ✅ สุ่มเลือกวิดีโอ idle ใหม่ทุกครั้ง
+    console.log('🔇 Returning to idle (with sound)');
+    
+    // ✅ สุ่มเลือกวิดีโอ idle ใหม่ทุกครั้ง (ไม่ซ้ำ)
     const randomIdleVideo = getRandomIdleVideo();
     if (randomIdleVideo) {
         switchToVideo(randomIdleVideo, 'idle');
@@ -604,10 +652,12 @@ function playSpeakingAnimation() {
     if (!videoAvatar || isTransitioning) return;
     if (currentVideoState === 'speaking') return;
     
+    console.log('🔊 Switching to speaking (muted)');
+    
     // ✅ โหลด speaking videos ครั้งแรกที่จะใช้งาน
     loadSpeakingVideosIfNeeded();
     
-    // ✅ สุ่มเลือกวิดีโอ speaking ใหม่ทุกครั้ง
+    // ✅ สุ่มเลือกวิดีโอ speaking ใหม่ทุกครั้ง (ไม่ซ้ำ)
     const randomSpeakingVideo = getRandomSpeakingVideo();
     if (randomSpeakingVideo) {
         switchToVideo(randomSpeakingVideo, 'speaking');
@@ -626,18 +676,30 @@ function switchToVideo(videoUrl, newState) {
     newVideo.id = 'videoAvatar';
     newVideo.style.cssText = videoAvatar.style.cssText;
     newVideo.style.opacity = '0';
-    newVideo.muted = true;
+    
+    // 🔊 ตั้งค่าเสียงตาม state
+    if (newState === 'idle') {
+        newVideo.muted = false; // ✅ เปิดเสียง idle
+        newVideo.volume = 0.7;
+        console.log('🔊 Idle video: Sound ON');
+    } else if (newState === 'speaking') {
+        newVideo.muted = true; // ✅ ปิดเสียงตอนพูด
+        console.log('🔇 Speaking video: Sound OFF (TTS playing)');
+    }
+    
     newVideo.playsInline = true;
-    newVideo.loop = false; // ✅ ไม่ให้วนคลิปเดิม
+    newVideo.loop = false;
     newVideo.src = videoUrl;
     
-    // ✅ เมื่อวิดีโอจบให้สุ่มคลิปใหม่
+    // ✅ เมื่อวิดีโอจบให้สุ่มคลิปใหม่ (ไม่ซ้ำ)
     newVideo.addEventListener('ended', function() {
-        console.log('🔄 Video ended, loading new random video...');
+        console.log('🔄 Video ended, loading new random video (no repeat)...');
         
         if (currentVideoState === 'idle') {
             const newIdleVideo = getRandomIdleVideo();
             if (newIdleVideo) {
+                this.muted = false; // ✅ เปิดเสียง idle
+                this.volume = 0.7;
                 this.src = newIdleVideo;
                 this.load();
                 this.play().catch(e => console.error('Play error:', e));
@@ -645,6 +707,7 @@ function switchToVideo(videoUrl, newState) {
         } else if (currentVideoState === 'speaking') {
             const newSpeakingVideo = getRandomSpeakingVideo();
             if (newSpeakingVideo) {
+                this.muted = true; // ✅ ปิดเสียงตอนพูด
                 this.src = newSpeakingVideo;
                 this.load();
                 this.play().catch(e => console.error('Play error:', e));
@@ -658,6 +721,18 @@ function switchToVideo(videoUrl, newState) {
         newVideo.removeEventListener('canplay', playNew);
         
         newVideo.play().then(() => {
+            // 🔊 Fade out เสียงวิดีโอเก่า (ถ้ามี)
+            if (!videoAvatar.muted) {
+                let fadeOutInterval = setInterval(() => {
+                    if (videoAvatar.volume > 0.1) {
+                        videoAvatar.volume -= 0.1;
+                    } else {
+                        videoAvatar.volume = 0;
+                        clearInterval(fadeOutInterval);
+                    }
+                }, 50);
+            }
+            
             videoAvatar.style.opacity = '0';
             newVideo.style.opacity = '1';
             
@@ -679,6 +754,7 @@ function switchToVideo(videoUrl, newState) {
 }
 
 function stopSpeakingAnimation() {
+    console.log('🔊 Stopping speaking, returning to idle with sound');
     playIdleAnimation();
 }
 
@@ -1220,4 +1296,4 @@ function goToPreferences() {
     window.location.href = url;
 }
 
-console.log('✅ AI Chat 3D with TTS Cache System + Random Video Fix loaded');
+console.log('✅ AI Chat 3D with TTS Cache System + Random Video Fix + No Repeat loaded');
