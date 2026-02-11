@@ -56,108 +56,191 @@ if (!isset($_SESSION['guest_session_id'])) {
             color: #000;
         }
 
-        /* AI Avatar - Full Width Right Section with Cosmic Effects */
-        .ai-avatar-section {
-            width: 150px;
-            min-width: 150px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-            height: 200px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
-        }
+        /* AI Avatar - Full Width Right Section with Water Flow Effect */
+.ai-avatar-section {
+    width: 150px;
+    min-width: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+    height: 200px;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 50%, #000000 100%);
+    transform: scale(1.02);
+    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8), 0 0 60px rgba(0, 0, 0, 0.5);
+}
 
-        /* Animated Cosmic Border Effect */
-        .ai-avatar-section::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(
-                45deg,
-                transparent,
-                transparent 40%,
-                rgba(147, 51, 234, 0.6) 45%,
-                rgba(79, 70, 229, 0.8) 50%,
-                rgba(147, 51, 234, 0.6) 55%,
-                transparent 60%,
-                transparent
-            );
-            animation: cosmicRotate 4s linear infinite;
-            z-index: 1;
-        }
+/* Animated Water Flow Effect - Black Waves (Always Visible) */
+.ai-avatar-section::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        transparent 30%,
+        rgba(0, 0, 0, 0.4) 40%,
+        rgba(0, 0, 0, 0.7) 50%,
+        rgba(0, 0, 0, 0.4) 60%,
+        transparent 70%,
+        transparent 100%
+    );
+    animation: waterFlow 4s linear infinite;
+    z-index: 1;
+}
 
-        /* Electric Glow Effect */
-        .ai-avatar-section::after {
-            content: '';
-            position: absolute;
-            inset: 2px;
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-            z-index: 2;
-        }
+/* Hover: Make waves more intense */
+.ai-avatar-section:hover::before {
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        transparent 25%,
+        rgba(0, 0, 0, 0.6) 35%,
+        rgba(0, 0, 0, 0.9) 50%,
+        rgba(0, 0, 0, 0.6) 65%,
+        transparent 75%,
+        transparent 100%
+    );
+    animation: waterFlowFast 3s linear infinite;
+}
 
-        @keyframes cosmicRotate {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+/* Subtle Dark Glow Effect */
+.ai-avatar-section::after {
+    content: '';
+    position: absolute;
+    inset: 2px;
+    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 50%, #2d2d2d 100%);
+    z-index: 2;
+}
 
-        .ai-avatar-section:hover {
-            transform: scale(1.02);
-            box-shadow: 0 0 30px rgba(147, 51, 234, 0.6), 0 0 60px rgba(79, 70, 229, 0.4);
-        }
+@keyframes waterFlow {
+    0% { transform: translateX(-50%) translateY(0); }
+    100% { transform: translateX(50%) translateY(0); }
+}
 
-        /* Inner Glow Container */
-        .ai-avatar-wrapper {
-            position: relative;
-            width: 100%;
-            height: 100%;
-            z-index: 3;
-            overflow: hidden;
-        }
+@keyframes waterFlowFast {
+    0% { transform: translateX(-50%) translateY(0); }
+    100% { transform: translateX(50%) translateY(0); }
+}
 
-        /* Floating Particles Effect */
-        .ai-avatar-wrapper::before {
-            content: '';
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background-image: 
-                radial-gradient(circle at 20% 30%, rgba(147, 51, 234, 0.3) 1px, transparent 1px),
-                radial-gradient(circle at 80% 70%, rgba(79, 70, 229, 0.3) 1px, transparent 1px),
-                radial-gradient(circle at 40% 80%, rgba(236, 72, 153, 0.3) 1px, transparent 1px),
-                radial-gradient(circle at 60% 20%, rgba(59, 130, 246, 0.3) 1px, transparent 1px);
-            background-size: 50px 50px, 80px 80px, 60px 60px, 70px 70px;
-            animation: particleFloat 20s linear infinite;
-            z-index: 1;
-            opacity: 0.6;
-        }
+.ai-avatar-section:hover {
+    transform: scale(1.05);
+    box-shadow: 
+        0 0 50px rgba(0, 0, 0, 1), 
+        0 0 100px rgba(0, 0, 0, 0.8),
+        0 0 150px rgba(0, 0, 0, 0.6);
+}
 
-        @keyframes particleFloat {
-            0% { transform: translateY(0) translateX(0); }
-            50% { transform: translateY(-20px) translateX(10px); }
-            100% { transform: translateY(0) translateX(0); }
-        }
+/* Inner Container */
+.ai-avatar-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    z-index: 3;
+    overflow: hidden;
+}
 
-        /* Energy Pulse Effect */
-        .ai-avatar-wrapper::after {
-            content: '';
-            position: absolute;
-            inset: 0;
-            background: radial-gradient(circle at center, rgba(147, 51, 234, 0.2) 0%, transparent 70%);
-            animation: energyPulse 3s ease-in-out infinite;
-            z-index: 1;
-        }
+/* Floating Ripples Effect - Black Theme */
+.ai-avatar-wrapper::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        radial-gradient(circle at 20% 30%, rgba(0, 0, 0, 0.2) 2px, transparent 2px),
+        radial-gradient(circle at 80% 70%, rgba(0, 0, 0, 0.25) 2px, transparent 2px),
+        radial-gradient(circle at 40% 80%, rgba(20, 20, 20, 0.2) 2px, transparent 2px),
+        radial-gradient(circle at 60% 20%, rgba(10, 10, 10, 0.2) 2px, transparent 2px);
+    background-size: 50px 50px, 80px 80px, 60px 60px, 70px 70px;
+    animation: rippleFloat 15s linear infinite;
+    z-index: 1;
+    opacity: 0.5;
+}
 
-        @keyframes energyPulse {
-            0%, 100% { opacity: 0.3; transform: scale(1); }
-            50% { opacity: 0.8; transform: scale(1.1); }
-        }
+@keyframes rippleFloat {
+    0% { transform: translateY(0) translateX(0); }
+    50% { transform: translateY(-15px) translateX(8px); }
+    100% { transform: translateY(0) translateX(0); }
+}
+
+/* Subtle Dark Pulse Effect */
+.ai-avatar-wrapper::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at center, rgba(0, 0, 0, 0.3) 0%, transparent 70%);
+    animation: darkPulse 3s ease-in-out infinite;
+    z-index: 1;
+}
+
+@keyframes darkPulse {
+    0%, 100% { opacity: 0.2; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.05); }
+}
+
+.ai-avatar-image-full {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: all 0.5s ease;
+    position: relative;
+    z-index: 2;
+    filter: brightness(1.1) contrast(1.1);
+}
+
+.ai-avatar-section:hover .ai-avatar-image-full {
+    transform: scale(1.08);
+    filter: brightness(1.15) contrast(1.2) drop-shadow(0 0 15px rgba(0, 0, 0, 0.7));
+}
+
+/* Corner Accents - Dark Theme */
+.ai-corner {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(0, 0, 0, 0.6);
+    z-index: 4;
+    animation: cornerPulse 2s ease-in-out infinite;
+}
+
+.ai-corner.top-left {
+    top: 10px;
+    left: 10px;
+    border-right: none;
+    border-bottom: none;
+}
+
+.ai-corner.top-right {
+    top: 10px;
+    right: 10px;
+    border-left: none;
+    border-bottom: none;
+}
+
+.ai-corner.bottom-left {
+    bottom: 10px;
+    left: 10px;
+    border-right: none;
+    border-top: none;
+}
+
+.ai-corner.bottom-right {
+    bottom: 10px;
+    right: 10px;
+    border-left: none;
+    border-top: none;
+}
+
+@keyframes cornerPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.8; }
+}
 
         .ai-avatar-image-full {
             width: 100%;
@@ -1262,11 +1345,6 @@ if (!isset($_SESSION['guest_session_id'])) {
                 <div class="ai-avatar-section" onclick="window.location.href='?ai_chat_3d&ai=${aiData.ai_code}'" title="${aiData.ai_name_th} (${aiData.ai_name_en})">
                     <div class="ai-avatar-wrapper">
                         <img src="${aiData.ai_avatar_url}" alt="${aiData.ai_name_en}" class="ai-avatar-image-full">
-                        <div class="scan-line"></div>
-                        <div class="ai-corner top-left"></div>
-                        <div class="ai-corner top-right"></div>
-                        <div class="ai-corner bottom-left"></div>
-                        <div class="ai-corner bottom-right"></div>
                     </div>
                 </div>
             `;
