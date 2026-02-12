@@ -194,10 +194,10 @@ if (!isset($_SESSION['guest_session_id'])) {
     filter: brightness(1.1) contrast(1.1);
 }
 
-.ai-avatar-section:hover .ai-avatar-image-full {
+/* .ai-avatar-section:hover .ai-avatar-image-full {
     transform: scale(1.08);
     filter: brightness(1.15) contrast(1.2) drop-shadow(0 0 15px rgba(0, 0, 0, 0.7));
-}
+} */
 
 /* Corner Accents - Dark Theme */
 .ai-corner {
@@ -252,10 +252,10 @@ if (!isset($_SESSION['guest_session_id'])) {
             filter: brightness(1.1) contrast(1.1);
         }
 
-        .ai-avatar-section:hover .ai-avatar-image-full {
+        /* .ai-avatar-section:hover .ai-avatar-image-full {
             transform: scale(1.08);
             filter: brightness(1.2) contrast(1.15) drop-shadow(0 0 20px rgba(147, 51, 234, 0.6));
-        }
+        } */
 
         /* Scan Line Effect */
         .scan-line {
