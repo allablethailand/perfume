@@ -1231,6 +1231,98 @@ $languages = [
         padding: 12px 12px;
     }
 }
+.custom-alert-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        opacity: 0;
+        animation: fadeIn 0.2s ease forwards;
+    }
+
+    @keyframes fadeIn {
+        to { opacity: 1; }
+    }
+
+    .custom-alert-box {
+        background: white;
+        border-radius: 12px;
+        padding: 30px 35px;
+        max-width: 400px;
+        width: 90%;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        transform: scale(0.9);
+        animation: scaleIn 0.3s ease forwards;
+    }
+
+    @keyframes scaleIn {
+        to { transform: scale(1); }
+    }
+
+    .custom-alert-icon {
+        width: 50px;
+        height: 50px;
+        margin: 0 auto 20px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
+
+    .custom-alert-icon.success {
+        background: #000;
+        color: white;
+    }
+
+    .custom-alert-icon.error {
+        background: #dc3545;
+        color: white;
+    }
+
+    .custom-alert-icon.info {
+        background: #666;
+        color: white;
+    }
+
+    .custom-alert-message {
+        text-align: center;
+        color: #1a1a1a;
+        font-size: 15px;
+        line-height: 1.6;
+        margin-bottom: 25px;
+        font-weight: 400;
+    }
+
+    .custom-alert-button {
+        width: 100%;
+        padding: 12px;
+        background: #000;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .custom-alert-button:hover {
+        background: #333;
+        transform: translateY(-1px);
+    }
+
+    .custom-alert-button:active {
+        transform: translateY(0);
+    }
 </style>
 
 <!-- HEADER -->
@@ -1794,6 +1886,52 @@ $languages = [
 <script src="https://code.jquery.com/jquery-3.6.0.min.js" defer></script>
 
 <script>
+// ========================================
+// CUSTOM MINIMAL ALERT FUNCTION
+// ======================================== 
+function showAlert(message, type = 'success') {
+    // Remove existing alert if any
+    const existingAlert = document.querySelector('.custom-alert-overlay');
+    if (existingAlert) {
+        existingAlert.remove();
+    }
+    
+    // Determine icon based on type
+    let icon = '✓';
+    if (type === 'error') icon = '✕';
+    if (type === 'info') icon = 'ℹ';
+    
+    // Create alert HTML
+    const alertHTML = `
+        <div class="custom-alert-overlay">
+            <div class="custom-alert-box">
+                <div class="custom-alert-icon ${type}">
+                    ${icon}
+                </div>
+                <div class="custom-alert-message">
+                    ${message}
+                </div>
+                <button class="custom-alert-button" onclick="this.closest('.custom-alert-overlay').remove()">
+                    ${currentLang === 'th' ? 'ตกลง' : 
+                      currentLang === 'en' ? 'OK' : 
+                      currentLang === 'cn' ? '确定' : 
+                      currentLang === 'jp' ? 'OK' : 
+                      currentLang === 'kr' ? '확인' : 'OK'}
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Add to body
+    document.body.insertAdjacentHTML('beforeend', alertHTML);
+    
+    // Auto-remove after 5 seconds if user doesn't click
+    setTimeout(() => {
+        const alert = document.querySelector('.custom-alert-overlay');
+        if (alert) alert.remove();
+    }, 5000);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
     const params = new URLSearchParams(window.location.search);
 
@@ -2347,535 +2485,538 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Forgot Password Form Submission
-const forgotForm = document.getElementById('forgotModal');
-const submitForgotBtn = document.getElementById('submitForgot');
+    const forgotForm = document.getElementById('forgotModal');
+    const submitForgotBtn = document.getElementById('submitForgot');
 
-if (forgotForm && submitForgotBtn) {
-    forgotForm.addEventListener('submit', function(event) {
-        event.preventDefault();
-        event.stopPropagation();
-        
-        const forgotEmail = document.getElementById('forgot_email');
-        
-        // Validate email
-        if (!forgotEmail || !forgotEmail.value.trim()) {
-            alert('<?php echo match($lang) {
-                'en' => 'Please enter your email',
-                'cn' => '请输入您的电子邮件',
-                'jp' => 'メールアドレスを入力してください',
-                'kr' => '이메일을 입력하세요',
-                default => 'กรุณากรอกอีเมล',
-            }; ?>');
-            if (forgotEmail) {
+    if (forgotForm && submitForgotBtn) {
+        forgotForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const forgotEmail = document.getElementById('forgot_email');
+            
+            // Validate email
+            if (!forgotEmail || !forgotEmail.value.trim()) {
+                showAlert('<?php echo match($lang) {
+                    'en' => 'Please enter your email',
+                    'cn' => '请输入您的电子邮件',
+                    'jp' => 'メールアドレスを入力してください',
+                    'kr' => '이메일을 입력하세요',
+                    default => 'กรุณากรอกอีเมล',
+                }; ?>', 'error');
+                if (forgotEmail) {
+                    forgotEmail.classList.add('is-invalid');
+                    forgotEmail.focus();
+                }
+                return false;
+            }
+            
+            // Email format validation
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(forgotEmail.value.trim())) {
+                showAlert('<?php echo match($lang) {
+                    'en' => 'Please enter a valid email address',
+                    'cn' => '请输入有效的电子邮件地址',
+                    'jp' => '有効なメールアドレスを入力してください',
+                    'kr' => '유효한 이메일 주소를 입력하세요',
+                    default => 'กรุณากรอกอีเมลที่ถูกต้อง',
+                }; ?>', 'error');
                 forgotEmail.classList.add('is-invalid');
                 forgotEmail.focus();
+                return false;
             }
-            return false;
-        }
-        
-        // Email format validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(forgotEmail.value.trim())) {
-            alert('<?php echo match($lang) {
-                'en' => 'Please enter a valid email address',
-                'cn' => '请输入有效的电子邮件地址',
-                'jp' => '有効なメールアドレスを入力してください',
-                'kr' => '유효한 이메일 주소를 입력하세요',
-                default => 'กรุณากรอกอีเมลที่ถูกต้อง',
-            }; ?>');
-            forgotEmail.classList.add('is-invalid');
-            forgotEmail.focus();
-            return false;
-        }
-        
-        forgotEmail.classList.remove('is-invalid');
-        
-        const formData = new FormData();
-        formData.append('forgot_email', forgotEmail.value.trim());
-        formData.append('action', 'forgotPassword');
-        
-        submitForgotBtn.disabled = true;
-        const originalText = submitForgotBtn.textContent;
-        submitForgotBtn.textContent = '<?php echo match($lang) {
-            'en' => 'Sending...',
-            'cn' => '发送中...',
-            'jp' => '送信中...',
-            'kr' => '전송 중...',
-            default => 'กำลังส่ง...',
-        }; ?>';
-        
-        fetch('app/actions/otp_forgot_password.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            submitForgotBtn.disabled = false;
-            submitForgotBtn.textContent = originalText;
             
-            if (data.status === 'succeed') {
-                // ✅ ปิด Forgot Password Modal
-                const modalForgot = document.getElementById('myModal-forgot-password');
-                if (modalForgot) {
-                    modalForgot.style.display = 'none';
-                }
+            forgotEmail.classList.remove('is-invalid');
+            
+            const formData = new FormData();
+            formData.append('forgot_email', forgotEmail.value.trim());
+            formData.append('action', 'forgotPassword');
+            
+            submitForgotBtn.disabled = true;
+            const originalText = submitForgotBtn.textContent;
+            submitForgotBtn.textContent = '<?php echo match($lang) {
+                'en' => 'Sending...',
+                'cn' => '发送中...',
+                'jp' => '送信中...',
+                'kr' => '전송 중...',
+                default => 'กำลังส่ง...',
+            }; ?>';
+            
+            fetch('app/actions/otp_forgot_password.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                submitForgotBtn.disabled = false;
+                submitForgotBtn.textContent = originalText;
                 
-                // ✅ เก็บ email ไว้สำหรับขั้นตอนถัดไป
-                const otpEmail = document.getElementById('otp_email');
-                if (otpEmail) {
-                    otpEmail.value = forgotEmail.value.trim();
-                }
-                
-                // ✅ เปิด OTP Modal
-                const modalOtp = document.getElementById('myModal-otp-verify');
-                if (modalOtp) {
-                    modalOtp.style.display = 'block';
+                if (data.status === 'succeed') {
+                    // ✅ ปิด Forgot Password Modal
+                    const modalForgot = document.getElementById('myModal-forgot-password');
+                    if (modalForgot) {
+                        modalForgot.style.display = 'none';
+                    }
                     
-                    // Focus ที่ช่อง OTP แรก
-                    setTimeout(() => {
-                        const firstOtpInput = document.querySelector('.otp-input');
-                        if (firstOtpInput) firstOtpInput.focus();
-                    }, 300);
+                    // ✅ เก็บ email ไว้สำหรับขั้นตอนถัดไป
+                    const otpEmail = document.getElementById('otp_email');
+                    if (otpEmail) {
+                        otpEmail.value = forgotEmail.value.trim();
+                    }
+                    
+                    // ✅ เปิด OTP Modal
+                    const modalOtp = document.getElementById('myModal-otp-verify');
+                    if (modalOtp) {
+                        modalOtp.style.display = 'block';
+                        
+                        // Focus ที่ช่อง OTP แรก
+                        setTimeout(() => {
+                            const firstOtpInput = document.querySelector('.otp-input');
+                            if (firstOtpInput) firstOtpInput.focus();
+                        }, 300);
+                    }
+                    
+                    // Clear forgot password form
+                    forgotForm.reset();
+                } else {
+                    showAlert(data.message || '<?php echo match($lang) {
+                        'en' => 'Failed to send OTP. Please try again.',
+                        'cn' => '发送OTP失败。请重试。',
+                        'jp' => 'OTPの送信に失敗しました。もう一度お試しください。',
+                        'kr' => 'OTP 전송 실패. 다시 시도하세요.',
+                        default => 'ส่ง OTP ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+                    }; ?>', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                submitForgotBtn.disabled = false;
+                submitForgotBtn.textContent = originalText;
+                
+                showAlert('<?php echo match($lang) {
+                    'en' => 'An error occurred. Please try again.',
+                    'cn' => '发生错误。请重试。',
+                    'jp' => 'エラーが発生しました。もう一度お試しください。',
+                    'kr' => '오류가 발생했습니다. 다시 시도하세요.',
+                    default => 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
+                }; ?>', 'error');
+            });
+            
+            return false;
+        });
+    }
+
+    // ========================================
+    // OTP INPUT FUNCTIONALITY
+    // ========================================
+    const otpInputs = document.querySelectorAll('.otp-input');
+
+    if (otpInputs.length > 0) {
+        otpInputs.forEach((input, index) => {
+            // Handle input
+            input.addEventListener('input', function(e) {
+                const value = e.target.value;
+                
+                // Allow only numbers
+                if (!/^[0-9]$/.test(value)) {
+                    e.target.value = '';
+                    return;
                 }
                 
-                // Clear forgot password form
-                forgotForm.reset();
-            } else {
-                alert(data.message || '<?php echo match($lang) {
-                    'en' => 'Failed to send OTP. Please try again.',
-                    'cn' => '发送OTP失败。请重试。',
-                    'jp' => 'OTPの送信に失敗しました。もう一度お試しください。',
-                    'kr' => 'OTP 전송 실패. 다시 시도하세요.',
-                    default => 'ส่ง OTP ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
-                }; ?>');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            submitForgotBtn.disabled = false;
-            submitForgotBtn.textContent = originalText;
-            
-            alert('<?php echo match($lang) {
-                'en' => 'An error occurred. Please try again.',
-                'cn' => '发生错误。请重试。',
-                'jp' => 'エラーが発生しました。もう一度お試しください。',
-                'kr' => '오류가 발생했습니다. 다시 시도하세요.',
-                default => 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
-            }; ?>');
-        });
-        
-        return false;
-    });
-}
-// ========================================
-// OTP INPUT FUNCTIONALITY
-// ========================================
-const otpInputs = document.querySelectorAll('.otp-input');
-
-if (otpInputs.length > 0) {
-    otpInputs.forEach((input, index) => {
-        // Handle input
-        input.addEventListener('input', function(e) {
-            const value = e.target.value;
-            
-            // Allow only numbers
-            if (!/^[0-9]$/.test(value)) {
-                e.target.value = '';
-                return;
-            }
-            
-            // Move to next input
-            if (value && index < otpInputs.length - 1) {
-                otpInputs[index + 1].focus();
-            }
-        });
-        
-        // Handle backspace
-        input.addEventListener('keydown', function(e) {
-            if (e.key === 'Backspace' && !e.target.value && index > 0) {
-                otpInputs[index - 1].focus();
-            }
-        });
-        
-        // Handle paste
-        input.addEventListener('paste', function(e) {
-            e.preventDefault();
-            const pastedData = e.clipboardData.getData('text').slice(0, 6);
-            
-            if (!/^\d+$/.test(pastedData)) return;
-            
-            pastedData.split('').forEach((char, i) => {
-                if (otpInputs[i]) {
-                    otpInputs[i].value = char;
+                // Move to next input
+                if (value && index < otpInputs.length - 1) {
+                    otpInputs[index + 1].focus();
                 }
             });
             
-            // Focus last filled input or last input
-            const lastIndex = Math.min(pastedData.length - 1, otpInputs.length - 1);
-            otpInputs[lastIndex].focus();
-        });
-    });
-}
-
-// ========================================
-// OTP MODAL CLOSE BUTTON
-// ========================================
-const otpModalClose = document.querySelector('.modal-close-otp');
-const otpModal = document.getElementById('myModal-otp-verify');
-
-if (otpModalClose && otpModal) {
-    otpModalClose.addEventListener('click', function() {
-        otpModal.style.display = 'none';
-        // Clear OTP inputs
-        otpInputs.forEach(input => input.value = '');
-    });
-}
-
-// ========================================
-// OTP VERIFICATION FORM
-// ========================================
-const otpVerifyForm = document.getElementById('otpVerifyForm');
-const verifyOtpBtn = document.getElementById('verifyOtpBtn');
-
-if (otpVerifyForm && verifyOtpBtn) {
-    otpVerifyForm.addEventListener('submit', function(event) {
-        event.preventDefault();
-        event.stopPropagation();
-        
-        // Get OTP value
-        let otpValue = '';
-        otpInputs.forEach(input => {
-            otpValue += input.value;
-        });
-        
-        // Validate OTP
-        if (otpValue.length !== 6) {
-            otpInputs.forEach(input => input.classList.add('error'));
-            setTimeout(() => {
-                otpInputs.forEach(input => input.classList.remove('error'));
-            }, 500);
-            return false;
-        }
-        
-        const email = document.getElementById('otp_email').value;
-        
-        if (!email) {
-            alert('<?php echo match($lang) {
-                'en' => 'Email not found. Please try again.',
-                'cn' => '未找到电子邮件。请重试。',
-                'jp' => 'メールが見つかりません。もう一度お試しください。',
-                'kr' => '이메일을 찾을 수 없습니다. 다시 시도하세요.',
-                default => 'ไม่พบอีเมล กรุณาลองใหม่อีกครั้ง',
-            }; ?>');
-            return false;
-        }
-        
-        verifyOtpBtn.disabled = true;
-        const originalText = verifyOtpBtn.textContent;
-        verifyOtpBtn.textContent = '<?php echo match($lang) {
-            'en' => 'Verifying...',
-            'cn' => '验证中...',
-            'jp' => '確認中...',
-            'kr' => '확인 중...',
-            default => 'กำลังตรวจสอบ...',
-        }; ?>';
-        
-        const formData = new FormData();
-        formData.append('email', email);
-        formData.append('otp', otpValue);
-        formData.append('action', 'verifyOTP');
-        
-        fetch('app/actions/verify_otp.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            verifyOtpBtn.disabled = false;
-            verifyOtpBtn.textContent = originalText;
-            
-            if (data.status === 'success') {
-                // ✅ ปิด OTP Modal
-                if (otpModal) otpModal.style.display = 'none';
-                
-                // ✅ เก็บ email สำหรับ reset password
-                const resetEmail = document.getElementById('reset_email');
-                if (resetEmail) resetEmail.value = email;
-                
-                // ✅ เปิด Reset Password Modal
-                const resetModal = document.getElementById('myModal-reset-password');
-                if (resetModal) {
-                    resetModal.style.display = 'block';
-                    setTimeout(() => {
-                        const newPasswordInput = document.getElementById('new_password');
-                        if (newPasswordInput) newPasswordInput.focus();
-                    }, 300);
+            // Handle backspace
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    otpInputs[index - 1].focus();
                 }
+            });
+            
+            // Handle paste
+            input.addEventListener('paste', function(e) {
+                e.preventDefault();
+                const pastedData = e.clipboardData.getData('text').slice(0, 6);
                 
-                // Clear OTP inputs
-                otpInputs.forEach(input => input.value = '');
-            } else {
-                alert(data.message || '<?php echo match($lang) {
-                    'en' => 'Invalid OTP. Please try again.',
-                    'cn' => '无效的OTP。请重试。',
-                    'jp' => '無効なOTP。もう一度お試しください。',
-                    'kr' => '유효하지 않은 OTP입니다. 다시 시도하세요.',
-                    default => 'รหัส OTP ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง',
-                }; ?>');
+                if (!/^\d+$/.test(pastedData)) return;
                 
-                // Shake and clear OTP inputs
-                otpInputs.forEach(input => {
-                    input.classList.add('error');
-                    input.value = '';
+                pastedData.split('').forEach((char, i) => {
+                    if (otpInputs[i]) {
+                        otpInputs[i].value = char;
+                    }
                 });
                 
+                // Focus last filled input or last input
+                const lastIndex = Math.min(pastedData.length - 1, otpInputs.length - 1);
+                otpInputs[lastIndex].focus();
+            });
+        });
+    }
+
+    // ========================================
+    // OTP MODAL CLOSE BUTTON
+    // ========================================
+    const otpModalClose = document.querySelector('.modal-close-otp');
+    const otpModal = document.getElementById('myModal-otp-verify');
+
+    if (otpModalClose && otpModal) {
+        otpModalClose.addEventListener('click', function() {
+            otpModal.style.display = 'none';
+            // Clear OTP inputs
+            otpInputs.forEach(input => input.value = '');
+        });
+    }
+
+    // ========================================
+    // OTP VERIFICATION FORM
+    // ========================================
+    const otpVerifyForm = document.getElementById('otpVerifyForm');
+    const verifyOtpBtn = document.getElementById('verifyOtpBtn');
+
+    if (otpVerifyForm && verifyOtpBtn) {
+        otpVerifyForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            // Get OTP value
+            let otpValue = '';
+            otpInputs.forEach(input => {
+                otpValue += input.value;
+            });
+            
+            // Validate OTP
+            if (otpValue.length !== 6) {
+                otpInputs.forEach(input => input.classList.add('error'));
                 setTimeout(() => {
                     otpInputs.forEach(input => input.classList.remove('error'));
-                    otpInputs[0].focus();
                 }, 500);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            verifyOtpBtn.disabled = false;
-            verifyOtpBtn.textContent = originalText;
-            
-            alert('<?php echo match($lang) {
-                'en' => 'An error occurred. Please try again.',
-                'cn' => '发生错误。请重试。',
-                'jp' => 'エラーが発生しました。もう一度お試しください。',
-                'kr' => '오류가 발생했습니다. 다시 시도하세요.',
-                default => 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
-            }; ?>');
-        });
-        
-        return false;
-    });
-}
-
-// ========================================
-// RESEND OTP
-// ========================================
-const resendOtpLink = document.getElementById('resendOtpLink');
-if (resendOtpLink) {
-    resendOtpLink.addEventListener('click', function(e) {
-        e.preventDefault();
-        
-        const email = document.getElementById('otp_email').value;
-        if (!email) {
-            alert('<?php echo match($lang) {
-                'en' => 'Email not found',
-                'cn' => '未找到电子邮件',
-                'jp' => 'メールが見つかりません',
-                'kr' => '이메일을 찾을 수 없습니다',
-                default => 'ไม่พบอีเมล',
-            }; ?>');
-            return;
-        }
-        
-        this.style.pointerEvents = 'none';
-        this.style.opacity = '0.5';
-        const originalText = this.textContent;
-        this.textContent = '<?php echo match($lang) {
-            'en' => 'Sending...',
-            'cn' => '发送中...',
-            'jp' => '送信中...',
-            'kr' => '전송 중...',
-            default => 'กำลังส่ง...',
-        }; ?>';
-        
-        const formData = new FormData();
-        formData.append('forgot_email', email);
-        formData.append('action', 'forgotPassword');
-        
-        fetch('app/actions/otp_forgot_password.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'succeed') {
-                alert('<?php echo match($lang) {
-                    'en' => 'OTP resent successfully!',
-                    'cn' => 'OTP重新发送成功！',
-                    'jp' => 'OTPが再送信されました！',
-                    'kr' => 'OTP가 성공적으로 재전송되었습니다!',
-                    default => 'ส่ง OTP อีกครั้งสำเร็จ!',
-                }; ?>');
-                
-                // Clear and focus first OTP input
-                otpInputs.forEach(input => input.value = '');
-                if (otpInputs[0]) otpInputs[0].focus();
-            } else {
-                alert(data.message);
+                return false;
             }
             
-            this.style.pointerEvents = '';
-            this.style.opacity = '';
-            this.textContent = originalText;
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            this.style.pointerEvents = '';
-            this.style.opacity = '';
-            this.textContent = originalText;
-        });
-    });
-}
-
-// ========================================
-// RESET PASSWORD MODAL CLOSE
-// ========================================
-const resetModalClose = document.querySelector('.modal-close-reset');
-const resetModal = document.getElementById('myModal-reset-password');
-
-if (resetModalClose && resetModal) {
-    resetModalClose.addEventListener('click', function() {
-        resetModal.style.display = 'none';
-    });
-}
-
-// ========================================
-// RESET PASSWORD FORM
-// ========================================
-const resetPasswordForm = document.getElementById('resetPasswordForm');
-const resetPasswordBtn = document.getElementById('resetPasswordBtn');
-const toggleNewPassword = document.getElementById('toggleNewPassword');
-const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
-
-// Toggle password visibility
-if (toggleNewPassword) {
-    toggleNewPassword.addEventListener('click', function() {
-        const input = document.getElementById('new_password');
-        const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
-        input.setAttribute('type', type);
-        this.querySelector('i').classList.toggle('fa-eye');
-        this.querySelector('i').classList.toggle('fa-eye-slash');
-    });
-}
-
-if (toggleConfirmPassword) {
-    toggleConfirmPassword.addEventListener('click', function() {
-        const input = document.getElementById('confirm_new_password');
-        const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
-        input.setAttribute('type', type);
-        this.querySelector('i').classList.toggle('fa-eye');
-        this.querySelector('i').classList.toggle('fa-eye-slash');
-    });
-}
-
-if (resetPasswordForm && resetPasswordBtn) {
-    resetPasswordForm.addEventListener('submit', function(event) {
-        event.preventDefault();
-        event.stopPropagation();
-        
-        const email = document.getElementById('reset_email').value;
-        const newPassword = document.getElementById('new_password').value;
-        const confirmPassword = document.getElementById('confirm_new_password').value;
-        
-        // Validate
-        if (!newPassword || !confirmPassword) {
-            alert('<?php echo match($lang) {
-                'en' => 'Please fill in all fields',
-                'cn' => '请填写所有字段',
-                'jp' => 'すべてのフィールドを入力してください',
-                'kr' => '모든 필드를 입력하세요',
-                default => 'กรุณากรอกข้อมูลให้ครบ',
-            }; ?>');
-            return false;
-        }
-        
-        if (newPassword !== confirmPassword) {
-            alert('<?php echo match($lang) {
-                'en' => 'Passwords do not match',
-                'cn' => '密码不匹配',
-                'jp' => 'パスワードが一致しません',
-                'kr' => '비밀번호가 일치하지 않습니다',
-                default => 'รหัสผ่านไม่ตรงกัน',
-            }; ?>');
-            return false;
-        }
-        
-        if (newPassword.length < 8) {
-            alert('<?php echo match($lang) {
-                'en' => 'Password must be at least 8 characters',
-                'cn' => '密码必须至少8个字符',
-                'jp' => 'パスワードは8文字以上である必要があります',
-                'kr' => '비밀번호는 최소 8자 이상이어야 합니다',
-                default => 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร',
-            }; ?>');
-            return false;
-        }
-        
-        resetPasswordBtn.disabled = true;
-        const originalText = resetPasswordBtn.textContent;
-        resetPasswordBtn.textContent = '<?php echo match($lang) {
-            'en' => 'Resetting...',
-            'cn' => '重置中...',
-            'jp' => 'リセット中...',
-            'kr' => '재설정 중...',
-            default => 'กำลังตั้งค่า...',
-        }; ?>';
-        
-        const formData = new FormData();
-        formData.append('email', email);
-        formData.append('new_password', newPassword);
-        formData.append('action', 'resetPassword');
-        
-        fetch('app/actions/reset_password.php', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            resetPasswordBtn.disabled = false;
-            resetPasswordBtn.textContent = originalText;
+            const email = document.getElementById('otp_email').value;
             
-            if (data.status === 'success') {
-                alert('<?php echo match($lang) {
-                    'en' => 'Password reset successfully! Please login with your new password.',
-                    'cn' => '密码重置成功！请使用新密码登录。',
-                    'jp' => 'パスワードのリセットが成功しました！新しいパスワードでログインしてください。',
-                    'kr' => '비밀번호가 성공적으로 재설정되었습니다! 새 비밀번호로 로그인하세요.',
-                    default => 'ตั้งรหัสผ่านใหม่สำเร็จ! กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่',
-                }; ?>');
-                
-                // Close reset modal
-                if (resetModal) resetModal.style.display = 'none';
-                
-                // Open login modal
-                const loginModal = document.getElementById('myModal-sign-in');
-                if (loginModal) loginModal.style.display = 'block';
-                
-                // Clear form
-                resetPasswordForm.reset();
-            } else {
-                alert(data.message || '<?php echo match($lang) {
-                    'en' => 'Failed to reset password. Please try again.',
-                    'cn' => '重置密码失败。请重试。',
-                    'jp' => 'パスワードのリセットに失敗しました。もう一度お試しください。',
-                    'kr' => '비밀번호 재설정 실패. 다시 시도하세요.',
-                    default => 'ตั้งรหัสผ่านใหม่ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
-                }; ?>');
+            if (!email) {
+                showAlert('<?php echo match($lang) {
+                    'en' => 'Email not found. Please try again.',
+                    'cn' => '未找到电子邮件。请重试。',
+                    'jp' => 'メールが見つかりません。もう一度お試しください。',
+                    'kr' => '이메일을 찾을 수 없습니다. 다시 시도하세요.',
+                    default => 'ไม่พบอีเมล กรุณาลองใหม่อีกครั้ง',
+                }; ?>', 'error');
+                return false;
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            resetPasswordBtn.disabled = false;
-            resetPasswordBtn.textContent = originalText;
             
-            alert('<?php echo match($lang) {
-                'en' => 'An error occurred. Please try again.',
-                'cn' => '发生错误。请重试。',
-                'jp' => 'エラーが発生しました。もう一度お試しください。',
-                'kr' => '오류가 발생했습니다. 다시 시도하세요.',
-                default => 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
-            }; ?>');
+            verifyOtpBtn.disabled = true;
+            const originalText = verifyOtpBtn.textContent;
+            verifyOtpBtn.textContent = '<?php echo match($lang) {
+                'en' => 'Verifying...',
+                'cn' => '验证中...',
+                'jp' => '確認中...',
+                'kr' => '확인 중...',
+                default => 'กำลังตรวจสอบ...',
+            }; ?>';
+            
+            const formData = new FormData();
+            formData.append('email', email);
+            formData.append('otp', otpValue);
+            formData.append('action', 'verifyOTP');
+            
+            fetch('app/actions/verify_otp.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                verifyOtpBtn.disabled = false;
+                verifyOtpBtn.textContent = originalText;
+                
+                if (data.status === 'success') {
+                    // ✅ ปิด OTP Modal
+                    if (otpModal) otpModal.style.display = 'none';
+                    
+                    // ✅ เก็บ email สำหรับ reset password
+                    const resetEmail = document.getElementById('reset_email');
+                    if (resetEmail) resetEmail.value = email;
+                    
+                    // ✅ เปิด Reset Password Modal
+                    const resetModal = document.getElementById('myModal-reset-password');
+                    if (resetModal) {
+                        resetModal.style.display = 'block';
+                        setTimeout(() => {
+                            const newPasswordInput = document.getElementById('new_password');
+                            if (newPasswordInput) newPasswordInput.focus();
+                        }, 300);
+                    }
+                    
+                    // Clear OTP inputs
+                    otpInputs.forEach(input => input.value = '');
+                } else {
+                    showAlert(data.message || '<?php echo match($lang) {
+                        'en' => 'Invalid OTP. Please try again.',
+                        'cn' => '无效的OTP。请重试。',
+                        'jp' => '無効なOTP。もう一度お試しください。',
+                        'kr' => '유효하지 않은 OTP입니다. 다시 시도하세요.',
+                        default => 'รหัส OTP ไม่ถูกต้อง กรุณาลองใหม่อีกครั้ง',
+                    }; ?>', 'error');
+                    
+                    // Shake and clear OTP inputs
+                    otpInputs.forEach(input => {
+                        input.classList.add('error');
+                        input.value = '';
+                    });
+                    
+                    setTimeout(() => {
+                        otpInputs.forEach(input => input.classList.remove('error'));
+                        otpInputs[0].focus();
+                    }, 500);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                verifyOtpBtn.disabled = false;
+                verifyOtpBtn.textContent = originalText;
+                
+                showAlert('<?php echo match($lang) {
+                    'en' => 'An error occurred. Please try again.',
+                    'cn' => '发生错误。请重试。',
+                    'jp' => 'エラーが発生しました。もう一度お試しください。',
+                    'kr' => '오류가 발생했습니다. 다시 시도하세요.',
+                    default => 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
+                }; ?>', 'error');
+            });
+            
+            return false;
         });
-        
-        return false;
-    });
-}
+    }
+
+    // ========================================
+    // RESEND OTP
+    // ========================================
+    const resendOtpLink = document.getElementById('resendOtpLink');
+    if (resendOtpLink) {
+        resendOtpLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('otp_email').value;
+            if (!email) {
+                showAlert('<?php echo match($lang) {
+                    'en' => 'Email not found',
+                    'cn' => '未找到电子邮件',
+                    'jp' => 'メールが見つかりません',
+                    'kr' => '이메일을 찾을 수 없습니다',
+                    default => 'ไม่พบอีเมล',
+                }; ?>', 'error');
+                return;
+            }
+            
+            this.style.pointerEvents = 'none';
+            this.style.opacity = '0.5';
+            const originalText = this.textContent;
+            this.textContent = '<?php echo match($lang) {
+                'en' => 'Sending...',
+                'cn' => '发送中...',
+                'jp' => '送信中...',
+                'kr' => '전송 중...',
+                default => 'กำลังส่ง...',
+            }; ?>';
+            
+            const formData = new FormData();
+            formData.append('forgot_email', email);
+            formData.append('action', 'forgotPassword');
+            
+            fetch('app/actions/otp_forgot_password.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'succeed') {
+                    showAlert('<?php echo match($lang) {
+                        'en' => 'OTP resent successfully!',
+                        'cn' => 'OTP重新发送成功！',
+                        'jp' => 'OTPが再送信されました！',
+                        'kr' => 'OTP가 성공적으로 재전송되었습니다!',
+                        default => 'ส่ง OTP อีกครั้งสำเร็จ!',
+                    }; ?>', 'success');
+                    
+                    // Clear and focus first OTP input
+                    otpInputs.forEach(input => input.value = '');
+                    if (otpInputs[0]) otpInputs[0].focus();
+                } else {
+                    showAlert(data.message, 'error');
+                }
+                
+                this.style.pointerEvents = '';
+                this.style.opacity = '';
+                this.textContent = originalText;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                this.style.pointerEvents = '';
+                this.style.opacity = '';
+                this.textContent = originalText;
+            });
+        });
+    }
+
+    // ========================================
+    // RESET PASSWORD MODAL CLOSE
+    // ========================================
+    const resetModalClose = document.querySelector('.modal-close-reset');
+    const resetModal = document.getElementById('myModal-reset-password');
+
+    if (resetModalClose && resetModal) {
+        resetModalClose.addEventListener('click', function() {
+            resetModal.style.display = 'none';
+        });
+    }
+
+    // ========================================
+    // RESET PASSWORD FORM
+    // ========================================
+    const resetPasswordForm = document.getElementById('resetPasswordForm');
+    const resetPasswordBtn = document.getElementById('resetPasswordBtn');
+    const toggleNewPassword = document.getElementById('toggleNewPassword');
+    const toggleConfirmPassword = document.getElementById('toggleConfirmPassword');
+
+    // Toggle password visibility
+    if (toggleNewPassword) {
+        toggleNewPassword.addEventListener('click', function() {
+            const input = document.getElementById('new_password');
+            const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+            input.setAttribute('type', type);
+            this.querySelector('i').classList.toggle('fa-eye');
+            this.querySelector('i').classList.toggle('fa-eye-slash');
+        });
+    }
+
+    if (toggleConfirmPassword) {
+        toggleConfirmPassword.addEventListener('click', function() {
+            const input = document.getElementById('confirm_new_password');
+            const type = input.getAttribute('type') === 'password' ? 'text' : 'password';
+            input.setAttribute('type', type);
+            this.querySelector('i').classList.toggle('fa-eye');
+            this.querySelector('i').classList.toggle('fa-eye-slash');
+        });
+    }
+
+    if (resetPasswordForm && resetPasswordBtn) {
+        resetPasswordForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            event.stopPropagation();
+            
+            const email = document.getElementById('reset_email').value;
+            const newPassword = document.getElementById('new_password').value;
+            const confirmPassword = document.getElementById('confirm_new_password').value;
+            
+            // Validate
+            if (!newPassword || !confirmPassword) {
+                showAlert('<?php echo match($lang) {
+                    'en' => 'Please fill in all fields',
+                    'cn' => '请填写所有字段',
+                    'jp' => 'すべてのフィールドを入力してください',
+                    'kr' => '모든 필드를 입력하세요',
+                    default => 'กรุณากรอกข้อมูลให้ครบ',
+                }; ?>', 'error');
+                return false;
+            }
+            
+            if (newPassword !== confirmPassword) {
+                showAlert('<?php echo match($lang) {
+                    'en' => 'Passwords do not match',
+                    'cn' => '密码不匹配',
+                    'jp' => 'パスワードが一致しません',
+                    'kr' => '비밀번호가 일치하지 않습니다',
+                    default => 'รหัสผ่านไม่ตรงกัน',
+                }; ?>', 'error');
+                return false;
+            }
+            
+            if (newPassword.length < 8) {
+                showAlert('<?php echo match($lang) {
+                    'en' => 'Password must be at least 8 characters',
+                    'cn' => '密码必须至少8个字符',
+                    'jp' => 'パスワードは8文字以上である必要があります',
+                    'kr' => '비밀번호는 최소 8자 이상이어야 합니다',
+                    default => 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร',
+                }; ?>', 'error');
+                return false;
+            }
+            
+            resetPasswordBtn.disabled = true;
+            const originalText = resetPasswordBtn.textContent;
+            resetPasswordBtn.textContent = '<?php echo match($lang) {
+                'en' => 'Resetting...',
+                'cn' => '重置中...',
+                'jp' => 'リセット中...',
+                'kr' => '재설정 중...',
+                default => 'กำลังตั้งค่า...',
+            }; ?>';
+            
+            const formData = new FormData();
+            formData.append('email', email);
+            formData.append('new_password', newPassword);
+            formData.append('action', 'resetPassword');
+            
+            fetch('app/actions/reset_password.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                resetPasswordBtn.disabled = false;
+                resetPasswordBtn.textContent = originalText;
+                
+                if (data.status === 'success') {
+                    showAlert('<?php echo match($lang) {
+                        'en' => 'Password reset successfully! Please login with your new password.',
+                        'cn' => '密码重置成功！请使用新密码登录。',
+                        'jp' => 'パスワードのリセットが成功しました！新しいパスワードでログインしてください。',
+                        'kr' => '비밀번호가 성공적으로 재설정되었습니다! 새 비밀번호로 로그인하세요.',
+                        default => 'ตั้งรหัสผ่านใหม่สำเร็จ! กรุณาเข้าสู่ระบบด้วยรหัสผ่านใหม่',
+                    }; ?>', 'success');
+                    
+                    // Close reset modal after short delay
+                    setTimeout(() => {
+                        if (resetModal) resetModal.style.display = 'none';
+                        
+                        // Open login modal
+                        const loginModal = document.getElementById('myModal-sign-in');
+                        if (loginModal) loginModal.style.display = 'block';
+                        
+                        // Clear form
+                        resetPasswordForm.reset();
+                    }, 1500);
+                } else {
+                    showAlert(data.message || '<?php echo match($lang) {
+                        'en' => 'Failed to reset password. Please try again.',
+                        'cn' => '重置密码失败。请重试。',
+                        'jp' => 'パスワードのリセットに失敗しました。もう一度お試しください。',
+                        'kr' => '비밀번호 재설정 실패. 다시 시도하세요.',
+                        default => 'ตั้งรหัสผ่านใหม่ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
+                    }; ?>', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                resetPasswordBtn.disabled = false;
+                resetPasswordBtn.textContent = originalText;
+                
+                showAlert('<?php echo match($lang) {
+                    'en' => 'An error occurred. Please try again.',
+                    'cn' => '发生错误。请重试。',
+                    'jp' => 'エラーが発生しました。もう一度お試しください。',
+                    'kr' => '오류가 발생했습니다. 다시 시도하세요.',
+                    default => 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
+                }; ?>', 'error');
+            });
+            
+            return false;
+        });
+    }
 
     // Login form submission
     $('#loginModal').on('submit', function(event) {
@@ -2885,7 +3026,13 @@ if (resetPasswordForm && resetPasswordBtn) {
         const password = $('#password').val().trim();
 
         if (!username || !password) {
-            alert('Please enter both email and password');
+            showAlert('<?php echo match($lang) {
+                'en' => 'Please enter both email and password',
+                'cn' => '请输入电子邮件和密码',
+                'jp' => 'メールアドレスとパスワードを入力してください',
+                'kr' => '이메일과 비밀번호를 입력하세요',
+                default => 'กรุณากรอกอีเมลและรหัสผ่าน',
+            }; ?>', 'error');
             return;
         }
 
@@ -2903,56 +3050,68 @@ if (resetPasswordForm && resetPasswordBtn) {
                     const token = sessionStorage.getItem('jwt');
                     
                     $.ajax({
-                url: 'app/actions/protected.php',
-                type: 'GET',
-                headers: {
-                    'Authorization': 'Bearer ' + token
-                },
-                success: function(response) {
-                    if (response.status === "success") {
-                        const roleId = parseInt(response.data.role_id);
-                        
-                        loadCartCount();
-                        loadAIAvatar();
-                        checkAICompanionStatus();
-                        
-                        // 🔥 NEW: เช็คว่ามี pending_ai_code จากการสแกน RFID หรือไม่
-                        const pendingAiCode = sessionStorage.getItem('pending_ai_code');
-                        const pendingAiLang = sessionStorage.getItem('pending_ai_lang');
-                        
-                        if (pendingAiCode) {
-                            // มี pending RFID scan -> redirect กลับไปที่ ai_scan
-                            sessionStorage.removeItem('pending_ai_code');
-                            sessionStorage.removeItem('pending_ai_lang');
-                            
-                            window.location.href = '?ai_scan&ai_code=' + pendingAiCode + '&lang=' + (pendingAiLang || 'th');
-                            return;
+                        url: 'app/actions/protected.php',
+                        type: 'GET',
+                        headers: {
+                            'Authorization': 'Bearer ' + token
+                        },
+                        success: function(response) {
+                            if (response.status === "success") {
+                                const roleId = parseInt(response.data.role_id);
+                                
+                                loadCartCount();
+                                loadAIAvatar();
+                                checkAICompanionStatus();
+                                
+                                // 🔥 NEW: เช็คว่ามี pending_ai_code จากการสแกน RFID หรือไม่
+                                const pendingAiCode = sessionStorage.getItem('pending_ai_code');
+                                const pendingAiLang = sessionStorage.getItem('pending_ai_lang');
+                                
+                                if (pendingAiCode) {
+                                    // มี pending RFID scan -> redirect กลับไปที่ ai_scan
+                                    sessionStorage.removeItem('pending_ai_code');
+                                    sessionStorage.removeItem('pending_ai_lang');
+                                    
+                                    window.location.href = '?ai_scan&ai_code=' + pendingAiCode + '&lang=' + (pendingAiLang || 'th');
+                                    return;
+                                }
+                                
+                                // ไม่มี pending -> redirect ตามปกติ
+                                if (roleId === 1) {
+                                    window.location.href = 'app/admin/index.php';
+                                } else if (roleId === 2) {
+                                    window.location.href = 'app/editer/index.php';
+                                } else {
+                                    location.reload();
+                                }
+                            } else {
+                                showAlert(response.message, 'error');
+                            }
+                        },
+                        error: function(xhr, status, error) {
+                            console.error("Request failed:", status, error);
+                            showAlert('<?php echo match($lang) {
+                                'en' => 'An error occurred while accessing protected resource.',
+                                'cn' => '访问受保护资源时发生错误。',
+                                'jp' => '保護されたリソースへのアクセス中にエラーが発生しました。',
+                                'kr' => '보호된 리소스에 액세스하는 중 오류가 발생했습니다.',
+                                default => 'เกิดข้อผิดพลาดในการเข้าถึงข้อมูล',
+                            }; ?>', 'error');
                         }
-                        
-                        // ไม่มี pending -> redirect ตามปกติ
-                        if (roleId === 1) {
-                            window.location.href = 'app/admin/index.php';
-                        } else if (roleId === 2) {
-                            window.location.href = 'app/editer/index.php';
-                        } else {
-                            location.reload();
-                        }
-                    } else {
-                        alert(response.message);
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error("Request failed:", status, error);
-                    alert("An error occurred while accessing protected resource.");
-                }
-            });
+                    });
                 } else {
-                    alert(response.message);
+                    showAlert(response.message, 'error');
                 }
             },
             error: function(xhr, status, error) {
                 console.error("AJAX request failed:", status, error);
-                alert("An error occurred. Please try again.");
+                showAlert('<?php echo match($lang) {
+                    'en' => 'An error occurred. Please try again.',
+                    'cn' => '发生错误。请重试。',
+                    'jp' => 'エラーが発生しました。もう一度お試しください。',
+                    'kr' => '오류가 발생했습니다. 다시 시도하세요.',
+                    default => 'เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง',
+                }; ?>', 'error');
             }
         });
     });
