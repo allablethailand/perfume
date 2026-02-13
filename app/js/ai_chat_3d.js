@@ -79,14 +79,14 @@ $(document).ready(function() {
         console.log('✅ Found stored companionId:', companionId);
     }
     
+    // ✅ ดึงข้อมูล AI ก่อน (จะได้ preferred_language ที่ถูกต้อง)
     fetchAICompanionData().then(() => {
         console.log('📊 After fetch:', {
             idle_videos: IDLE_VIDEO_URLS.length,
             useVideo: useVideoAvatar,
-            language: userPreferredLanguage
+            language: userPreferredLanguage // ✅ ตอนนี้จะเป็นภาษาที่ถูกต้องแล้ว
         });
         
-        // ✅ ตรวจสอบเฉพาะ idle videos ก่อน
         if (useVideoAvatar && IDLE_VIDEO_URLS.length > 0) {
             initVideoAvatar();
         } else {
@@ -96,7 +96,7 @@ $(document).ready(function() {
         
         loadConversations();
         
-        // ✅ ดึงข้อมูลสภาพอากาศแล้วพูดทักทาย + สภาพอากาศ
+        // ✅ ดึงข้อมูลสภาพอากาศ (ใช้ภาษาที่ถูกต้อง)
         fetchWeatherData().then(() => {
             setTimeout(() => {
                 playWelcomeWithWeather();
@@ -206,7 +206,7 @@ function playWeatherReport() {
     speakTextWithCache(weatherText, userPreferredLanguage, 'weather');
 }
 
-// ========== ✅ FIX: Fetch AI Data (ใช้วิดีโอที่ PHP สุ่มให้แล้ว) ==========
+// ========== ✅ FIX: Fetch AI Data (ดึง preferred_language ทุกครั้ง) ==========
 function fetchAICompanionData() {
     return new Promise((resolve, reject) => {
         let url = '';
@@ -214,6 +214,13 @@ function fetchAICompanionData() {
         
         if (isGuestMode && aiCodeFromURL) {
             url = 'app/actions/get_ai_data.php?ai_code=' + aiCodeFromURL;
+            
+            // ✅ เพิ่ม user_companion_id ถ้ามี
+            const storedCompanionId = sessionStorage.getItem('user_companion_id');
+            if (storedCompanionId) {
+                url += '&user_companion_id=' + storedCompanionId;
+            }
+            
             console.log('🔓 Guest Mode: Using ai_code');
         } else if (jwt) {
             url = 'app/actions/get_ai_companion_info.php';
@@ -243,13 +250,29 @@ function fetchAICompanionData() {
                     }
                     
                     IDLE_VIDEO_URLS = aiCompanionData.idle_video_urls_array || [];
-                    userPreferredLanguage = aiCompanionData.preferred_language || 'th';
                     
-                    console.log('🎲 Idle video arrays loaded:', {
+                    // ✅ ดึง preferred_language จาก response (ไม่ใช้ default!)
+                    if (response.preferred_language) {
+                        userPreferredLanguage = response.preferred_language;
+                        console.log('✅ Language from API:', userPreferredLanguage);
+                    } else if (aiCompanionData.preferred_language) {
+                        userPreferredLanguage = aiCompanionData.preferred_language;
+                        console.log('✅ Language from ai_data:', userPreferredLanguage);
+                    } else {
+                        // ถ้าไม่มีเลย ใช้ URL parameter หรือ default
+                        userPreferredLanguage = langFromURL || 'th';
+                        console.log('⚠️ Using fallback language:', userPreferredLanguage);
+                    }
+                    
+                    // ✅ ลบการเก็บ language ใน sessionStorage ออก (ไม่ cache)
+                    // sessionStorage.removeItem('preferred_language');
+                    
+                    console.log('🎲 Data loaded:', {
                         idle_count: IDLE_VIDEO_URLS.length,
                         language: userPreferredLanguage
                     });
                     
+                    // เก็บ companion_id
                     if (response.companion_id) {
                         companionId = response.companion_id;
                     } else if (aiCompanionData.user_companion_id) {
