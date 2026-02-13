@@ -1,16 +1,73 @@
 <?php
 
-// ป้องกันการเรียกใช้จาก web
-// if (php_sapi_name() !== 'cli') {
-//     die("This script must be run from command line\n");
-// }
+// ตั้งค่า error reporting และ logging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('log_errors', 1);
 
-require_once(__DIR__ . '/../lib/connect.php');
-require_once(__DIR__ . '/../lib/devrev_manager.php');
+// สร้าง log file ในตำแหน่งเดียวกับไฟล์นี้
+$log_file = __DIR__ . '/cron/devrev_sync_worker.log';
+$error_log_file = __DIR__ . '/cron/devrev_sync_worker_error.log';
+
+// ฟังก์ชัน logging
+function write_log($message, $is_error = false) {
+    global $log_file, $error_log_file;
+    $timestamp = date('Y-m-d H:i:s');
+    $log_message = "[{$timestamp}] {$message}\n";
+    
+    // เขียนลง log ปกติ
+    file_put_contents($log_file, $log_message, FILE_APPEND);
+    
+    // ถ้าเป็น error ให้เขียนลง error log ด้วย
+    if ($is_error) {
+        file_put_contents($error_log_file, $log_message, FILE_APPEND);
+    }
+    
+    // แสดงผลทาง console ด้วย
+    echo $log_message;
+}
+
+// เริ่มต้น worker
+write_log("=== DevRev Sync Worker Started ===");
+write_log("Script path: " . __FILE__);
+write_log("Working directory: " . getcwd());
+write_log("PHP version: " . PHP_VERSION);
+write_log("User: " . get_current_user());
+
+// ตรวจสอบไฟล์ที่ต้อง require
+$required_files = [
+    __DIR__ . '/../lib/connect.php',
+    __DIR__ . '/../lib/devrev_manager.php'
+];
+
+foreach ($required_files as $file) {
+    if (!file_exists($file)) {
+        write_log("ERROR: Required file not found: {$file}", true);
+        exit(1);
+    }
+    write_log("Found required file: {$file}");
+}
+
+try {
+    require_once(__DIR__ . '/../lib/connect.php');
+    write_log("✓ Loaded connect.php");
+    
+    require_once(__DIR__ . '/../lib/devrev_manager.php');
+    write_log("✓ Loaded devrev_manager.php");
+} catch (Exception $e) {
+    write_log("ERROR loading required files: " . $e->getMessage(), true);
+    exit(1);
+}
 
 global $conn;
 
-echo "[" . date('Y-m-d H:i:s') . "] DevRev Sync Worker Started\n";
+// ตรวจสอบ database connection
+if (!isset($conn) || !$conn) {
+    write_log("ERROR: Database connection not available", true);
+    exit(1);
+}
+
+write_log("✓ Database connection OK");
 
 try {
     // ดึง pending tasks (จำกัด 10 tasks ต่อรอบ)
@@ -21,14 +78,23 @@ try {
         ORDER BY created_at ASC
         LIMIT 10
     ");
+    
+    if (!$stmt) {
+        write_log("ERROR: Failed to prepare statement: " . $conn->error, true);
+        exit(1);
+    }
+    
     $stmt->execute();
     $result = $stmt->get_result();
     
     $total_tasks = $result->num_rows;
-    echo "Found {$total_tasks} pending tasks\n";
+    write_log("Found {$total_tasks} pending tasks");
     
     if ($total_tasks === 0) {
-        echo "No tasks to process. Exiting.\n";
+        write_log("No tasks to process. Exiting.");
+        $stmt->close();
+        $conn->close();
+        write_log("=== DevRev Sync Worker Completed (No tasks) ===");
         exit(0);
     }
     
@@ -42,7 +108,7 @@ try {
         $sync_data = json_decode($row['sync_data'], true);
         $retry_count = $row['retry_count'];
         
-        echo "\n--- Processing Queue #{$queue_id} (Conversation #{$conversation_id}) ---\n";
+        write_log("\n--- Processing Queue #{$queue_id} (Conversation #{$conversation_id}) ---");
         
         // Update status เป็น processing
         $update_stmt = $conn->prepare("
@@ -74,9 +140,9 @@ try {
             $email = $user_data['email'] ?: "user{$user_id}@example.com";
             $display_name = trim($user_data['first_name'] . ' ' . $user_data['last_name']) ?: "User {$user_id}";
             
-            echo "User: {$display_name} ({$email})\n";
+            write_log("User: {$display_name} ({$email})");
             
-            // ✅ ดึงข้อมูล AI ใหม่จาก database (ไม่ใช้ข้อมูลเก่าจาก queue)
+            // ดึงข้อมูล AI ใหม่จาก database
             $user_companion_id = $sync_data['user_companion_id'] ?? 0;
             
             if (!$user_companion_id) {
@@ -131,15 +197,15 @@ try {
             }
             $personality_stmt->close();
             
-            // ✅ ตรวจสอบและแก้ไข AI name
+            // ตรวจสอบและแก้ไข AI name
             if (empty($ai_companion['ai_name'])) {
                 $ai_companion['ai_name'] = 'AI Assistant';
-                echo "⚠️  AI name was empty, using default: AI Assistant\n";
+                write_log("⚠️  AI name was empty, using default: AI Assistant");
             }
             
-            echo "AI: {$ai_companion['ai_name']} (loaded fresh from database)\n";
+            write_log("AI: {$ai_companion['ai_name']} (loaded fresh from database)");
             
-            // ✅ สร้าง DevRevManager และ sync (ไม่ส่ง language)
+            // สร้าง DevRevManager และ sync
             $devrev = new DevRevManager($conn);
             $devrev_result = $devrev->processChat(
                 $conversation_id,
@@ -158,7 +224,7 @@ try {
             
             if ($has_errors) {
                 $error_msg = implode('; ', $devrev_result['errors']);
-                echo "⚠️  Sync completed with errors: {$error_msg}\n";
+                write_log("⚠️  Sync completed with errors: {$error_msg}", true);
                 
                 // ถ้ายังมีโอกาส retry
                 if ($retry_count < 2) {
@@ -174,7 +240,7 @@ try {
                     $update_stmt->bind_param('isi', $new_retry, $error_msg, $queue_id);
                     $update_stmt->execute();
                     $update_stmt->close();
-                    echo "Scheduled for retry (attempt " . ($new_retry + 1) . "/3)\n";
+                    write_log("Scheduled for retry (attempt " . ($new_retry + 1) . "/3)");
                 } else {
                     // เกิน retry limit แล้ว
                     $update_stmt = $conn->prepare("
@@ -188,7 +254,7 @@ try {
                     $update_stmt->bind_param('si', $error_msg, $queue_id);
                     $update_stmt->execute();
                     $update_stmt->close();
-                    echo "❌ Failed permanently after 3 attempts\n";
+                    write_log("❌ Failed permanently after 3 attempts", true);
                     $failed++;
                 }
             } else {
@@ -204,16 +270,17 @@ try {
                 $update_stmt->execute();
                 $update_stmt->close();
                 
-                echo "✅ Sync completed successfully\n";
-                echo "   AI Name: {$ai_companion['ai_name']}\n";
-                echo "   Chat Article: " . ($chat_synced ? $devrev_result['chat_article_id'] : 'N/A') . "\n";
-                echo "   Prompt Article: " . ($prompt_synced ? $devrev_result['prompt_article_id'] : 'N/A') . "\n";
+                write_log("✅ Sync completed successfully");
+                write_log("   AI Name: {$ai_companion['ai_name']}");
+                write_log("   Chat Article: " . ($chat_synced ? $devrev_result['chat_article_id'] : 'N/A'));
+                write_log("   Prompt Article: " . ($prompt_synced ? $devrev_result['prompt_article_id'] : 'N/A'));
                 $processed++;
             }
             
         } catch (Exception $sync_error) {
             $error_msg = $sync_error->getMessage();
-            echo "❌ Exception: {$error_msg}\n";
+            write_log("❌ Exception: {$error_msg}", true);
+            write_log("Stack trace: " . $sync_error->getTraceAsString(), true);
             
             // Retry logic
             if ($retry_count < 2) {
@@ -229,7 +296,7 @@ try {
                 $update_stmt->bind_param('isi', $new_retry, $error_msg, $queue_id);
                 $update_stmt->execute();
                 $update_stmt->close();
-                echo "Scheduled for retry (attempt " . ($new_retry + 1) . "/3)\n";
+                write_log("Scheduled for retry (attempt " . ($new_retry + 1) . "/3)");
             } else {
                 $update_stmt = $conn->prepare("
                     UPDATE devrev_sync_queue
@@ -242,7 +309,7 @@ try {
                 $update_stmt->bind_param('si', $error_msg, $queue_id);
                 $update_stmt->execute();
                 $update_stmt->close();
-                echo "❌ Failed permanently after 3 attempts\n";
+                write_log("❌ Failed permanently after 3 attempts", true);
                 $failed++;
             }
         }
@@ -253,18 +320,20 @@ try {
     
     $stmt->close();
     
-    echo "\n=== Summary ===\n";
-    echo "Total tasks: {$total_tasks}\n";
-    echo "Processed successfully: {$processed}\n";
-    echo "Failed: {$failed}\n";
-    echo "Pending retry: " . ($total_tasks - $processed - $failed) . "\n";
+    write_log("\n=== Summary ===");
+    write_log("Total tasks: {$total_tasks}");
+    write_log("Processed successfully: {$processed}");
+    write_log("Failed: {$failed}");
+    write_log("Pending retry: " . ($total_tasks - $processed - $failed));
     
 } catch (Exception $e) {
-    echo "❌ Worker Error: " . $e->getMessage() . "\n";
+    write_log("❌ Worker Error: " . $e->getMessage(), true);
+    write_log("Stack trace: " . $e->getTraceAsString(), true);
+    $conn->close();
     exit(1);
 }
 
 $conn->close();
-echo "\n[" . date('Y-m-d H:i:s') . "] DevRev Sync Worker Completed\n";
+write_log("=== DevRev Sync Worker Completed ===\n");
 exit(0);
 ?>
