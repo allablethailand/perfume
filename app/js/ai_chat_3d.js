@@ -1,10 +1,11 @@
 /**
- * AI Chat 3D - WITH TTS CACHE SYSTEM + RANDOM VIDEO FIX + NO REPEAT
+ * AI Chat 3D - WITH TTS CACHE SYSTEM + RANDOM VIDEO FIX + NO REPEAT + WEATHER EVERY TIME
  * ✅ Cache: welcome, conversation messages (ไม่ cache AI responses)
  * ✅ รอให้เสียงโหลดเสร็จก่อนแสดงข้อความ
  * ✅ Sync การแสดงผลกับเสียงให้ตรงกัน
  * ✅ FIX: ใช้วิดีโอที่ PHP สุ่มมาให้แล้ว (ไม่สุ่มซ้ำใน JS)
  * ✅ NEW: สุ่มวิดีโอถัดไปไม่ซ้ำกับอันที่เพิ่งเล่น
+ * ✅ NEW: พูดสภาพอากาศทุกครั้งที่เข้ามา
  */
 
 // ========== Global Variables ==========
@@ -51,6 +52,10 @@ let isWelcomeMessagePlayed = false;
 let aiCompanionData = null;
 let currentAudio = null;
 
+// ✅ Weather tracking
+let weatherReportPlayed = false;
+let weatherData = null;
+
 // ========== Initialize ==========
 $(document).ready(function() {
     console.log('🚀 Initializing AI Chat 3D with TTS Cache...');
@@ -91,9 +96,12 @@ $(document).ready(function() {
         
         loadConversations();
         
-        setTimeout(() => {
-            playWelcomeMessage();
-        }, 800);
+        // ✅ ดึงข้อมูลสภาพอากาศแล้วพูดทักทาย + สภาพอากาศ
+        fetchWeatherData().then(() => {
+            setTimeout(() => {
+                playWelcomeWithWeather();
+            }, 800);
+        });
     });
     
     $('#messageInput').on('input', function() {
@@ -118,6 +126,85 @@ $(document).ready(function() {
         e.stopPropagation();
     });
 });
+
+// ========== ✅ Fetch Weather Data (พูดทุกครั้ง) ==========
+function fetchWeatherData() {
+    return new Promise((resolve) => {
+        console.log('🌤️ Fetching weather data...');
+        
+        const headers = {};
+        if (jwt) {
+            headers['Authorization'] = 'Bearer ' + jwt;
+        }
+        
+        $.ajax({
+            url: 'app/actions/get_weather.php?lang=' + userPreferredLanguage,
+            type: 'GET',
+            headers: headers,
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    weatherData = response.data;
+                    weatherReportPlayed = false; // ✅ รีเซ็ตให้พูดทุกครั้ง
+                    console.log('✅ Weather data loaded:', weatherData);
+                } else {
+                    console.warn('⚠️ Weather fetch failed');
+                }
+                resolve();
+            },
+            error: function(xhr, status, error) {
+                console.error('❌ Weather fetch error:', error);
+                resolve(); // ไม่ให้ error ขัดขวางการทำงาน
+            }
+        });
+    });
+}
+
+// ========== Play Welcome + Weather (ทุกครั้ง) ==========
+function playWelcomeWithWeather() {
+    if (isWelcomeMessagePlayed) {
+        console.log('⏭️ Welcome already played');
+        return;
+    }
+    
+    isWelcomeMessagePlayed = true;
+    
+    const welcomeText = WELCOME_MESSAGES[userPreferredLanguage] || WELCOME_MESSAGES.th;
+    
+    console.log(`🎉 Playing welcome + weather in ${userPreferredLanguage}`);
+    
+    if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
+        videoAvatar.play().catch(e => {
+            console.warn('⚠️ Autoplay blocked');
+        });
+    }
+    
+    // เล่น welcome message
+    speakTextWithCache(welcomeText, userPreferredLanguage, 'welcome').then(() => {
+        // หลังจาก welcome เสร็จ ถ้ามีข้อมูลสภาพอากาศ
+        if (weatherData && !weatherReportPlayed) {
+            setTimeout(() => {
+                playWeatherReport();
+            }, 1000);
+        }
+    });
+}
+
+// ========== Play Weather Report (ทุกครั้ง) ==========
+function playWeatherReport() {
+    if (weatherReportPlayed || !weatherData) {
+        return;
+    }
+    
+    weatherReportPlayed = true;
+    
+    console.log('🌤️ Playing weather report');
+    
+    const weatherText = weatherData.message;
+    
+    // ใช้ cache สำหรับข้อความสภาพอากาศ
+    speakTextWithCache(weatherText, userPreferredLanguage, 'weather');
+}
 
 // ========== ✅ FIX: Fetch AI Data (ใช้วิดีโอที่ PHP สุ่มให้แล้ว) ==========
 function fetchAICompanionData() {
@@ -155,11 +242,7 @@ function fetchAICompanionData() {
                         return;
                     }
                     
-                    // ✅ เก็บเฉพาะ idle videos ก่อน (ยังไม่โหลด speaking videos)
                     IDLE_VIDEO_URLS = aiCompanionData.idle_video_urls_array || [];
-                    
-                    // ✅ เก็บ speaking videos array ไว้ใน aiCompanionData แต่ยังไม่ดึงมาใช้
-                    // จะดึงมาใช้ตอนที่ user เริ่มพิมพ์จริงๆ
                     userPreferredLanguage = aiCompanionData.preferred_language || 'th';
                     
                     console.log('🎲 Idle video arrays loaded:', {
@@ -208,47 +291,27 @@ function fetchAICompanionData() {
     });
 }
 
-// ========== Play Welcome Message (ใช้ CACHE) ==========
-function playWelcomeMessage() {
-    if (isWelcomeMessagePlayed) {
-        console.log('⏭️ Welcome already played');
-        return;
-    }
-    
-    isWelcomeMessagePlayed = true;
-    
-    const welcomeText = WELCOME_MESSAGES[userPreferredLanguage] || WELCOME_MESSAGES.th;
-    
-    console.log(`🎉 Playing welcome in ${userPreferredLanguage}: "${welcomeText}"`);
-    
-    if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
-        videoAvatar.play().catch(e => {
-            console.warn('⚠️ Autoplay blocked');
-        });
-    }
-    
-    speakTextWithCache(welcomeText, userPreferredLanguage, 'welcome');
-}
-
 // ========== Speak with CACHE (สำหรับ welcome, conversation) ==========
 function speakTextWithCache(text, forceLangCode = null, cacheType = 'welcome') {
     console.log('🎬 Speaking with CACHE:', text.substring(0, 50), '| Type:', cacheType);
     
-    updateStatus('Preparing voice...', false);
-    $('#messageText').html('<span class="typing-indicator">Thinking...</span>');
-    $('#currentMessage').fadeIn();
-    
-    let langCode = forceLangCode || detectLanguage(text);
-    const chunks = splitTextIntoChunks(text);
-    
-    preloadAllAudioChunksWithCache(chunks, langCode, cacheType).then((audioUrls) => {
-        console.log('✅ All audio preloaded with cache');
-        showMessage(text);
-        playPreloadedAudio(audioUrls, langCode, text);
-    }).catch((error) => {
-        console.error('❌ Audio preload failed:', error);
-        showMessage(text);
-        fallbackToGoogleTTS(text, langCode);
+    return new Promise((resolve, reject) => {
+        updateStatus('Preparing voice...', false);
+        $('#messageText').html('<span class="typing-indicator">Thinking...</span>');
+        $('#currentMessage').fadeIn();
+        
+        let langCode = forceLangCode || detectLanguage(text);
+        const chunks = splitTextIntoChunks(text);
+        
+        preloadAllAudioChunksWithCache(chunks, langCode, cacheType).then((audioUrls) => {
+            console.log('✅ All audio preloaded with cache');
+            showMessage(text);
+            playPreloadedAudio(audioUrls, langCode, text, resolve); // ส่ง resolve ไปด้วย
+        }).catch((error) => {
+            console.error('❌ Audio preload failed:', error);
+            showMessage(text);
+            fallbackToGoogleTTS(text, langCode, resolve);
+        });
     });
 }
 
@@ -419,7 +482,7 @@ function preloadAIResponseAudio(chunks, langCode) {
 }
 
 // ========== Play Preloaded Audio ==========
-function playPreloadedAudio(audioUrls, langCode, fullText) {
+function playPreloadedAudio(audioUrls, langCode, fullText, onComplete) {
     const langNames = {
         'th': 'Thai',
         'en': 'English',
@@ -449,6 +512,9 @@ function playPreloadedAudio(audioUrls, langCode, fullText) {
         if (useVideoAvatar) stopSpeakingAnimation();
         
         console.log('✅ All audio playback completed');
+        
+        // เรียก callback
+        if (onComplete) onComplete();
     });
 }
 
@@ -573,7 +639,7 @@ function initVideoAvatar() {
     
     // 🔊 เปิดเสียง idle, ปิดเสียงตอนพูด
     videoAvatar.muted = false; // ✅ เปิดเสียงตอน idle
-    videoAvatar.volume = 1; // ✅ ปรับระดับเสียง 70%
+    videoAvatar.volume = 0.7; // ✅ ปรับระดับเสียง 70%
     videoAvatar.playsInline = true;
     videoAvatar.loop = false;
     videoAvatar.preload = 'auto';
@@ -1109,7 +1175,7 @@ function splitTextIntoChunks(text, maxLength = 200) {
     return chunks;
 }
 
-function fallbackToGoogleTTS(text, langCode) {
+function fallbackToGoogleTTS(text, langCode, onComplete) {
     const encodedText = encodeURIComponent(text);
     
     let googleLangCode = langCode;
@@ -1131,6 +1197,7 @@ function fallbackToGoogleTTS(text, langCode) {
     currentAudio.oncanplaythrough = function() {
         this.play().catch(err => {
             console.error('Google TTS error:', err);
+            if (onComplete) onComplete();
         });
     };
     
@@ -1146,6 +1213,7 @@ function fallbackToGoogleTTS(text, langCode) {
         updateStatus('Ready to chat', false);
         $('#currentMessage').fadeOut();
         if (useVideoAvatar) stopSpeakingAnimation();
+        if (onComplete) onComplete();
     };
     
     currentAudio.load();
@@ -1296,4 +1364,4 @@ function goToPreferences() {
     window.location.href = url;
 }
 
-console.log('✅ AI Chat 3D with TTS Cache System + Random Video Fix + No Repeat loaded');
+console.log('✅ AI Chat 3D with TTS Cache System + Random Video Fix + No Repeat + Weather Every Time loaded');
