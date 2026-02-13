@@ -78,6 +78,110 @@ if ($current_hour >= 5 && $current_hour < 12) {
 }
 
 // ========================================
+// ✅ ฟังก์ชันแปลงชื่อจังหวัดไทยเป็นภาษาอังกฤษ
+// ========================================
+function translateProvinceToEnglish($province_th) {
+    // Map จังหวัดไทยทั้งหมด 77 จังหวัด
+    $province_map = [
+        // ภาคกลาง
+        'กรุงเทพมหานคร' => 'Bangkok',
+        'กรุงเทพ' => 'Bangkok',
+        'นนทบุรี' => 'Nonthaburi',
+        'ปทุมธานี' => 'Pathum Thani',
+        'สมุทรปราการ' => 'Samut Prakan',
+        'นครปฐม' => 'Nakhon Pathom',
+        'สมุทรสาคร' => 'Samut Sakhon',
+        'สมุทรสงคราม' => 'Samut Songkhram',
+        'พระนครศรีอยุธยา' => 'Phra Nakhon Si Ayutthaya',
+        'อยุธยา' => 'Ayutthaya',
+        'อ่างทอง' => 'Ang Thong',
+        'ลพบุรี' => 'Lopburi',
+        'สิงห์บุรี' => 'Sing Buri',
+        'ชัยนาท' => 'Chai Nat',
+        'สระบุรี' => 'Saraburi',
+        'นครนายก' => 'Nakhon Nayok',
+        'ฉะเชิงเทรา' => 'Chachoengsao',
+        'ปราจีนบุรี' => 'Prachin Buri',
+        'สระแก้ว' => 'Sa Kaeo',
+        'ชลบุรี' => 'Chonburi',
+        'ระยอง' => 'Rayong',
+        'จันทบุรี' => 'Chanthaburi',
+        'ตราด' => 'Trat',
+        'เพชรบุรี' => 'Phetchaburi',
+        'ประจวบคีรีขันธ์' => 'Prachuap Khiri Khan',
+        'กาญจนบุรี' => 'Kanchanaburi',
+        'ราชบุรี' => 'Ratchaburi',
+        'สุพรรณบุรี' => 'Suphan Buri',
+        
+        // ภาคเหนือ
+        'เชียงใหม่' => 'Chiang Mai',
+        'เชียงราย' => 'Chiang Rai',
+        'ลำปาง' => 'Lampang',
+        'ลำพูน' => 'Lamphun',
+        'แม่ฮ่องสอน' => 'Mae Hong Son',
+        'น่าน' => 'Nan',
+        'พะเยา' => 'Phayao',
+        'แพร่' => 'Phrae',
+        'อุตรดิตถ์' => 'Uttaradit',
+        'ตาก' => 'Tak',
+        'สุโขทัย' => 'Sukhothai',
+        'พิษณุโลก' => 'Phitsanulok',
+        'พิจิตร' => 'Phichit',
+        'เพชรบูรณ์' => 'Phetchabun',
+        'กำแพงเพชร' => 'Kamphaeng Phet',
+        'นครสวรรค์' => 'Nakhon Sawan',
+        'อุทัยธานี' => 'Uthai Thani',
+        
+        // ภาคตะวันออกเฉียงเหนือ (อีสาน)
+        'นครราชสีมา' => 'Nakhon Ratchasima',
+        'โคราช' => 'Korat',
+        'บุรีรัมย์' => 'Buriram',
+        'สุรินทร์' => 'Surin',
+        'ศรีสะเกษ' => 'Si Sa Ket',
+        'อุบลราชธานี' => 'Ubon Ratchathani',
+        'ยโสธร' => 'Yasothon',
+        'ชัยภูมิ' => 'Chaiyaphum',
+        'อำนาจเจริญ' => 'Amnat Charoen',
+        'หนองบัวลำภู' => 'Nong Bua Lam Phu',
+        'ขอนแก่น' => 'Khon Kaen',
+        'อุดรธานี' => 'Udon Thani',
+        'เลย' => 'Loei',
+        'หนองคาย' => 'Nong Khai',
+        'มหาสารคาม' => 'Maha Sarakham',
+        'ร้อยเอ็ด' => 'Roi Et',
+        'กาฬสินธุ์' => 'Kalasin',
+        'สกลนคร' => 'Sakon Nakhon',
+        'นครพนม' => 'Nakhon Phanom',
+        'มุกดาหาร' => 'Mukdahan',
+        'บึงกาฬ' => 'Bueng Kan',
+        
+        // ภาคใต้
+        'ชุมพร' => 'Chumphon',
+        'ระนอง' => 'Ranong',
+        'สุราษฎร์ธานี' => 'Surat Thani',
+        'พังงา' => 'Phang Nga',
+        'ภูเก็ต' => 'Phuket',
+        'กระบี่' => 'Krabi',
+        'นครศรีธรรมราช' => 'Nakhon Si Thammarat',
+        'ตรัง' => 'Trang',
+        'พัทลุง' => 'Phatthalung',
+        'สตูล' => 'Satun',
+        'สงขลา' => 'Songkhla',
+        'ปัตตานี' => 'Pattani',
+        'ยะลา' => 'Yala',
+        'นราธิวาส' => 'Narathiwat'
+    ];
+    
+    // ลองหาจาก map ก่อน
+    if (isset($province_map[$province_th])) {
+        return $province_map[$province_th];
+    }
+    
+    // ถ้าไม่เจอ ใช้ชื่อเดิม
+    return $province_th;
+}
+
+// ========================================
 // ตรวจสอบ Authentication (รองรับทั้ง JWT และ Guest)
 // ========================================
 $user_id = null;
@@ -120,16 +224,22 @@ if ($user_id) {
 
 // ถ้ายังไม่ได้ province ให้ใช้ default
 if (empty($province)) {
-    $province = 'กรุงเทพมหานคร'; // Default
+    $province = 'กรุงเทพมหานคร'; // Default (Thai)
     $country = 'Thailand';
 }
 
+// ✅ แปลงชื่อจังหวัดเป็นภาษาอังกฤษสำหรับ API (ถ้าไม่ใช่ภาษาไทย)
+$province_for_display = $province; // เก็บชื่อเดิมไว้แสดง
+$province_for_api = ($language !== 'th') ? translateProvinceToEnglish($province) : $province;
+
+error_log("🌍 Province: {$province} → API: {$province_for_api}, Display: {$province_for_display}, Lang: {$language}");
+
 // ========================================
-// ดึงข้อมูลสภาพอากาศจาก Open-Meteo (ตรงๆ ไม่ผ่าน cache)
+// ดึงข้อมูลสภาพอากาศจาก Open-Meteo (ใช้ชื่อภาษาอังกฤษสำหรับ API)
 // ========================================
 try {
     $weatherManager = new OpenMeteoWeatherManager($conn);
-    $weather_result = $weatherManager->getWeatherForProvince($province, $language, $country);
+    $weather_result = $weatherManager->getWeatherForProvince($province_for_api, $language, $country);
 } catch (Exception $e) {
     error_log("❌ [Weather] Exception: " . $e->getMessage());
     echo json_encode([
@@ -148,6 +258,11 @@ if (!$weather_result['success']) {
 }
 
 $weather = $weather_result['data'];
+
+// ✅ ใช้ชื่อจังหวัดที่แปลแล้วสำหรับแสดงผล (ถ้าไม่ใช่ภาษาไทย)
+if ($language !== 'th') {
+    $weather['province'] = $province_for_api;
+}
 
 // ========================================
 // ✅ สร้างข้อความทักทายตามเวลา + สภาพอากาศ
@@ -224,10 +339,10 @@ echo json_encode([
         'wind_speed' => $weather['wind_speed'] ?? null,
         'message' => $message,
         'language' => $language,
-        'cached' => false, // เสมอเพราะไม่มี cache
+        'cached' => false,
         'time_period' => $time_period,
         'current_hour' => $current_hour,
-        'api_mode' => 'direct' // บอกว่าเรียก API ตรง
+        'api_mode' => 'direct'
     ]
 ], JSON_UNESCAPED_UNICODE);
 
