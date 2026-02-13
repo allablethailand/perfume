@@ -678,10 +678,10 @@ const lang = urlParams.get('lang') || 'th';
 const aiCodeFromURL = urlParams.get('ai_code') || '';
 
 let companionId = null;
-let currentPreferredLang = 'th';
+let currentPreferredLang = null; // ✅ เริ่มต้นเป็น null เพื่อบังคับให้ต้องดึงจาก database
 
 const jwt = sessionStorage.getItem('jwt');
-let isGuestMode = !jwt; // ✅ ถ้าไม่มี JWT = Guest Mode
+let isGuestMode = !jwt;
 
 // ========== Initialize ==========
 $(document).ready(function() {
@@ -690,17 +690,15 @@ $(document).ready(function() {
     console.log('AI Code:', aiCodeFromURL);
     console.log('JWT:', jwt ? 'Found' : 'Not found');
 
-    // ✅ ลอง companionId และข้อมูล AI จาก sessionStorage
+    // ✅ ลบการอ่าน language จาก sessionStorage ออก เพื่อบังคับดึงจาก database
     const storedCompanionId = sessionStorage.getItem('user_companion_id');
     const storedAIName = sessionStorage.getItem('ai_name');
     const storedAIAvatar = sessionStorage.getItem('ai_avatar_url');
-    // const storedLanguage = sessionStorage.getItem('preferred_language');
     
     if (storedCompanionId) {
         companionId = parseInt(storedCompanionId);
         console.log('✅ Found stored companionId:', companionId);
         
-        // ✅ ถ้ามีข้อมูล AI ใน sessionStorage ให้แสดงเลย
         if (storedAIName) {
             $('#aiNameSidebar').text(storedAIName);
             console.log('✅ Set AI name from storage:', storedAIName);
@@ -713,19 +711,10 @@ $(document).ready(function() {
             });
             console.log('✅ Set AI avatar from storage:', storedAIAvatar);
         } else {
-            // ใช้รูป placeholder
             $('#aiAvatarSidebar').attr('src', 'https://via.placeholder.com/280x280/7877c6/ffffff?text=AI');
         }
-        
-        // if (storedLanguage) {
-        //     currentPreferredLang = storedLanguage;
-        //     $('.language-option').removeClass('selected');
-        //     $(`.language-option[data-lang="${storedLanguage}"]`).addClass('selected');
-        //     console.log('✅ Set language from storage:', storedLanguage);
-        // }
     }
 
-    // ✅ เช็คแบบผ่อนปรน
     if (!aiCodeFromURL && !jwt && !companionId) {
         Swal.fire({
             title: 'Access Denied',
@@ -739,32 +728,18 @@ $(document).ready(function() {
         return;
     }
 
-    // ✅ ถ้ามี companionId และข้อมูล AI ครบ -> ข้ามการโหลด AI info
-    if (companionId && storedAIName && storedAIAvatar && !aiCodeFromURL && !jwt) {
-        console.log('⚠️ Has all data from storage, skip loadCompanionInfo');
-        loadQuestionsAndAnswers();
-    } 
-    // ถ้ามี companionId แต่ไม่มีข้อมูล AI -> โหลดจาก API
-    else if (companionId && !aiCodeFromURL && !jwt) {
-        console.log('⚠️ Has companionId but missing AI data, try loadCompanionInfo');
-        loadCompanionInfo();
-    }
-    // กรณีปกติ -> โหลดตามปกติ
-    else {
-        loadCompanionInfo();
-    }
+    // ✅ เริ่มต้นด้วยการโหลดข้อมูล Companion เสมอ เพื่อดึง preferred_language จาก database
+    loadCompanionInfo();
 
     $('#backButton').on('click', function(e) {
         e.preventDefault();
         
-        // ✅ ลองหา ai_code จาก URL ก่อน ถ้าไม่มีลอง sessionStorage
         let aiCode = aiCodeFromURL;
         
         if (!aiCode) {
             aiCode = sessionStorage.getItem('ai_code');
         }
         
-        // สร้าง URL กลับ
         let backUrl = '?ai_chat_3d&lang=' + lang;
         
         if (aiCode) {
@@ -783,27 +758,27 @@ $(document).ready(function() {
 });
 
 /**
- * ✅ Load Companion Info (Guest Mode Support)
+ * ✅ Load Companion Info - ดึง preferred_language จาก database ทุกครั้ง
  */
 function loadCompanionInfo() {
     let url = '';
     const headers = {};
     let canLoadInfo = false;
 
-    // ✅ เลือก endpoint ตาม mode
     if (isGuestMode && aiCodeFromURL) {
-        // Guest Mode: ใช้ get_ai_data.php
+        // ✅ เพิ่m user_companion_id ถ้ามี
         url = 'app/actions/get_ai_data.php?ai_code=' + aiCodeFromURL;
+        if (companionId) {
+            url += '&user_companion_id=' + companionId;
+        }
         canLoadInfo = true;
-        console.log('🔓 Guest Mode: Using ai_code');
+        console.log('🔓 Guest Mode: Using ai_code with companionId:', companionId);
     } else if (jwt) {
-        // Login Mode: ใช้ check_ai_companion_status.php
         url = 'app/actions/check_ai_companion_status.php';
         headers['Authorization'] = 'Bearer ' + jwt;
         canLoadInfo = true;
         console.log('🔐 Login Mode: Using JWT');
     } else if (companionId) {
-        // ✅ มี companionId แต่ไม่มี auth - ลองดึงข้อมูลจาก companion_id
         url = 'app/actions/get_companion_info_by_id.php?user_companion_id=' + companionId;
         canLoadInfo = true;
         console.log('⚠️ Using companionId without auth');
@@ -817,6 +792,8 @@ function loadCompanionInfo() {
         return;
     }
 
+    console.log('📡 Loading companion info from:', url);
+
     $.ajax({
         url: url,
         type: 'GET',
@@ -826,12 +803,10 @@ function loadCompanionInfo() {
             console.log('✅ Companion response:', response);
             
             if (response.status === 'success') {
-                // Handle both response formats
                 const data = response.ai_data || response.companion || response.data;
                 
                 if (!data) {
                     console.error('❌ No data in response');
-                    // ไม่แสดง error แต่ให้ทำงานต่อไป
                     loadQuestionsAndAnswers();
                     return;
                 }
@@ -845,36 +820,39 @@ function loadCompanionInfo() {
                     companionId = data.user_companion_id;
                     sessionStorage.setItem('user_companion_id', companionId);
                     console.log('✅ Stored companion_id from login mode:', companionId);
+                } else if (data.user_companion_id) {
+                    companionId = data.user_companion_id;
+                    sessionStorage.setItem('user_companion_id', companionId);
+                    console.log('✅ Stored companion_id from data:', companionId);
                 }
 
-                // ✅ เก็บ preferred language
-                currentPreferredLang = data.preferred_language || 'th';
+                // ✅ ✅ ✅ ดึง preferred_language จาก response หลัก ก่อน
+                currentPreferredLang = response.preferred_language || data.preferred_language || 'th';
+                console.log('🌍 Loaded preferred_language from database:', currentPreferredLang);
                 
-                // Set selected language
+                // ✅ อัพเดท UI ให้ตรงกับ database
                 $('.language-option').removeClass('selected');
                 $(`.language-option[data-lang="${currentPreferredLang}"]`).addClass('selected');
+                console.log('✅ Updated language UI to:', currentPreferredLang);
                 
-                // ✅ แสดงชื่อ AI (ลองหลายรูปแบบ)
+                // ✅ เก็บลง sessionStorage
+                sessionStorage.setItem('preferred_language', currentPreferredLang);
+                
+                // แสดงชื่อ AI
                 const langCol = 'ai_name_' + lang;
                 const aiName = data[langCol] || data.ai_name_th || data.ai_name || data.name || 'AI Companion';
                 $('#aiNameSidebar').text(aiName);
-                
-                // ✅ เก็บลง sessionStorage
                 sessionStorage.setItem('ai_name', aiName);
-                sessionStorage.setItem('preferred_language', currentPreferredLang);
                 
-                // ✅ แสดงรูป Avatar (ลองหลายรูปแบบ)
+                // แสดงรูป Avatar
                 let avatarUrl = data.ai_avatar_url || data.avatar_url || data.image_url || data.idle_video_url || '';
                 
                 if (avatarUrl) {
                     $('#aiAvatarSidebar').attr('src', avatarUrl).on('error', function() {
                         console.warn('⚠️ Avatar image failed to load:', avatarUrl);
-                        // ใช้รูป default
                         $(this).attr('src', 'https://via.placeholder.com/280x280/7877c6/ffffff?text=AI');
                     });
                     console.log('✅ Avatar URL set:', avatarUrl);
-                    
-                    // ✅ เก็บลง sessionStorage
                     sessionStorage.setItem('ai_avatar_url', avatarUrl);
                 } else {
                     console.warn('⚠️ No avatar URL found');
@@ -893,7 +871,6 @@ function loadCompanionInfo() {
                 
             } else {
                 console.error('❌ API returned error:', response.message);
-                // ไม่แสดง error แต่ให้ทำงานต่อไป
                 loadQuestionsAndAnswers();
             }
         },
@@ -904,7 +881,6 @@ function loadCompanionInfo() {
                 response: xhr.responseText
             });
             
-            // ✅ ไม่แสดง error แต่ให้ทำงานต่อไป
             if (companionId) {
                 console.log('⚠️ Error but has companionId, try to continue...');
                 loadQuestionsAndAnswers();
@@ -924,10 +900,11 @@ function loadCompanionInfo() {
 }
 
 /**
- * ✅ Update Preferred Language (Guest Mode Support)
+ * ✅ Update Preferred Language
  */
 function updatePreferredLanguage(selectedLang) {
     if (selectedLang === currentPreferredLang) {
+        console.log('⚠️ Same language selected, no change needed');
         return;
     }
 
@@ -942,6 +919,8 @@ function updatePreferredLanguage(selectedLang) {
         return;
     }
 
+    console.log('🔄 Updating language from', currentPreferredLang, 'to', selectedLang);
+
     $('#loadingOverlay .loading-text').text('Updating language...');
     $('#loadingOverlay').addClass('active');
 
@@ -951,7 +930,6 @@ function updatePreferredLanguage(selectedLang) {
         preferred_language: selectedLang
     };
 
-    // ✅ เพิ่ม ai_code ถ้าเป็น Guest Mode
     if (isGuestMode && aiCodeFromURL) {
         requestData.ai_code = aiCodeFromURL;
     } else if (jwt) {
@@ -969,12 +947,17 @@ function updatePreferredLanguage(selectedLang) {
             $('#loadingOverlay .loading-text').text('Saving changes...');
             
             if (response.status === 'success') {
+                // ✅ อัพเดทค่าใหม่
                 currentPreferredLang = selectedLang;
+                
+                // ✅ อัพเดท UI
                 $('.language-option').removeClass('selected');
                 $(`.language-option[data-lang="${selectedLang}"]`).addClass('selected');
                 
                 // ✅ อัพเดท sessionStorage
                 sessionStorage.setItem('preferred_language', selectedLang);
+                
+                console.log('✅ Language updated successfully to:', selectedLang);
                 
                 Swal.fire({
                     icon: 'success',
@@ -986,6 +969,7 @@ function updatePreferredLanguage(selectedLang) {
                     color: '#fff'
                 });
             } else {
+                console.error('❌ Failed to update language:', response.message);
                 Swal.fire({
                     title: 'Error!',
                     text: response.message || 'Failed to update language',
@@ -1017,7 +1001,7 @@ function updatePreferredLanguage(selectedLang) {
 }
 
 /**
- * ✅ Load Questions and Answers (Guest Mode Support)
+ * ✅ Load Questions and Answers
  */
 function loadQuestionsAndAnswers() {
     if (!companionId) {
@@ -1244,7 +1228,7 @@ function toggleEditForm(questionId) {
 }
 
 /**
- * ✅ Save Answer (Guest Mode Support)
+ * ✅ Save Answer
  */
 function saveAnswer(questionId) {
     if (!companionId) {
@@ -1308,7 +1292,6 @@ function saveAnswer(questionId) {
         answerData.scale_value = selectedScale.data('value');
     }
 
-    // ✅ เพิ่ม ai_code ถ้าเป็น Guest Mode
     if (isGuestMode && aiCodeFromURL) {
         answerData.ai_code = aiCodeFromURL;
     }
