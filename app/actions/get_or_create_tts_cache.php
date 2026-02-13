@@ -129,7 +129,7 @@ curl_close($ch);
 
 if ($httpCode === 200) {
     // บันทึกไฟล์
-    $tempDir = $_SERVER['DOCUMENT_ROOT'] . '/public/tts_cache/';
+    $tempDir = $_SERVER['DOCUMENT_ROOT'] . '/perfume/public/tts_cache/';
     if (!file_exists($tempDir)) {
         mkdir($tempDir, 0777, true);
     }
@@ -140,7 +140,7 @@ if ($httpCode === 200) {
     
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'];
-    $audioUrl = $protocol . '://' . $host . '/public/tts_cache/' . $filename;
+    $audioUrl = $protocol . '://' . $host . '/perfume/public/tts_cache/' . $filename;
     
     $fileSize = strlen($response);
     $characterCount = mb_strlen($text, 'UTF-8');
