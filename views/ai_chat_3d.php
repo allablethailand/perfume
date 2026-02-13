@@ -9,6 +9,8 @@ if (session_status() == PHP_SESSION_NONE) {
 <!DOCTYPE html>
 <html lang="th">
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <?php include 'inc_head.php' ?>
     <link href="app/css/index_.css?v=<?php echo time(); ?>" rel="stylesheet">
     <style>
@@ -494,21 +496,95 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         @media (max-width: 768px) {
+            
             .floating-menu-btn {
-                width: 48px;
-                height: 48px;
-                font-size: 20px;
-            }
+        width: 56px; /* เพิ่มขนาด */
+        height: 56px;
+        font-size: 24px;
+        top: 15px;
+        left: 15px;
+    }
 
-            .dropdown-menu {
-                width: calc(100vw - 40px);
-                max-width: 320px;
-            }
+    .dropdown-menu {
+        width: calc(100vw - 30px);
+        max-width: none;
+        left: 15px;
+        top: 85px;
+    }
 
-            .current-message {
-                max-width: calc(100vw - 100px);
-            }
+    .current-message {
+        max-width: calc(100vw - 40px);
+        padding: 12px 16px;
+        font-size: 13px;
+    }
+
+    .avatar-status {
+        padding: 12px 16px;
+        font-size: 13px;
+    }
+
+    /* ✅ แก้ส่วน Input ให้ใหญ่ขึ้น */
+    .chat-input-3d {
+        padding: 15px 20px;
+    }
+
+    .message-input {
+        font-size: 16px; /* เพิ่มจาก 14px */
+        padding: 14px 20px; /* เพิ่ม padding */
+        min-height: 50px; /* เพิ่มความสูง */
+        border-radius: 25px;
+    }
+
+    .send-btn {
+        width: 50px; /* เพิ่มจาก 44px */
+        height: 50px;
+        font-size: 18px;
+    }
+
+    /* ✅ แก้ปุ่มใน Menu ให้ใหญ่ขึ้น */
+    .new-chat-btn {
+        padding: 14px;
+        font-size: 15px;
+    }
+
+    .menu-action-btn {
+        padding: 14px 18px;
+        font-size: 15px;
+    }
+
+    .conversation-item {
+        padding: 14px;
+        font-size: 14px;
+    }
+
+    .conversation-title {
+        font-size: 15px;
+    }
+
+    .conversation-preview {
+        font-size: 13px;
+    }
+
+    /* ✅ แก้ส่วน Status ให้ชัดเจนขึ้น */
+    .avatar-overlay {
+        top: 15px;
+        right: 15px;
+        gap: 10px;
+        flex-direction: column;
+        align-items: flex-end;
+    }
+
+    .status-indicator {
+        font-size: 13px;
+    }
+
+    .status-dot {
+        width: 12px;
+        height: 12px;
+    }
+}
         }
+        
     </style>
 </head>
 <body>
