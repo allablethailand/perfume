@@ -688,8 +688,8 @@ function initVideoAvatar() {
     videoAvatar.id = 'videoAvatar';
     videoAvatar.style.cssText = `
         position: absolute;
-        max-width: 80%;
-        max-height: 80%;
+        width: 80%;
+        height: 80%;
         object-fit: contain;
         z-index: 5;
         opacity: 1;
