@@ -132,29 +132,65 @@ function fetchWeatherData() {
     return new Promise((resolve) => {
         console.log('🌤️ Fetching weather data...');
         
+        // ลองขอตำแหน่งจริงก่อน
+        if ('geolocation' in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                // Success callback
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    console.log('✅ Got user location:', lat, lon);
+                    
+                    fetchWeatherByCoordinates(lat, lon).then(resolve);
+                },
+                // Error callback (ปฏิเสธหรือ error)
+                (error) => {
+                    console.warn('⚠️ Geolocation denied or failed:', error.message);
+                    // ถ้าไม่ได้ location ก็ไม่ต้องดึงสภาพอากาศ
+                    weatherData = null;
+                    weatherReportPlayed = true; // ไม่ต้องพูด
+                    resolve();
+                }
+            );
+        } else {
+            console.warn('⚠️ Geolocation not supported');
+            weatherData = null;
+            weatherReportPlayed = true;
+            resolve();
+        }
+    });
+}
+
+// ฟังก์ชันเรียก API ด้วยพิกัด
+function fetchWeatherByCoordinates(lat, lon) {
+    return new Promise((resolve) => {
         const headers = {};
         if (jwt) {
             headers['Authorization'] = 'Bearer ' + jwt;
         }
         
         $.ajax({
-            url: 'app/actions/get_weather.php?lang=' + userPreferredLanguage,
+            url: `app/actions/get_weather.php?lang=${userPreferredLanguage}&lat=${lat}&lon=${lon}`,
             type: 'GET',
             headers: headers,
             dataType: 'json',
             success: function(response) {
                 if (response.status === 'success') {
                     weatherData = response.data;
-                    weatherReportPlayed = false; // ✅ รีเซ็ตให้พูดทุกครั้ง
+                    weatherReportPlayed = false;
                     console.log('✅ Weather data loaded:', weatherData);
                 } else {
                     console.warn('⚠️ Weather fetch failed');
+                    weatherData = null;
+                    weatherReportPlayed = true;
                 }
                 resolve();
             },
             error: function(xhr, status, error) {
                 console.error('❌ Weather fetch error:', error);
-                resolve(); // ไม่ให้ error ขัดขวางการทำงาน
+                weatherData = null;
+                weatherReportPlayed = true;
+                resolve();
             }
         });
     });
