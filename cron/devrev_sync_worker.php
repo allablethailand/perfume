@@ -6,8 +6,8 @@ ini_set('display_errors', 1);
 ini_set('log_errors', 1);
 
 // สร้าง log file ในตำแหน่งเดียวกับไฟล์นี้
-$log_file = __DIR__ . '/cron/devrev_sync_worker.log';
-$error_log_file = __DIR__ . '/cron/devrev_sync_worker_error.log';
+$log_file = __DIR__ . '/devrev_sync_worker.log';
+$error_log_file = __DIR__ . '/devrev_sync_worker_error.log';
 
 // ฟังก์ชัน logging
 function write_log($message, $is_error = false) {
