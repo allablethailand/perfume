@@ -43,25 +43,50 @@ try {
         throw new Exception("AI companion not found");
     }
     
-    // ✅ ลองหา user_companion_id จาก session หรือ GET parameter
-    $user_companion_id = null;
-    
-    if (session_status() == PHP_SESSION_NONE) {
-        session_start();
-    }
-    
-    // ลอง GET parameter ก่อน
-    if (isset($_GET['user_companion_id']) && intval($_GET['user_companion_id']) > 0) {
-        $user_companion_id = intval($_GET['user_companion_id']);
-    } 
-    // ลอง session
-    elseif (isset($_SESSION['user_companion_id'])) {
-        $user_companion_id = intval($_SESSION['user_companion_id']);
-    }
-    
     // ✅ ดึง preferred_language จาก user_ai_companions (ถ้ามี companion_id)
     $preferred_language = 'th'; // default
+    $user_companion_id = null;
     
+    // ✅ ลองหา user_companion_id จาก GET parameter ก่อน
+    if (isset($_GET['user_companion_id']) && intval($_GET['user_companion_id']) > 0) {
+        $user_companion_id = intval($_GET['user_companion_id']);
+        error_log("✅ Found user_companion_id from GET: " . $user_companion_id);
+    }
+    
+    // ✅ ถ้ายังไม่มี ลองจาก session
+    if (!$user_companion_id) {
+        if (session_status() == PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        if (isset($_SESSION['user_companion_id'])) {
+            $user_companion_id = intval($_SESSION['user_companion_id']);
+            error_log("✅ Found user_companion_id from session: " . $user_companion_id);
+        }
+    }
+    
+    // ✅ ถ้ายังไม่มี ลองหาจาก ai_code + ai_id
+    if (!$user_companion_id && $ai_data['ai_id']) {
+        $find_companion_stmt = $conn->prepare("
+            SELECT user_companion_id, preferred_language 
+            FROM user_ai_companions 
+            WHERE ai_id = ? AND status = 1 AND del = 0
+            ORDER BY last_active_at DESC
+            LIMIT 1
+        ");
+        $find_companion_stmt->bind_param('i', $ai_data['ai_id']);
+        $find_companion_stmt->execute();
+        $find_result = $find_companion_stmt->get_result();
+        
+        if ($find_row = $find_result->fetch_assoc()) {
+            $user_companion_id = $find_row['user_companion_id'];
+            $preferred_language = $find_row['preferred_language'] ?: 'th';
+            error_log("✅ Found companion by ai_id: user_companion_id=" . $user_companion_id . ", preferred_language=" . $preferred_language);
+        }
+        $find_companion_stmt->close();
+    }
+    
+    // ✅ ถ้ามี companion_id แล้ว ให้ดึง preferred_language อีกครั้งเพื่อให้แน่ใจ
     if ($user_companion_id) {
         $lang_stmt = $conn->prepare("
             SELECT preferred_language 
@@ -74,12 +99,15 @@ try {
         
         if ($lang_row = $lang_result->fetch_assoc()) {
             $preferred_language = $lang_row['preferred_language'] ?: 'th';
-            error_log("✅ Found preferred_language from DB: " . $preferred_language);
+            error_log("✅ Updated preferred_language from DB: " . $preferred_language);
         }
         $lang_stmt->close();
     }
     
-    error_log("✅ AI Data found: ai_id=" . $ai_data['ai_id'] . ", preferred_language=" . $preferred_language);
+    error_log("=== FINAL VALUES ===");
+    error_log("user_companion_id: " . ($user_companion_id ?: 'NOT FOUND'));
+    error_log("preferred_language: " . $preferred_language);
+    error_log("✅ AI Data found: ai_id=" . $ai_data['ai_id']);
     
     // สุ่มวิดีโอ
     $idle_videos = json_decode($ai_data['idle_video_urls'] ?? '[]', true);
@@ -100,13 +128,15 @@ try {
     $ai_data['idle_video_urls_array'] = $idle_videos;
     $ai_data['talking_video_urls_array'] = $talking_videos;
     
-    // ✅ เพิ่m preferred_language ลงใน response
+    // ✅ เพิ่ม preferred_language และ user_companion_id ลงใน response
     $ai_data['preferred_language'] = $preferred_language;
+    $ai_data['user_companion_id'] = $user_companion_id;
     
     $response = [
         'status' => 'success',
         'ai_data' => $ai_data,
-        'preferred_language' => $preferred_language, // เพิ่มตรงนี้
+        'preferred_language' => $preferred_language,
+        'companion_id' => $user_companion_id,
         'message' => 'AI data loaded successfully'
     ];
     
