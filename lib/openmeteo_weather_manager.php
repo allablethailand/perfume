@@ -1,6 +1,6 @@
 <?php
 /**
- * Open-Meteo Weather Manager (NO CACHE VERSION)
+ * Open-Meteo Weather Manager (GEOLOCATION VERSION)
  * 
  * ดึงข้อมูลสภาพอากาศจาก Open-Meteo API โดยตรง
  * - ฟรี ไม่ต้อง API key
@@ -8,6 +8,7 @@
  * - เร็ว (~300-500ms)
  * - รองรับทุกประเทศ ทุกจังหวัด
  * - รองรับ 5 ภาษา (th, en, cn, jp, kr)
+ * - รองรับการดึงจากพิกัดโดยตรง (Geolocation)
  * - ข้อมูล real-time ทุกครั้ง
  * 
  * ✨ Simple is better!
@@ -18,11 +19,134 @@ class OpenMeteoWeatherManager {
     
     public function __construct($conn) {
         $this->conn = $conn;
-        error_log("🌤️ [Weather Manager] Initialized (NO CACHE mode)");
+        error_log("🌤️ [Weather Manager] Initialized (GEOLOCATION mode)");
     }
     
     /**
-     * ดึงสภาพอากาศสำหรับ province
+     * ✅ NEW: ดึงสภาพอากาศจากพิกัดโดยตรง (สำหรับ Geolocation API)
+     */
+    public function getWeatherByCoordinates($latitude, $longitude, $language = 'th') {
+        error_log("📍 [Weather] Fetching weather for coordinates: {$latitude}, {$longitude} ({$language})");
+        
+        // 1. Reverse geocoding เพื่อหาชื่อเมือง (optional)
+        $location_info = $this->reverseGeocode($latitude, $longitude);
+        
+        $location_name = $location_info['name'] ?? 'Your location';
+        $country = $location_info['country'] ?? '';
+        
+        error_log("📍 [Weather] Location: {$location_name}, {$country}");
+        
+        // 2. ดึงข้อมูลสภาพอากาศจาก API
+        $weather_data = $this->fetchWeatherFromOpenMeteo(
+            $latitude,
+            $longitude,
+            $location_name,
+            $country
+        );
+        
+        if ($weather_data['success']) {
+            // แปลเป็นภาษาที่ต้องการ
+            $translated = $this->translateWeatherData($weather_data['data'], $language);
+            
+            error_log("✅ [Weather] Success! Temp: {$translated['temperature_min']}-{$translated['temperature_max']}°C, Rain: {$translated['rain_chance']}%");
+            
+            return [
+                'success' => true,
+                'data' => $translated,
+                'cached' => false
+            ];
+        }
+        
+        // ถ้า API ล้มเหลว ใช้ข้อมูลสำรอง
+        return $this->getFallbackWeather($location_name, $country, $language);
+    }
+    
+    /**
+     * ✅ NEW: Reverse Geocoding - แปลงพิกัดเป็นชื่อเมือง/จังหวัด (ใช้ Nominatim)
+     */
+    private function reverseGeocode($latitude, $longitude) {
+        // ใช้ Nominatim (OpenStreetMap) - ฟรี ไม่ต้อง API key
+        $url = "https://nominatim.openstreetmap.org/reverse";
+        
+        $params = [
+            'lat' => $latitude,
+            'lon' => $longitude,
+            'format' => 'json',
+            'accept-language' => 'en', // ขอภาษาอังกฤษ
+            'zoom' => 10 // ระดับความละเอียด (10 = เมือง/จังหวัด)
+        ];
+        
+        $url .= '?' . http_build_query($params);
+        
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 5,
+            CURLOPT_USERAGENT => 'WeatherApp/2.0', // Nominatim ต้องการ User-Agent
+            CURLOPT_SSL_VERIFYPEER => true
+        ]);
+        
+        $response = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($http_code !== 200 || empty($response)) {
+            error_log("⚠️ [Reverse Geocode] HTTP {$http_code} - Failed");
+            return [
+                'name' => 'Your location',
+                'country' => ''
+            ];
+        }
+        
+        $data = json_decode($response, true);
+        
+        if (empty($data['address'])) {
+            error_log("⚠️ [Reverse Geocode] No address data");
+            return [
+                'name' => 'Your location',
+                'country' => ''
+            ];
+        }
+        
+        $address = $data['address'];
+        
+        // ลำดับความสำคัญในการเลือกชื่อสถานที่
+        // 1. State (จังหวัด/รัฐ) - เหมาะกับไทย
+        // 2. Province (จังหวัด)
+        // 3. City (เมือง)
+        // 4. Town/Village (ตำบล)
+        // 5. County (อำเภอ)
+        
+        $location_name = null;
+        
+        if (!empty($address['state'])) {
+            $location_name = $address['state'];
+        } elseif (!empty($address['province'])) {
+            $location_name = $address['province'];
+        } elseif (!empty($address['city'])) {
+            $location_name = $address['city'];
+        } elseif (!empty($address['town'])) {
+            $location_name = $address['town'];
+        } elseif (!empty($address['county'])) {
+            $location_name = $address['county'];
+        } elseif (!empty($address['municipality'])) {
+            $location_name = $address['municipality'];
+        } else {
+            $location_name = 'Your location';
+        }
+        
+        $country = $address['country'] ?? '';
+        
+        error_log("✅ [Reverse Geocode] Found: {$location_name}, {$country}");
+        
+        return [
+            'name' => $location_name,
+            'country' => $country
+        ];
+    }
+    
+    /**
+     * ดึงสภาพอากาศสำหรับ province (เดิม - ยังใช้ได้)
      */
     public function getWeatherForProvince($province, $language = 'th', $country = 'Thailand') {
         error_log("📍 [Weather] Fetching weather for {$province}, {$country} ({$language})");
@@ -109,7 +233,7 @@ class OpenMeteoWeatherManager {
     /**
      * ดึงข้อมูลสภาพอากาศจาก Open-Meteo API
      */
-    private function fetchWeatherFromOpenMeteo($latitude, $longitude, $province, $country) {
+    private function fetchWeatherFromOpenMeteo($latitude, $longitude, $location_name, $country) {
         $url = "https://api.open-meteo.com/v1/forecast";
         
         $params = [
@@ -149,7 +273,7 @@ class OpenMeteoWeatherManager {
         return [
             'success' => true,
             'data' => [
-                'province' => $province,
+                'location' => $location_name,
                 'country' => $country,
                 'latitude' => $latitude,
                 'longitude' => $longitude,
@@ -167,13 +291,13 @@ class OpenMeteoWeatherManager {
     /**
      * ข้อมูลสำรองกรณี API ล้มเหลว
      */
-    private function getFallbackWeather($province, $country, $language) {
+    private function getFallbackWeather($location_name, $country, $language) {
         error_log("⚠️ [Weather] Using fallback data");
         
         return [
             'success' => true,
             'data' => [
-                'province' => $province,
+                'location' => $location_name,
                 'country' => $country,
                 'temperature_min' => 24,
                 'temperature_max' => 33,
@@ -223,7 +347,7 @@ class OpenMeteoWeatherManager {
      */
     private function translateWeatherData($data, $language) {
         return [
-            'province' => $data['province'],
+            'location' => $data['location'],
             'country' => $data['country'],
             'temperature_min' => $data['temperature_min'],
             'temperature_max' => $data['temperature_max'],
@@ -242,15 +366,15 @@ class OpenMeteoWeatherManager {
         $temp_min = $data['temperature_min'];
         $temp_max = $data['temperature_max'];
         $rain = $data['rain_chance'];
-        $province = $data['province'];
+        $location = $data['location'];
         $conditions = $this->getWeatherDescription($data['weather_code'], $language);
         
         $messages = [
-            'th' => "วันนี้ที่{$province} อากาศ{$conditions} อุณหภูมิ {$temp_min}-{$temp_max} องศาเซลเซียส โอกาสฝนตก {$rain}%",
-            'en' => "Today in {$province}: {$conditions}, {$temp_min}-{$temp_max}°C, {$rain}% chance of rain",
-            'cn' => "今天{$province}{$conditions}，气温 {$temp_min}-{$temp_max}°C，降雨概率 {$rain}%",
-            'jp' => "本日の{$province}は{$conditions}、気温 {$temp_min}-{$temp_max}°C、降水確率 {$rain}%",
-            'kr' => "오늘 {$province}은 {$conditions}, 기온 {$temp_min}-{$temp_max}°C, 강수확률 {$rain}%"
+            'th' => "วันนี้ที่{$location} อากาศ{$conditions} อุณหภูมิ {$temp_min}-{$temp_max} องศาเซลเซียส โอกาสฝนตก {$rain}%",
+            'en' => "Today in {$location}: {$conditions}, {$temp_min}-{$temp_max}°C, {$rain}% chance of rain",
+            'cn' => "今天{$location}{$conditions}，气温 {$temp_min}-{$temp_max}°C，降雨概率 {$rain}%",
+            'jp' => "本日の{$location}は{$conditions}、気温 {$temp_min}-{$temp_max}°C、降水確率 {$rain}%",
+            'kr' => "오늘 {$location}은 {$conditions}, 기온 {$temp_min}-{$temp_max}°C, 강수확률 {$rain}%"
         ];
         
         return $messages[$language] ?? $messages['th'];
