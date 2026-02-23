@@ -8,8 +8,18 @@ use Dotenv\Dotenv;
 $dotenv = Dotenv::createImmutable(__DIR__ . '/../');
 $dotenv->load();
 
-// ตรวจ protocol แบบปลอดภัย
-$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443;
+// ตรวจว่ารันผ่าน CLI (cron) หรือ web
+$isCLI = (php_sapi_name() === 'cli');
+
+if ($isCLI) {
+    // รันผ่าน cron/terminal → ใช้ HTTPS credentials (production)
+    $isHttps = true;
+} else {
+    // รันผ่าน web → ตรวจ protocol ตามปกติ
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') 
+               || (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+}
+
 $protocol = $isHttps ? 'https' : 'http';
 
 // เชื่อมต่อ DB ตาม protocol
@@ -32,11 +42,9 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-if ($isHttps) {
-    // ลบ path /perfume และลิงก์ localhost ทิ้ง
+if ($isHttps && !$isCLI) {
     ob_start(function ($buffer) {
         $buffer = str_replace('http://localhost/perfume/', '', $buffer);
-        // $buffer = str_replace('/perfume', '', $buffer);()
         return $buffer;
     });
 }
