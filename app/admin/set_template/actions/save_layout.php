@@ -12,7 +12,7 @@ $htmlContent = $data['htmlContent'];
 $inc_cdn = '';
 
 $inc_cdn .= '
-<link rel="icon" type="image/x-icon" href="../public/img/q-removebg-preview1.png">
+<link rel="icon" type="image/x-icon" href="../../public/product_images/695e0bf362d49_1767771123.jpg">
 
     <link href="../../../inc/jquery/css/jquery-ui.css" rel="stylesheet">
 

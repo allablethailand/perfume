@@ -103,7 +103,7 @@ $currentLang = $translations[$lang];
 <html lang="<?= $lang ?>">
 <head>
     <meta charset="UTF-8">
-<link rel="icon" type="image/x-icon" href="../public/img/q-removebg-preview1.png">    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/x-icon" href="../../public/product_images/695e0bf362d49_1767771123.jpg">    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $currentLang['title'] ?></title>
 
     <?php include 'inc_head.php'; ?>

@@ -196,7 +196,7 @@ $text = [
 <html lang="<?php echo $lang; ?>">
 <head>
     <title><?php echo $text[$lang]['page_title']; ?></title>
-    <link rel="icon" type="image/x-icon" href="../../../public/img/q-removebg-preview1.png">
+    <link rel="icon" type="image/x-icon" href="../../../../public/product_images/695e0bf362d49_1767771123.jpg">
     <link href="../../../inc/jquery/css/jquery-ui.css" rel="stylesheet">
     <script src="../../../inc/jquery/js/jquery-3.6.0.min.js"></script>
     <script src="../../../inc/jquery/js/jquery-ui.min.js"></script>

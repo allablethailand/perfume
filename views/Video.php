@@ -228,7 +228,7 @@ if (!$result) {
 <html lang="<?= htmlspecialchars($lang) ?>">
 
 <head>
-    <link rel="icon" type="image/x-icon" href="../../../public/img/q-removebg-preview1.png">
+    <link rel="icon" type="image/x-icon" href="../../../../public/product_images/695e0bf362d49_1767771123.jpg">
     <link rel="icon" href="../../../public/img/q-removebg-preview1.png" type="image/png">
     <script>
         function filterVideos() {
