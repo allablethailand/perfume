@@ -1155,6 +1155,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         });
     </script>
-
+    <script src="/perfume/js/tracker.js" defer></script>
 </body>
 </html>

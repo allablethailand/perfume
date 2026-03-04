@@ -308,5 +308,6 @@ $searchQuery = isset($_GET['s']) ? trim($_GET['s']) : '';
     </main>
 
     <?php include 'template/footer.php'; ?>
+    <script src="/perfume/js/tracker.js" defer></script>
 </body>
 </html>

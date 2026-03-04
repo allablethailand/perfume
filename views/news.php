@@ -1096,6 +1096,6 @@ if ($breaking_result && $breaking_result->num_rows > 0) {
 
 
     <?php include 'template/footer.php' ?>
-
+    <script src="/perfume/js/tracker.js" defer></script>                
 </body>
 </html>

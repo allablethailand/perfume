@@ -783,5 +783,6 @@ if (session_status() == PHP_SESSION_NONE) {
         createWaterWave();
         createParticles();
     </script>
+    <script src="/perfume/js/tracker.js" defer></script>
 </body>
 </html>

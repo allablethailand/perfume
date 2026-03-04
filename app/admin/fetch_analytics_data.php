@@ -1,199 +1,345 @@
 <?php
+// ============================================================
 // fetch_analytics_data.php
-require __DIR__ . '/../../vendor/autoload.php';
+// รับ ?section=xxx&days=yyy&refresh=1
+// section: all | daily_users | source | country | region |
+//          map_points | top_pages | top_products | top_projects | top_blogs | top_news |
+//          device | os_browser
+// days:    1 | 3 | 7 | 30 | 90 | 365
+// refresh=1 บังคับเสมอ (ตาม requirement)
+// ============================================================
 
-use Google\Analytics\Data\V1beta\Client\BetaAnalyticsDataClient;
-use Google\Analytics\Data\V1beta\DateRange;
-use Google\Analytics\Data\V1beta\Dimension;
-use Google\Analytics\Data\V1beta\Metric;
-use Google\Analytics\Data\V1beta\RunReportRequest;
-use Google\Analytics\Data\V1beta\OrderBy;
-use Google\Analytics\Data\V1beta\OrderBy\DimensionOrderBy;
-use Google\Analytics\Data\V1beta\OrderBy\MetricOrderBy;
+require __DIR__ . '/../../lib/connect.php';
 
+header('Content-Type: application/json');
 
-// Replace with your GA4 Property ID
-$property_id = '497553877';
+// ── validate params ────────────────────────────────────────
+$allowedSections = ['all','daily_users','source','country','region',
+                    'map_points','top_pages','top_products','top_projects','top_blogs','top_news',
+                    'device','os_browser'];
+$allowedDays     = [1, 3, 7, 30, 90, 365];
 
-// Path to your JSON key file
-$credentials_path = __DIR__ . '/keydataperfumewebsite/spatial-vision-470405-u2-cd62acbbf76e.json';
+$section = isset($_GET['section']) && in_array($_GET['section'], $allowedSections)
+           ? $_GET['section'] : 'all';
+$days    = isset($_GET['days']) ? (int)$_GET['days'] : 30;
+if (!in_array($days, $allowedDays)) $days = 30;
+
+// ── cache ──────────────────────────────────────────────────
+$cacheDir  = __DIR__ . '/';
+$cacheFile = $cacheDir . "analytics_cache_{$section}_{$days}.json";
+$cacheTime = 300;
+$errorLog  = __DIR__ . '/analytics_error.log';
+
+$forceRefresh = isset($_GET['refresh']);
+if ($forceRefresh && file_exists($cacheFile)) unlink($cacheFile);
+
+if (!$forceRefresh && file_exists($cacheFile) && (time() - filemtime($cacheFile) < $cacheTime)) {
+    header('X-Cache: HIT');
+    echo file_get_contents($cacheFile);
+    exit;
+}
+
+// ── helper ─────────────────────────────────────────────────
+function q($conn, $sql, $types = '', $params = []): array {
+    $st = $conn->prepare($sql);
+    if ($st === false) {
+        throw new Exception('Prepare failed: ' . $conn->error . ' | SQL: ' . $sql);
+    }
+    if ($types && $params) $st->bind_param($types, ...$params);
+    if (!$st->execute()) {
+        throw new Exception('Execute failed: ' . $st->error);
+    }
+    $rows = $st->get_result()->fetch_all(MYSQLI_ASSOC);
+    $st->close();
+    return $rows;
+}
+
+function mapContent(array $rows): array {
+    return [
+        'labels'   => array_map(fn($r) => $r['page_title'],               $rows),
+        'views'    => array_map(fn($r) => (int)$r['views'],                $rows),
+        'users'    => array_map(fn($r) => (int)$r['users'],                $rows),
+        'avg_time' => array_map(fn($r) => round((float)$r['avg_time'], 1), $rows),
+    ];
+}
+
+function fetchContent($conn, $days, $urlCond, $titleCond, $limit = 10): array {
+    return q($conn, "
+        SELECT page_title,
+               COUNT(*)                    AS views,
+               COUNT(DISTINCT visitor_id)  AS users,
+               AVG(time_on_page)           AS avg_time
+        FROM analytics_pageviews
+        WHERE entered_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+          AND ($urlCond OR $titleCond)
+        GROUP BY page_title
+        ORDER BY views DESC
+        LIMIT $limit
+    ", 'i', [$days]);
+}
 
 try {
-    $client = new BetaAnalyticsDataClient(['credentials' => $credentials_path]);
+    $response = ['section' => $section, 'days' => $days];
 
-    // 1. ดึงข้อมูลผู้ใช้งานรายวัน (Daily Active Users)
-$dailyUsersRequest = (new RunReportRequest())
-    ->setProperty('properties/' . $property_id)
-    ->setDateRanges([
-        new DateRange([
-            'start_date' => '30daysAgo',
-            'end_date' => 'today',
-        ]),
-    ])
-    ->setDimensions([
-        new Dimension(['name' => 'date']),
-    ])
-    ->setMetrics([
-        new Metric(['name' => 'activeUsers']),
-    ])
-    ->setOrderBys([
-        (new OrderBy())->setDimension((new DimensionOrderBy())->setDimensionName('date'))->setDesc(false),
-    ]);
-    $dailyUsersResponse = $client->runReport($dailyUsersRequest);
-    $dailyUsersData = [];
-    $dailyUsersLabels = [];
-    foreach ($dailyUsersResponse->getRows() as $row) {
-        $dailyUsersLabels[] = date('d M', strtotime($row->getDimensionValues()[0]->getValue()));
-        $dailyUsersData[] = (int) $row->getMetricValues()[0]->getValue();
+    // ── daily_users ─────────────────────────────
+    if ($section === 'all' || $section === 'daily_users') {
+        if ($days === 1) {
+            $rows = q($conn, "
+                SELECT DATE_FORMAT(started_at,'%H:00') AS d,
+                       COUNT(DISTINCT visitor_id)      AS n
+                FROM analytics_sessions
+                WHERE DATE(started_at) = CURDATE()
+                GROUP BY DATE_FORMAT(started_at,'%H:00')
+                ORDER BY d ASC
+            ");
+        } else {
+            $rows = q($conn, "
+                SELECT DATE(started_at)           AS d,
+                       COUNT(DISTINCT visitor_id) AS n
+                FROM analytics_sessions
+                WHERE started_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+                GROUP BY DATE(started_at)
+                ORDER BY d ASC
+            ", 'i', [$days]);
+        }
+        $response['daily_users'] = [
+            'labels' => array_map(fn($r) => $days === 1 ? $r['d'] : date('d M', strtotime($r['d'])), $rows),
+            'data'   => array_map(fn($r) => (int)$r['n'], $rows),
+        ];
     }
 
-   // 2. ดึงข้อมูลหน้ายอดนิยม (Top Pages)
-    $topPagesRequest = (new RunReportRequest())
-        ->setProperty('properties/' . $property_id)
-        ->setDateRanges([
-            new DateRange([
-                'start_date' => '7daysAgo',
-                'end_date' => 'today',
-            ]),
-        ])
-        ->setDimensions([
-            new Dimension(['name' => 'pagePath']),
-        ])
-        ->setMetrics([
-            new Metric(['name' => 'activeUsers']),
-        ])
-        ->setOrderBys([
-            (new OrderBy())->setMetric((new MetricOrderBy())->setMetricName('activeUsers'))->setDesc(true),
-        ])
-        ->setLimit(5); // ดึงข้อมูล 5 อันดับแรก
-    $topPagesResponse = $client->runReport($topPagesRequest);
-    $topPagesData = [];
-    $topPagesLabels = [];
-    foreach ($topPagesResponse->getRows() as $row) {
-        $topPagesLabels[] = $row->getDimensionValues()[0]->getValue();
-        $topPagesData[] = (int) $row->getMetricValues()[0]->getValue();
-    }
-    
-   // 3. ดึงข้อมูลแหล่งที่มา (Source)
-    $sourceRequest = (new RunReportRequest())
-        ->setProperty('properties/' . $property_id)
-        ->setDateRanges([
-            new DateRange([
-                'start_date' => '7daysAgo',
-                'end_date' => 'today',
-            ]),
-        ])
-        ->setDimensions([
-            new Dimension(['name' => 'sessionSource']),
-        ])
-        ->setMetrics([
-            new Metric(['name' => 'activeUsers']),
-        ])
-        ->setOrderBys([
-            (new OrderBy())->setMetric((new MetricOrderBy())->setMetricName('activeUsers'))->setDesc(true),
-        ]);
-    $sourceResponse = $client->runReport($sourceRequest);
-    $sourceData = [];
-    $sourceLabels = [];
-    foreach ($sourceResponse->getRows() as $row) {
-        $sourceLabels[] = $row->getDimensionValues()[0]->getValue();
-        $sourceData[] = (int) $row->getMetricValues()[0]->getValue();
+    // ── source ──────────────────────────────────
+    if ($section === 'all' || $section === 'source') {
+        $rows = q($conn, "
+            SELECT
+                CASE
+                    WHEN referrer LIKE '%facebook.com%'   OR referrer LIKE '%fb.com%'
+                         OR referrer LIKE '%fb.me%'        THEN 'Facebook'
+                    WHEN referrer LIKE '%line.me%'         OR referrer LIKE '%line.naver%'
+                         OR referrer LIKE '%liff.line.me%'                                THEN 'LINE'
+                    WHEN referrer LIKE '%instagram.com%'   OR referrer LIKE '%instagr.am%' THEN 'Instagram'
+                    WHEN referrer LIKE '%twitter.com%'     OR referrer LIKE '%t.co%'       THEN 'Twitter / X'
+                    WHEN referrer LIKE '%tiktok.com%'      OR referrer LIKE '%vm.tiktok%'  THEN 'TikTok'
+                    WHEN referrer LIKE '%youtube.com%'     OR referrer LIKE '%youtu.be%'   THEN 'YouTube'
+                    WHEN referrer LIKE '%google.com%'      OR referrer LIKE '%google.co.th%' THEN 'Google'
+                    WHEN referrer LIKE '%bing.com%'                                         THEN 'Bing'
+                    WHEN referrer LIKE '%yahoo.com%'                                        THEN 'Yahoo'
+                    WHEN referrer IS NULL OR referrer = ''                                  THEN 'Direct'
+                    ELSE COALESCE(NULLIF(referrer_source,''), 'Other')
+                END AS s,
+                COUNT(DISTINCT visitor_id) AS n
+            FROM analytics_sessions
+            WHERE started_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            GROUP BY s
+            ORDER BY n DESC
+        ", 'i', [$days]);
+
+        $response['source'] = [
+            'labels' => array_map(fn($r) => $r['s'], $rows),
+            'data'   => array_map(fn($r) => (int)$r['n'], $rows),
+        ];
     }
 
-   // 4. ดึงข้อมูลจากประเทศ (Country)
-    $countryRequest = (new RunReportRequest())
-        ->setProperty('properties/' . $property_id)
-        ->setDateRanges([
-            new DateRange([
-                'start_date' => '7daysAgo',
-                'end_date' => 'today',
-            ]),
-        ])
-        ->setDimensions([
-            new Dimension(['name' => 'country']),
-        ])
-        ->setMetrics([
-            new Metric(['name' => 'activeUsers']),
-        ])
-        ->setOrderBys([
-            (new OrderBy())->setMetric((new MetricOrderBy())->setMetricName('activeUsers'))->setDesc(true),
-        ]);
-    $countryResponse = $client->runReport($countryRequest);
-    $countryData = [];
-    $countryLabels = [];
-    foreach ($countryResponse->getRows() as $row) {
-        $countryLabels[] = $row->getDimensionValues()[0]->getValue();
-        $countryData[] = (int) $row->getMetricValues()[0]->getValue();
+    // ── country ─────────────────────────────────
+    if ($section === 'all' || $section === 'country') {
+        $rows = q($conn, "
+            SELECT COALESCE(NULLIF(country,''),'Unknown') AS c,
+                   COUNT(DISTINCT visitor_id)             AS n
+            FROM analytics_sessions
+            WHERE started_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            GROUP BY c ORDER BY n DESC LIMIT 50
+        ", 'i', [$days]);
+        $response['country'] = [
+            'labels' => array_map(fn($r) => $r['c'], $rows),
+            'data'   => array_map(fn($r) => (int)$r['n'], $rows),
+        ];
     }
 
-    // เพิ่มส่วนการดึงข้อมูลสินค้าที่ได้รับความนิยมสูงสุด
-$topProductsRequest = (new RunReportRequest())
-    ->setProperty('properties/' . $property_id)
-    ->setDateRanges([
-        new DateRange([
-            'start_date' => '2020-01-01', // กำหนดช่วงเวลาเริ่มต้นให้ครอบคลุมทั้งหมด
-            'end_date' => 'today',
-        ]),
-    ])
-    ->setDimensions([
-        new Dimension(['name' => 'pageTitle']),
-    ])
-    ->setMetrics([
-        new Metric(['name' => 'screenPageViews']),
-    ])
-    ->setDimensionFilter((new \Google\Analytics\Data\V1beta\FilterExpression([
-        'filter' => (new \Google\Analytics\Data\V1beta\Filter([
-            'field_name' => 'pagePath',
-            'string_filter' => (new \Google\Analytics\Data\V1beta\Filter\StringFilter([
-                'match_type' => \Google\Analytics\Data\V1beta\Filter\StringFilter\MatchType::CONTAINS,
-                'value' => 'shop_detail.php',
-            ])),
-        ])),
-    ])))
-    ->setOrderBys([
-        (new OrderBy())->setMetric((new MetricOrderBy())->setMetricName('screenPageViews'))->setDesc(true),
-    ])
-    ->setLimit(10); // จำกัดการแสดงผล 10 อันดับ
+    // ── region ──────────────────────────────────
+    if ($section === 'all' || $section === 'region') {
+        $rows = q($conn, "
+            SELECT COALESCE(NULLIF(province,''),'Unknown') AS prov,
+                   COALESCE(NULLIF(country,''),'Unknown')  AS ctry,
+                   COUNT(DISTINCT visitor_id)              AS n
+            FROM analytics_sessions
+            WHERE started_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+              AND province IS NOT NULL AND province != ''
+            GROUP BY prov, ctry ORDER BY n DESC LIMIT 100
+        ", 'i', [$days]);
+        $provinceMap = [];
+        foreach ($rows as $r) {
+            if (in_array($r['ctry'], ['ประเทศไทย','Thailand','TH']))
+                $provinceMap[$r['prov']] = (int)$r['n'];
+        }
+        $response['region'] = [
+            'labels'  => array_map(fn($r) => $r['prov'], $rows),
+            'data'    => array_map(fn($r) => (int)$r['n'], $rows),
+            'country' => array_map(fn($r) => $r['ctry'], $rows),
+        ];
+        $response['province_map'] = $provinceMap;
+    }
 
-$topProductsResponse = $client->runReport($topProductsRequest);
-$topProductsData = [];
-$topProductsLabels = [];
-foreach ($topProductsResponse->getRows() as $row) {
-    $topProductsLabels[] = $row->getDimensionValues()[0]->getValue();
-    $topProductsData[] = (int) $row->getMetricValues()[0]->getValue();
-}
+    // ── map_points ───────────────────────────────
+    if ($section === 'all' || $section === 'region' || $section === 'map_points') {
+        $rows = q($conn, "
+            SELECT
+                ROUND(lat, 3)              AS lat,
+                ROUND(lng, 3)              AS lng,
+                IFNULL(city, '')           AS city,
+                IFNULL(province, '')       AS province,
+                IFNULL(region, '')         AS region,
+                IFNULL(country, '')        AS country,
+                COUNT(DISTINCT visitor_id) AS user_count
+            FROM analytics_sessions
+            WHERE started_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+              AND lat IS NOT NULL AND lng IS NOT NULL
+              AND lat != 0 AND lng != 0
+            GROUP BY
+                ROUND(lat, 3), ROUND(lng, 3),
+                IFNULL(city, ''), IFNULL(province, ''),
+                IFNULL(region, ''), IFNULL(country, '')
+            ORDER BY user_count DESC
+            LIMIT 500
+        ", 'i', [$days]);
 
-    // รวมข้อมูลทั้งหมดใน Array เดียวแล้วส่งกลับเป็น JSON
-    // รวมข้อมูลทั้งหมดใน Array เดียวแล้วส่งกลับเป็น JSON
-$response = [
-    'daily_users' => [
-        'labels' => $dailyUsersLabels,
-        'data' => $dailyUsersData,
-    ],
-    'top_pages' => [
-        'labels' => $topPagesLabels,
-        'data' => $topPagesData,
-    ],
-    'source' => [
-        'labels' => $sourceLabels,
-        'data' => $sourceData,
-    ],
-    'country' => [
-        'labels' => $countryLabels,
-        'data' => $countryData,
-    ],
-    // เพิ่มข้อมูลกราฟใหม่ที่นี่
-    'top_products' => [
-        'labels' => $topProductsLabels,
-        'data' => $topProductsData,
-    ],
-];
+        $response['map_points'] = array_map(fn($r) => [
+            'lat'      => (float)$r['lat'],
+            'lng'      => (float)$r['lng'],
+            'count'    => (int)$r['user_count'],
+            'city'     => $r['city'],
+            'province' => $r['province'],
+            'region'   => $r['region'],
+            'country'  => $r['country'],
+        ], $rows);
+    }
 
-    header('Content-Type: application/json');
-    echo json_encode($response);
+    // ── device (by OS) ───────────────────────────
+    if ($section === 'all' || $section === 'device') {
+        $rows = q($conn, "
+            SELECT
+                CASE
+                    WHEN os LIKE '%Android%'                       THEN 'Android'
+                    WHEN os LIKE '%iOS%' OR os LIKE '%iPhone%'
+                         OR os LIKE '%iPad%'                       THEN 'iOS'
+                    WHEN os LIKE '%Windows%'                       THEN 'Windows'
+                    WHEN os LIKE '%Mac%' OR os LIKE '%macOS%'      THEN 'macOS'
+                    WHEN os LIKE '%Linux%' OR os LIKE '%Ubuntu%'   THEN 'Linux'
+                    WHEN os LIKE '%Chrome OS%' OR os LIKE '%CrOS%' THEN 'Chrome OS'
+                    WHEN os IS NULL OR os = ''                      THEN 'Unknown'
+                    ELSE os
+                END AS os_label,
+                COUNT(DISTINCT ip_address) AS cnt
+            FROM analytics_sessions
+            WHERE started_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            GROUP BY os_label
+            ORDER BY cnt DESC
+        ", 'i', [$days]);
+
+        $response['device'] = [
+            'labels' => array_map(fn($r) => $r['os_label'], $rows),
+            'data'   => array_map(fn($r) => (int)$r['cnt'], $rows),
+        ];
+    }
+
+    // ── os_browser ───────────────────────────────
+    if ($section === 'all' || $section === 'os_browser') {
+        $osRows = q($conn, "
+            SELECT
+                COALESCE(NULLIF(os,''), 'Unknown') AS label,
+                COUNT(DISTINCT ip_address)         AS cnt
+            FROM analytics_sessions
+            WHERE started_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            GROUP BY os
+            ORDER BY cnt DESC
+            LIMIT 6
+        ", 'i', [$days]);
+
+        $brRows = q($conn, "
+            SELECT
+                COALESCE(NULLIF(browser,''), 'Unknown') AS label,
+                COUNT(DISTINCT ip_address)              AS cnt
+            FROM analytics_sessions
+            WHERE started_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            GROUP BY browser
+            ORDER BY cnt DESC
+            LIMIT 6
+        ", 'i', [$days]);
+
+        $combined = [];
+        foreach ($osRows as $r) $combined[] = ['label' => $r['label'], 'cnt' => (int)$r['cnt']];
+        foreach ($brRows as $r) $combined[] = ['label' => $r['label'], 'cnt' => (int)$r['cnt']];
+
+        $response['os_browser'] = [
+            'labels' => array_column($combined, 'label'),
+            'data'   => array_column($combined, 'cnt'),
+        ];
+    }
+
+    // ── top_pages ────────────────────────────────
+    if ($section === 'all' || $section === 'top_pages') {
+        $rows = q($conn, "
+            SELECT url, page_title,
+                   COUNT(*)                    AS views,
+                   COUNT(DISTINCT visitor_id)  AS users,
+                   AVG(time_on_page)           AS avg_time
+            FROM analytics_pageviews
+            WHERE entered_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            GROUP BY url, page_title
+            ORDER BY users DESC LIMIT 5
+        ", 'i', [$days]);
+        $response['top_pages'] = [
+            'labels'   => array_map(fn($r) => $r['url'],                      $rows),
+            'data'     => array_map(fn($r) => (int)$r['users'],                $rows),
+            'views'    => array_map(fn($r) => (int)$r['views'],                $rows),
+            'avg_time' => array_map(fn($r) => round((float)$r['avg_time'], 1), $rows),
+        ];
+    }
+
+    // ── top_products ─────────────────────────────
+    if ($section === 'all' || $section === 'top_products') {
+        $rows = fetchContent($conn, $days,
+            "url LIKE '%product_detail%' OR url LIKE '%shop_detail%'",
+            "page_title LIKE '%สินค้า%' OR page_title LIKE '%Product%'"
+        );
+        $m = mapContent($rows);
+        $response['top_products'] = array_merge($m, ['data' => $m['views']]);
+    }
+
+    // ── top_projects ─────────────────────────────
+    if ($section === 'all' || $section === 'top_projects') {
+        $response['top_projects'] = mapContent(fetchContent($conn, $days,
+            "url LIKE '%project_detail%'",
+            "page_title LIKE '%โครงการ%' OR page_title LIKE '%Project%'"
+        ));
+    }
+
+    // ── top_blogs ────────────────────────────────
+    if ($section === 'all' || $section === 'top_blogs') {
+        $response['top_blogs'] = mapContent(fetchContent($conn, $days,
+            "url LIKE '%blog_detail%' OR url LIKE '%Blog%'",
+            "page_title LIKE '%บทความ%'"
+        ));
+    }
+
+    // ── top_news ─────────────────────────────────
+    if ($section === 'all' || $section === 'top_news') {
+        $response['top_news'] = mapContent(fetchContent($conn, $days,
+            "url LIKE '%news_detail%'",
+            "page_title LIKE '%ข่าว%' OR page_title LIKE '%News%'"
+        ));
+    }
+
+    $response['generated_at'] = date('Y-m-d H:i:s');
+    $json = json_encode($response);
+
+    file_put_contents($cacheFile, $json);
+
+    header('X-Cache: MISS');
+    echo $json;
 
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()]);
+    $logMsg = '['.date('Y-m-d H:i:s').'] Analytics Error: '.$e->getMessage().PHP_EOL;
+    file_put_contents($errorLog, $logMsg, FILE_APPEND);
+    if (file_exists($cacheFile)) { header('X-Cache: STALE'); echo file_get_contents($cacheFile); }
+    else { http_response_code(500); echo json_encode(['error' => $e->getMessage()]); }
 }
-?>

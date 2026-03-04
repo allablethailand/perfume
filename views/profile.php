@@ -1550,5 +1550,6 @@ if (!isset($_SESSION['guest_session_id'])) {
             }
         };
     </script>
+    <script src="/perfume/js/tracker.js" defer></script>
 </body>
 </html>
