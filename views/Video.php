@@ -312,6 +312,7 @@ if (!$result) {
 
     <?php include 'template/footer.php' ?>
     <script src="index_.js?v=<?php echo time(); ?>"></script>
+    <script src="/perfume/js/tracker.js" defer></script>
 </body>
 
 </html>

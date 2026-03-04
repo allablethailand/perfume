@@ -658,7 +658,7 @@ $pending_lang = $_GET['pending_lang'] ?? 'th';
             });
         }
     </script>
-
+    <script src="/perfume/js/tracker.js" defer></script>
 </body>
 
 </html>

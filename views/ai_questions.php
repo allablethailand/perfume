@@ -1050,6 +1050,6 @@ $_SESSION['pending_ai_lang'] = $lang;
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="app/js/ai_setup_avatar.js?v=<?php echo time(); ?>"></script>
-
+    <script src="/perfume/js/tracker.js" defer></script>
 </body>
 </html>

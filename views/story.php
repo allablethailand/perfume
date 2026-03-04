@@ -903,6 +903,6 @@ function at($key, $lang) {
     </section>
 
     <?php include 'template/footer.php' ?>
-
+    <script src="/perfume/js/tracker.js" defer></script>                
 </body>
 </html>

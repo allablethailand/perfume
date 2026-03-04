@@ -877,5 +877,6 @@ if (!$companion_id) {
             setTimeout(() => $('#successMessage').removeClass('active'), 3000);
         }
     </script>
+    <script src="/perfume/js/tracker.js" defer></script>
 </body>
 </html>
