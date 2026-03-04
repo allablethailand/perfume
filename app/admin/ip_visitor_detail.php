@@ -205,7 +205,7 @@ function extColor($ext) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IP Detail: <?= htmlspecialchars($ip) ?></title>
-<link rel="icon" type="image/x-icon" href="../public/img/q-removebg-preview1.png">
+<link rel="icon" type="image/x-icon" href="../../public/product_images/695e0bf362d49_1767771123.jpg">
 <link href="css/index_.css?v=<?= time(); ?>" rel="stylesheet">
 <?php include 'inc_head.php'; ?>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">

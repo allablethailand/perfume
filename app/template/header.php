@@ -151,7 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['username'], $_POST['p
     content="<?= $meta['og_description'] ?? $meta['meta_description'] ?? 'perfume: ผู้เชี่ยวชาญด้านระบบอะคูสติกและวัสดุก่อสร้างคุณภาพสูงครบวงจร! เราให้คำปรึกษา ออกแบบ และติดตั้งโซลูชันกันเสียง/ดูดซับเสียง รวมถึงจำหน่ายอิฐ หิน ปูน ทราย และคอนกรีตสำหรับทุกโครงการ' ?>">
 <meta property="og:type" content="website">
 <meta property="og:image" content="<?= $meta['og_image'] ?? '../../public/img/LOGO perfume.png' ?>">
-<link rel="icon" type="image/x-icon" href="../public/img/q-removebg-preview1.png">
+<link rel="icon" type="image/x-icon" href="../../public/product_images/695e0bf362d49_1767771123.jpg">
 <!-- Google tag (gtag.js) -->
 <script>
     document.addEventListener("DOMContentLoaded", function() {
