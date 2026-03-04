@@ -167,7 +167,7 @@ function switchLanguage() {
     justify-content: space-between;
     position: sticky;
     border-bottom: 1px solid #ececec;
-    z-index: 10;
+    z-index: 1000;
     overflow: visible;
 }
 
