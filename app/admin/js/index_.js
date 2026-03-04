@@ -98,7 +98,7 @@ const buildTabSidebar = () => {
     let sidebarItems = [];
     let currentPath = window.location.pathname;
     let new_path = $('#new_path').val();
-    if (currentPath.includes('dashboard.php') || currentPath.includes('profile.php')) {
+    if (currentPath.includes('dashboard.php') || currentPath.includes('profile.php') || currentPath.includes('ip_visitors.php') || currentPath.includes('ip_visitor_detail.php')) {
         sidebarPath = new_path + 'app/admin/actions/check_sidebar.php';
     } else {
         sidebarPath = '../actions/check_sidebar.php'
