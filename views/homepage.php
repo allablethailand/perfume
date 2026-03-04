@@ -1272,8 +1272,6 @@ if ($ticker_result && $ticker_result->num_rows > 0) {
 
     <!-- Include Footer -->
     <?php include 'template/footer.php'; ?>
-
-
-
+    <script src="/perfume/js/tracker.js" defer></script>                
 </body>
 </html>

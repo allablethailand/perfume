@@ -565,7 +565,7 @@ if (isset($_GET['id'])) {
 
     <script src="index_.js?v=<?php echo time(); ?>"></script>
     <script src="app/js/project/project_.js?v=<?php echo time(); ?>"></script>
-
+    <script src="/perfume/js/tracker.js" defer></script>
 </body>
 
 </html>

@@ -1350,5 +1350,6 @@ function saveAnswer(questionId) {
     });
 }
     </script>
+    <script src="/perfume/js/tracker.js" defer></script>
 </body>
 </html>

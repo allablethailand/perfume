@@ -664,6 +664,7 @@ $order_id = isset($_GET['order_id']) ? intval($_GET['order_id']) : 0;
             loadOrderData();
         });
     </script>
+    <script src="/perfume/js/tracker.js" defer></script>
 </body>
 
 </html>

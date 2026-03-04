@@ -936,5 +936,6 @@ $page_title = $product['product_name'];
     </script>
 
     <?php include 'template/footer.php'; ?>
+    <script src="/perfume/js/tracker.js" defer></script>
 </body>
 </html>
