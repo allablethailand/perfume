@@ -24,7 +24,7 @@ $currentLang = $translations[$lang];
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= $currentLang['title'] ?></title>
-<link rel="icon" type="image/x-icon" href="../public/img/q-removebg-preview1.png">
+<link rel="icon" type="image/x-icon" href="../../public/product_images/695e0bf362d49_1767771123.jpg">
 <?php include 'inc_head.php'; ?>
 <link href="css/index_.css?v=<?= time(); ?>" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
