@@ -39,7 +39,6 @@ if (isset($_GET['lang'])) {
     }
 }
 
-// Get available items (ขวดที่ยังไม่มี AI) for dropdown
 $items_query = "
     SELECT 
         pi.item_id, 
@@ -84,7 +83,7 @@ include '../template/header.php';
                             </div>
                             <div class="card-body">
                                 
-                                <!-- Item Selection (ขวดน้ำหอม) -->
+                                <!-- Item Selection -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-bottle-droplet"></i> Select Perfume Bottle *</label>
                                     <select class="form-control" id="item_id" name="item_id" required>
@@ -149,7 +148,6 @@ include '../template/header.php';
                                         <small>MP4, WebM (Max 50MB each) - Multiple files allowed</small>
                                     </div>
                                     <input type="file" id="idleVideos" name="idle_videos[]" accept="video/*" multiple style="display: none;">
-                                    
                                     <div id="idleVideosPreview" class="video-grid"></div>
                                     <small class="text-muted">วิดีโอที่แสดงเมื่อ AI ไม่ได้พูด (จะ Random เล่น)</small>
                                 </div>
@@ -163,23 +161,71 @@ include '../template/header.php';
                                         <small>MP4, WebM (Max 50MB each) - Multiple files allowed</small>
                                     </div>
                                     <input type="file" id="talkingVideos" name="talking_videos[]" accept="video/*" multiple style="display: none;">
-                                    
                                     <div id="talkingVideosPreview" class="video-grid"></div>
                                     <small class="text-muted">วิดีโอที่แสดงเมื่อ AI กำลังพูด (จะ Random เล่น)</small>
+                                </div>
+
+                                <!-- ✅ NEW: 2D Emotion Videos (Multiple per emotion) -->
+                                <div class="form-group mb-4">
+                                    <label>
+                                        <i class="fas fa-heart"></i> 
+                                        2D Emotion Videos/GIFs 
+                                        <span class="badge badge-info" style="background:#17a2b8;color:#fff;font-size:11px;padding:3px 7px;border-radius:10px;">NEW</span>
+                                    </label>
+                                    <small class="text-muted d-block mb-3">
+                                        <i class="fas fa-info-circle"></i> 
+                                        วิดีโอสั้น/GIF แสดงอารมณ์ข้าง Avatar ใน 2D Mode — แต่ละอารมณ์อัพโหลดได้หลายไฟล์ (จะ Random เล่น)
+                                    </small>
+
+                                    <?php
+                                    $emotions = [
+                                        'happy'      => ['icon' => 'fa-smile',        'color' => '#ffc107', 'label' => 'Happy 😊',      'desc' => 'ตอบแบบดีใจ, ชมเชย, ข่าวดี'],
+                                        'sad'        => ['icon' => 'fa-sad-tear',      'color' => '#6c757d', 'label' => 'Sad 😢',        'desc' => 'ปลอบใจ, เศร้า, เห็นอกเห็นใจ'],
+                                        'excited'    => ['icon' => 'fa-grin-stars',    'color' => '#fd7e14', 'label' => 'Excited 🤩',    'desc' => 'แนะนำสิ่งใหม่, ตื่นเต้น'],
+                                        'calm'       => ['icon' => 'fa-smile-beam',    'color' => '#28a745', 'label' => 'Calm 😌',       'desc' => 'ตอบข้อมูลทั่วไป, เป็นกลาง'],
+                                        'thinking'   => ['icon' => 'fa-brain',         'color' => '#007bff', 'label' => 'Thinking 🤔',   'desc' => 'วิเคราะห์, คำถามซับซ้อน'],
+                                        'surprised'  => ['icon' => 'fa-surprise',      'color' => '#e83e8c', 'label' => 'Surprised 😲',  'desc' => 'ข้อมูลน่าสนใจ, ไม่คาดคิด'],
+                                        'empathetic' => ['icon' => 'fa-hand-holding-heart', 'color' => '#dc3545', 'label' => 'Empathetic 🤗', 'desc' => 'เข้าใจความรู้สึก, สนับสนุน'],
+                                    ];
+                                    foreach ($emotions as $emotion_key => $emotion_info):
+                                    ?>
+                                    <div class="emotion-upload-block mb-3" style="border:1px solid #e0e0e0; border-radius:10px; padding:15px; background:#fafafa;">
+                                        <div class="d-flex align-items-center mb-2" style="gap:10px;">
+                                            <div style="width:36px;height:36px;border-radius:50%;background:<?= $emotion_info['color'] ?>;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                                <i class="fas <?= $emotion_info['icon'] ?>" style="color:#fff;font-size:16px;"></i>
+                                            </div>
+                                            <div>
+                                                <strong style="font-size:14px;"><?= $emotion_info['label'] ?></strong>
+                                                <div style="font-size:11px;color:#888;"><?= $emotion_info['desc'] ?></div>
+                                            </div>
+                                            <div class="ms-auto">
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-outline-secondary emotion-upload-btn"
+                                                        onclick="document.getElementById('emotionVideos_<?= $emotion_key ?>').click()"
+                                                        style="font-size:12px;">
+                                                    <i class="fas fa-cloud-upload-alt"></i> Upload
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <input type="file" 
+                                               id="emotionVideos_<?= $emotion_key ?>" 
+                                               name="emotion_videos[<?= $emotion_key ?>][]" 
+                                               accept="video/*,image/gif" 
+                                               multiple 
+                                               style="display:none;"
+                                               data-emotion="<?= $emotion_key ?>">
+                                        <div id="emotionPreview_<?= $emotion_key ?>" class="video-grid" style="margin-top:8px;"></div>
+                                    </div>
+                                    <?php endforeach; ?>
                                 </div>
 
                                 <!-- AI Voice (ElevenLabs) -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-volume-up"></i> AI Voice (ElevenLabs)</label>
-                                    
-                                    <!-- Voice ID Input -->
                                     <input type="text" class="form-control mb-2" id="voice_id" name="voice_id" 
                                         placeholder="Enter Voice ID (e.g., UdFuclGJ1KL5tAeoBeE0)">
-                                    
-                                    <!-- Voice Name Input -->
                                     <input type="text" class="form-control mb-2" id="voice_name" name="voice_name" 
                                         placeholder="Voice Name (e.g., Rachel - Female, Multilingual)">
-                                    
                                     <small class="text-muted">
                                         <i class="fas fa-info-circle"></i> 
                                         Enter ElevenLabs Voice ID and name. This voice will be used for all languages (TH, EN, CN, JP, KR)

@@ -46,7 +46,8 @@ try {
             uc.setup_completed_at,
             ai.ai_name_th,
             ai.ai_name_en,
-            ai.ai_avatar_url
+            ai.ai_avatar_url,
+            ai.emotion_videos
         FROM user_ai_companions uc
         LEFT JOIN ai_companions ai ON uc.ai_id = ai.ai_id
         WHERE uc.user_id = ? 
@@ -63,7 +64,10 @@ try {
     if ($result->num_rows > 0) {
         $companion = $result->fetch_assoc();
         
-        // ถ้า setup_completed = 1 แสดงว่าเคยทำแบบสอบถามแล้ว
+         // ✅ Parse emotion_videos JSON → array
+        $companion['emotion_videos_array'] = json_decode($companion['emotion_videos'] ?? '{}', true) ?: [];
+        unset($companion['emotion_videos']); // ไม่ต้องส่ง raw JSON ไปด้วย
+
         if ($companion['setup_completed'] == 1) {
             echo json_encode([
                 'status' => 'success',
@@ -72,7 +76,6 @@ try {
                 'data' => $companion
             ]);
         } else {
-            // มี companion แต่ยังไม่ได้ทำแบบสอบถาม
             echo json_encode([
                 'status' => 'success',
                 'has_companion' => true,
