@@ -1,506 +1,535 @@
 /**
  * AI Chat JavaScript
- * 
- * จัดการ UI และการสื่อสารกับ API
- * รองรับทั้ง Login Mode และ Guest Mode
+ * ✅ emotion popup ลอยบนข้อความ + canvas chroma key + safe zone
+ * ✅ AI เดินซ้ายขวา + ขนาดเล็ก + ลบพื้นหลังขาว/ดำ
  */
 
 let currentConversationId = 0;
-let userCompanionId = null; // ✅ เพิ่มตัวแปรนี้
-const jwt = sessionStorage.getItem("jwt");
+let userCompanionId       = null;
+const jwt                 = sessionStorage.getItem('jwt');
 
-// ✅ รับ URL Parameters
-const urlParams = new URLSearchParams(window.location.search);
+const urlParams     = new URLSearchParams(window.location.search);
 const aiCodeFromURL = urlParams.get('ai_code') || '';
 
+let emotionVideosMap   = {};
+let emotionTimer       = null;
+let emotionChromaFrame = null;
+let walkAnimFrame      = null;
 
-// ✅ ตรวจสอบ Guest Mode
 let isGuestMode = !jwt && aiCodeFromURL;
 
-console.log('🚀 AI Chat Initialized:', {
-    isGuestMode: isGuestMode,
-    hasJWT: !!jwt,
-    aiCode: aiCodeFromURL,
-    lang: currentLang
-});
+console.log('🚀 AI Chat Initialized:', { isGuestMode, hasJWT: !!jwt, aiCode: aiCodeFromURL });
 
-// ✅ โหลด conversations เมื่อเปิดหน้า
+// =============================================
+// INJECT CSS สำหรับ walk animation + popup out
+// =============================================
+(function injectStyles() {
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes popupOut {
+            from { opacity: 1; transform: scale(1); }
+            to   { opacity: 0; transform: scale(0.7); }
+        }
+        @keyframes popupIn {
+            from { opacity: 0; transform: scale(0.7) translateY(8px); }
+            to   { opacity: 1; transform: scale(1)   translateY(0);   }
+        }
+        .emotion-popup {
+            animation: popupIn 0.25s ease-out forwards;
+            will-change: transform, left;
+            transition: left 0.05s linear;
+        }
+    `;
+    document.head.appendChild(style);
+})();
+
+// =============================================
+// INIT
+// =============================================
 $(document).ready(function() {
-    // ✅ เช็คแบบผ่อนปรน - ต้องมี JWT หรือ ai_code อย่างใดอย่างหนึ่ง
     if (!jwt && !aiCodeFromURL) {
-        console.warn('⚠️ No authentication found, redirecting...');
         window.location.href = '?';
         return;
     }
-    
-    // ✅ ลอง user_companion_id จาก sessionStorage ก่อน
-    const storedCompanionId = sessionStorage.getItem('user_companion_id');
-    if (storedCompanionId) {
-        userCompanionId = parseInt(storedCompanionId);
-        console.log('✅ Found stored user_companion_id:', userCompanionId);
-        loadConversations();
-    } else {
-        // ✅ ถ้าไม่มี ต้องโหลดข้อมูล AI ก่อน
-        console.log('⚠️ No user_companion_id in storage, loading AI info first...');
-        loadCompanionInfo();
-    }
-    
-    // Auto-resize textarea
+    loadCompanionInfo();
     $('#messageInput').on('input', function() {
         this.style.height = 'auto';
-        this.style.height = (this.scrollHeight) + 'px';
+        this.style.height = this.scrollHeight + 'px';
     });
-    
-    // ✅ Setup button click handlers
     setupButtonHandlers();
 });
 
-// ✅ โหลดข้อมูล Companion เพื่อเอา user_companion_id
+// =============================================
+// โหลดข้อมูล companion + emotion videos
+// =============================================
 function loadCompanionInfo() {
-    let url = '';
-    const headers = {};
-    let canLoadInfo = false;
+    let url   = '';
+    const hdr = {};
 
     if (isGuestMode && aiCodeFromURL) {
-        // Guest Mode: ใช้ get_ai_data.php
         url = 'app/actions/get_ai_data.php?ai_code=' + aiCodeFromURL;
-        canLoadInfo = true;
-        console.log('🔓 Guest Mode: Loading AI info with ai_code');
     } else if (jwt) {
-        // Login Mode: ใช้ check_ai_companion_status.php
         url = 'app/actions/check_ai_companion_status.php';
-        headers['Authorization'] = 'Bearer ' + jwt;
-        canLoadInfo = true;
-        console.log('🔐 Login Mode: Loading AI info with JWT');
-    }
-
-    if (!canLoadInfo) {
-        console.error('❌ No auth method available');
-        window.location.href = '?';
-        return;
-    }
-
-    $.ajax({
-        url: url,
-        type: 'GET',
-        headers: headers,
-        dataType: 'json',
-        success: function(response) {
-            console.log('✅ Companion info loaded:', response);
-            
-            if (response.status === 'success') {
-                const data = response.ai_data || response.companion || response.data;
-                
-                if (!data) {
-                    console.error('❌ No data in response');
-                    window.location.href = '?';
-                    return;
-                }
-                
-                // ✅ เก็บ user_companion_id
-                if (isGuestMode && response.companion_id) {
-                    userCompanionId = response.companion_id;
-                    sessionStorage.setItem('user_companion_id', userCompanionId);
-                    console.log('✅ Stored companion_id from guest mode:', userCompanionId);
-                } else if (response.has_companion && data.user_companion_id) {
-                    userCompanionId = data.user_companion_id;
-                    sessionStorage.setItem('user_companion_id', userCompanionId);
-                    console.log('✅ Stored companion_id from login mode:', userCompanionId);
-                }
-
-                // ✅ เก็บข้อมูล AI
-                const langCol = 'ai_name_' + currentLang;
-                const aiName = data[langCol] || data.ai_name_th || data.ai_name || data.name || 'AI Companion';
-                const avatarUrl = data.ai_avatar_url || data.avatar_url || data.image_url || data.idle_video_url || '';
-                
-                sessionStorage.setItem('ai_name', aiName);
-                if (avatarUrl) {
-                    sessionStorage.setItem('ai_avatar_url', avatarUrl);
-                }
-                
-                // ✅ แสดงข้อมูล AI ใน Header
-                $('#aiName').text(aiName);
-                if (avatarUrl) {
-                    $('#aiAvatar').attr('src', avatarUrl).on('error', function() {
-                        $(this).attr('src', 'https://via.placeholder.com/40x40/000/fff?text=AI');
-                    });
-                }
-
-                console.log('✅ AI info ready:', {
-                    companion_id: userCompanionId,
-                    name: aiName,
-                    avatar: avatarUrl
-                });
-
-                // ✅ โหลด conversations ต่อ
-                loadConversations();
-                
-            } else {
-                console.error('❌ API returned error:', response.message);
-                Swal.fire({
-                    title: 'Error!',
-                    text: response.message || 'Failed to load AI companion info',
-                    icon: 'error',
-                    background: '#1a1a1a',
-                    color: '#fff'
-                }).then(() => {
-                    window.location.href = '?';
-                });
-            }
-        },
-        error: function(xhr, status, error) {
-            console.error('❌ Error loading companion info:', {
-                status: status,
-                error: error,
-                response: xhr.responseText
-            });
-            
-            Swal.fire({
-                title: 'Error!',
-                text: 'Failed to load companion info',
-                icon: 'error',
-                background: '#1a1a1a',
-                color: '#fff'
-            }).then(() => {
-                window.location.href = '?';
-            });
-        }
-    });
-}
-
-// ✅ Setup ปุ่มต่างๆ
-function setupButtonHandlers() {
-    // ปุ่มสลับไป 3D Mode
-    $('#switch3DBtn').off('click').on('click', function() {
-        let url = '?ai_chat_3d&lang=' + currentLang;
-        if (aiCodeFromURL) {
-            url += '&ai_code=' + aiCodeFromURL;
-        }
-        console.log('🔄 Switching to 3D Mode:', url);
-        window.location.href = url;
-    });
-    
-    // ปุ่ม Edit Preferences
-    $('#editPromptsBtn').off('click').on('click', function() {
-        let url = '?ai_edit_prompts&lang=' + currentLang;
-        if (aiCodeFromURL) {
-            url += '&ai_code=' + aiCodeFromURL;
-        }
-        console.log('⚙️ Opening Preferences:', url);
-        window.location.href = url;
-    });
-}
-
-// ✅ โหลดรายการ conversations
-function loadConversations() {
-    // ✅ ต้องมี user_companion_id ก่อน
-    if (!userCompanionId) {
-        console.warn('⚠️ No user_companion_id yet, waiting...');
-        setTimeout(loadConversations, 500);
-        return;
-    }
-    
-    let url = 'app/actions/get_chat_data.php?action=list_conversations&user_companion_id=' + userCompanionId;
-    const headers = {};
-    
-    // ✅ Guest Mode Support
-    if (isGuestMode && aiCodeFromURL) {
-        url += '&ai_code=' + aiCodeFromURL;
-        console.log('🔓 Guest Mode: Loading conversations with ai_code');
-    } else if (jwt) {
-        headers['Authorization'] = 'Bearer ' + jwt;
-        console.log('🔐 Login Mode: Loading conversations with JWT');
+        hdr['Authorization'] = 'Bearer ' + jwt;
     } else {
-        console.error('❌ No authentication method available');
         window.location.href = '?';
         return;
     }
-    
-    console.log('📡 Loading conversations from:', url);
-    
+
     $.ajax({
-        url: url,
-        type: 'GET',
-        headers: headers,
-        dataType: 'json',
+        url, type: 'GET', headers: hdr, dataType: 'json',
         success: function(response) {
-            console.log('✅ Conversations loaded:', response);
-            
-            if (response.status === 'success') {
-                displayConversations(response.conversations);
-            } else if (response.require_login && !isGuestMode) {
-                console.warn('⚠️ Login required');
-                window.location.href = '?';
-            } else {
-                console.error('❌ Failed to load conversations:', response.message);
+            if (response.status !== 'success') {
+                Swal.fire({ title: 'Error!', text: response.message, icon: 'error', background: '#1a1a1a', color: '#fff' })
+                    .then(() => { window.location.href = '?'; });
+                return;
             }
+
+            const data = response.ai_data || response.companion || response.data;
+            if (!data) { window.location.href = '?'; return; }
+
+            if (isGuestMode && response.companion_id) {
+                userCompanionId = response.companion_id;
+                sessionStorage.setItem('user_companion_id', userCompanionId);
+            } else if (response.has_companion && data.user_companion_id) {
+                userCompanionId = data.user_companion_id;
+                sessionStorage.setItem('user_companion_id', userCompanionId);
+            }
+
+            if (data.emotion_videos_array && typeof data.emotion_videos_array === 'object') {
+                emotionVideosMap = data.emotion_videos_array;
+                console.log('✅ Emotion videos loaded:', Object.keys(emotionVideosMap));
+            } else {
+                console.warn('⚠️ emotion_videos_array not found');
+            }
+
+            const _lang     = typeof currentLang !== 'undefined' ? currentLang : 'th';
+            const aiName    = data['ai_name_' + _lang] || data.ai_name_th || data.ai_name || 'AI Companion';
+            const avatarUrl = data.ai_avatar_url || data.avatar_url || data.idle_video_url || '';
+
+            sessionStorage.setItem('ai_name', aiName);
+            if (avatarUrl) sessionStorage.setItem('ai_avatar_url', avatarUrl);
+
+            $('#aiName').text(aiName);
+            if (avatarUrl) {
+                $('#aiAvatar').attr('src', avatarUrl).on('error', function() {
+                    $(this).attr('src', 'https://via.placeholder.com/40x40/000/fff?text=AI');
+                });
+            }
+
+            loadConversations();
         },
-        error: function(xhr, status, error) {
-            console.error('❌ Error loading conversations:', {
-                status: status,
-                error: error,
-                response: xhr.responseText
-            });
+        error: function() {
+            Swal.fire({ title: 'Error!', text: 'Failed to load companion info', icon: 'error', background: '#1a1a1a', color: '#fff' })
+                .then(() => { window.location.href = '?'; });
         }
     });
 }
 
-// ✅ แสดงรายการ conversations
+// =============================================
+// Canvas Chroma Key — ลบทั้งขาว + ดำ
+// =============================================
+function startEmotionChromaKey(video, canvas) {
+    const ctx = canvas.getContext('2d');
+    const W   = canvas.width;
+    const H   = canvas.height;
+
+    // เกณฑ์ลบพื้นหลัง
+    const WHITE_THRESHOLD = 210;  // สว่างมากพอ → ขาว
+    const DARK_THRESHOLD  = 45;   // มืดมากพอ → ดำ
+    const NEUTRAL_DIFF    = 20;   // r≈g≈b = neutral (ขาว/เทา/ดำ)
+
+     // ✅ Safe zone — โซนกลางที่ไม่ลบพื้นหลังเด็ดขาด
+    const SAFE_LEFT   = W * 0.40;
+    const SAFE_RIGHT  = W * 0.60;
+    const SAFE_TOP    = H * 0.20;
+    const SAFE_BOTTOM = H * 0.50;
+
+    function processFrame() {
+        if (video.paused || video.ended) return;
+        try {
+            ctx.drawImage(video, 0, 0, W, H);
+            const frame = ctx.getImageData(0, 0, W, H);
+            const data  = frame.data;
+
+            for (let i = 0; i < data.length; i += 4) {
+                const px = i / 4;
+                const x  = px % W;
+                const y  = Math.floor(px / W);
+
+                if (x >= SAFE_LEFT && x <= SAFE_RIGHT &&
+                    y >= SAFE_TOP  && y <= SAFE_BOTTOM) {
+                    continue;
+                }
+
+                const r    = data[i];
+                const g    = data[i + 1];
+                const b    = data[i + 2];
+                const maxC = Math.max(r, g, b);
+                const minC = Math.min(r, g, b);
+                const diff = maxC - minC;
+
+                // ลบพื้นขาว/เทาอ่อน
+                if (maxC >= WHITE_THRESHOLD && diff < NEUTRAL_DIFF) {
+                    data[i + 3] = 0;
+                    continue;
+                }
+                // ลบพื้นดำ/เทาเข้ม
+                if (maxC < DARK_THRESHOLD && diff < NEUTRAL_DIFF) {
+                    data[i + 3] = 0;
+                }
+            }
+            ctx.putImageData(frame, 0, 0);
+        } catch(e) {
+            console.warn('⚠️ Chroma key error:', e.message);
+            stopEmotionChromaKey();
+            return;
+        }
+        emotionChromaFrame = requestAnimationFrame(processFrame);
+    }
+    processFrame();
+}
+
+function stopEmotionChromaKey() {
+    if (emotionChromaFrame) {
+        cancelAnimationFrame(emotionChromaFrame);
+        emotionChromaFrame = null;
+    }
+}
+
+// =============================================
+// Walk animation — AI เดินซ้ายขวาบน bubble
+// =============================================
+function startWalkAnimation($popup, containerWidth, popupWidth) {
+    if (walkAnimFrame) cancelAnimationFrame(walkAnimFrame);
+
+    const maxLeft  = containerWidth - popupWidth;
+    let   pos      = 0;
+    let   dir      = 1;           // 1 = ไปขวา, -1 = กลับซ้าย
+    const speed    = 0.8;         // px ต่อ frame (~48px/วินาที ที่ 60fps)
+
+    function step() {
+        pos += dir * speed;
+
+        if (pos >= maxLeft) { pos = maxLeft; dir = -1; $popup.css('transform', 'scaleX(-1)'); }
+        if (pos <= 0)        { pos = 0;       dir =  1; $popup.css('transform', 'scaleX(1)');  }
+
+        $popup.css('left', pos + 'px');
+        walkAnimFrame = requestAnimationFrame(step);
+    }
+    step();
+}
+
+function stopWalkAnimation() {
+    if (walkAnimFrame) {
+        cancelAnimationFrame(walkAnimFrame);
+        walkAnimFrame = null;
+    }
+}
+
+// =============================================
+// ✅ Emotion Popup — ลอยบน message-content
+//    ขนาดเล็ก + เดินซ้ายขวา + ลบพื้นขาว/ดำ
+// =============================================
+function playEmotionInBubble(emotion) {
+    const $lastMsg = $('.message.assistant').last();
+    if ($lastMsg.length === 0) return;
+
+    const $content = $lastMsg.find('.message-content');
+    if ($content.length === 0) return;
+
+    const urls = emotionVideosMap[emotion] || emotionVideosMap['calm'];
+    if (!urls || urls.length === 0) {
+        console.log('⚠️ No emotion video for:', emotion);
+        return;
+    }
+
+    // เคลียร์ของเก่า
+    if (emotionTimer) { clearTimeout(emotionTimer); emotionTimer = null; }
+    stopEmotionChromaKey();
+    stopWalkAnimation();
+    $('.emotion-popup').remove();
+
+    const fileUrl = urls[Math.floor(Math.random() * urls.length)];
+    const ext     = fileUrl.split('.').pop().split('?')[0].toLowerCase();
+    const isGif   = (ext === 'gif');
+
+    // ✅ ขนาดเล็กลง
+    const POPUP_W = 70;
+    const POPUP_H = 90;
+
+    console.log('🎭 Emotion popup:', emotion, '|', fileUrl);
+
+    $content.css('position', 'relative');
+
+    const $popup = $('<div class="emotion-popup"></div>').css({
+        position:      'absolute',
+        top:           (-POPUP_H - 6) + 'px',
+        left:          '0px',
+        width:         POPUP_W + 'px',
+        height:        POPUP_H + 'px',
+        borderRadius:  '8px',
+        overflow:      'hidden',
+        zIndex:        100,
+        pointerEvents: 'none',
+        background:    'transparent',   // ✅ ไม่มีพื้นหลัง
+        boxShadow:     'none',
+    });
+
+    if (isGif) {
+        const $img = $('<img>').attr('src', fileUrl).css({
+            width: '100%', height: '100%', objectFit: 'contain',
+            display: 'block', background: 'transparent',
+            mixBlendMode: 'multiply'    // ✅ ช่วยลบพื้นขาวของ GIF
+        });
+        $popup.append($img);
+        $content.append($popup);
+
+    } else {
+        // Video + canvas chroma key
+        const $canvas = $('<canvas>').attr({ width: POPUP_W, height: POPUP_H }).css({
+            width: '100%', height: '100%', display: 'block'
+        });
+        const $vid = $('<video>').attr({ muted: true, playsinline: true, crossorigin: 'anonymous' })
+            .css({ display: 'none', position: 'absolute', top: '-9999px' });
+
+        $popup.append($canvas).append($vid);
+        $content.append($popup);
+
+        const vid = $vid[0];
+        vid.src = fileUrl;
+        vid.oncanplay = function() {
+            this.play().catch(() => {});
+            startEmotionChromaKey(this, $canvas[0]);
+        };
+        vid.load();
+    }
+
+    // ✅ เริ่ม walk animation หลัง popup ติด DOM
+    const containerW = $content.outerWidth() || 200;
+    startWalkAnimation($popup, containerW, POPUP_W);
+
+    // ซ่อนหลัง 5 วินาที
+    function hidePopup() {
+        stopEmotionChromaKey();
+        stopWalkAnimation();
+        $popup.css({ animation: 'popupOut 0.25s ease-in forwards' });
+        setTimeout(function() { $popup.remove(); }, 300);
+    }
+    emotionTimer = setTimeout(hidePopup, 5000);
+}
+
+// =============================================
+// Setup ปุ่ม
+// =============================================
+function setupButtonHandlers() {
+    const _lang = typeof currentLang !== 'undefined' ? currentLang : 'th';
+
+    $('#switch3DBtn').off('click').on('click', function() {
+        let url = '?ai_chat_3d&lang=' + _lang;
+        if (aiCodeFromURL) url += '&ai_code=' + aiCodeFromURL;
+        window.location.href = url;
+    });
+
+    $('#editPromptsBtn').off('click').on('click', function() {
+        let url = '?ai_edit_prompts&lang=' + _lang;
+        if (aiCodeFromURL) url += '&ai_code=' + aiCodeFromURL;
+        window.location.href = url;
+    });
+}
+
+// =============================================
+// Load conversations
+// =============================================
+function loadConversations() {
+    if (!userCompanionId) { setTimeout(loadConversations, 500); return; }
+
+    let url   = 'app/actions/get_chat_data.php?action=list_conversations&user_companion_id=' + userCompanionId;
+    const hdr = {};
+
+    if (isGuestMode && aiCodeFromURL) { url += '&ai_code=' + aiCodeFromURL; }
+    else if (jwt) { hdr['Authorization'] = 'Bearer ' + jwt; }
+    else { window.location.href = '?'; return; }
+
+    $.ajax({
+        url, type: 'GET', headers: hdr, dataType: 'json',
+        success: function(r) {
+            if (r.status === 'success') displayConversations(r.conversations);
+            else if (r.require_login && !isGuestMode) window.location.href = '?';
+        }
+    });
+}
+
 function displayConversations(conversations) {
     const $list = $('#conversationsList');
     $list.empty();
-    
-    if (conversations.length === 0) {
-        $list.html('<p style="text-align: center; color: #999; padding: 20px; font-size: 13px;">No conversations yet</p>');
+
+    if (!conversations.length) {
+        $list.html('<p style="text-align:center;color:#999;padding:20px;font-size:13px;">No conversations yet</p>');
         return;
     }
-    
+
     conversations.forEach(function(conv) {
-        const isActive = conv.conversation_id === currentConversationId ? 'active' : '';
-        const timeAgo = formatTimeAgo(conv.updated_at);
-        
-        const $item = $(`
-            <div class="conversation-item ${isActive}" data-id="${conv.conversation_id}">
+        const active = conv.conversation_id === currentConversationId ? 'active' : '';
+        const $item  = $(`
+            <div class="conversation-item ${active}" data-id="${conv.conversation_id}">
                 <div class="conversation-title">${escapeHtml(conv.title)}</div>
                 <div class="conversation-preview">${escapeHtml(conv.last_message)}</div>
-                <div class="conversation-time">${timeAgo}</div>
+                <div class="conversation-time">${formatTimeAgo(conv.updated_at)}</div>
                 <button class="delete-conv-btn" onclick="deleteConversation(${conv.conversation_id}, event)">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
         `);
-        
-        $item.on('click', function() {
-            loadConversation(conv.conversation_id);
-        });
-        
+        $item.on('click', function() { loadConversation(conv.conversation_id); });
         $list.append($item);
     });
 }
 
-// ✅ โหลดประวัติแชทของ conversation
-// ✅ โหลดประวัติแชทของ conversation
 function loadConversation(conversationId) {
     currentConversationId = conversationId;
-    
-    // Update UI
     $('.conversation-item').removeClass('active');
     $(`.conversation-item[data-id="${conversationId}"]`).addClass('active');
-    
-    let url = 'app/actions/get_chat_data.php?action=get_history&conversation_id=' + conversationId;
-    const headers = {};
-    
-    // ✅ Guest Mode Support - ต้องส่ง user_companion_id หรือ ai_code
+
+    let url   = 'app/actions/get_chat_data.php?action=get_history&conversation_id=' + conversationId;
+    const hdr = {};
+
     if (isGuestMode) {
-        if (userCompanionId) {
-            url += '&user_companion_id=' + userCompanionId;
-        }
-        if (aiCodeFromURL) {
-            url += '&ai_code=' + aiCodeFromURL;
-        }
+        if (userCompanionId) url += '&user_companion_id=' + userCompanionId;
+        if (aiCodeFromURL)   url += '&ai_code=' + aiCodeFromURL;
     } else if (jwt) {
-        headers['Authorization'] = 'Bearer ' + jwt;
+        hdr['Authorization'] = 'Bearer ' + jwt;
     }
-    
-    console.log('📖 Loading conversation:', conversationId);
-    
+
     $.ajax({
-        url: url,
-        type: 'GET',
-        headers: headers,
-        dataType: 'json',
-        success: function(response) {
-            console.log('✅ Conversation loaded:', response);
-            
-            if (response.status === 'success') {
-                displayMessages(response.messages);
+        url, type: 'GET', headers: hdr, dataType: 'json',
+        success: function(r) {
+            if (r.status === 'success') {
+                displayMessages(r.messages);
                 $('#chatHeader').show();
                 scrollToBottom();
-            } else {
-                console.error('❌ Failed to load conversation:', response.message);
             }
         },
-        error: function(xhr, status, error) {
-            console.error('❌ Error loading conversation:', error);
-            Swal.fire({
-                title: 'Error',
-                text: 'Failed to load conversation',
-                icon: 'error',
-                background: '#1a1a1a',
-                color: '#fff'
-            });
+        error: function() {
+            Swal.fire({ title: 'Error', text: 'Failed to load conversation', icon: 'error', background: '#1a1a1a', color: '#fff' });
         }
     });
 }
 
-// ✅ แสดงข้อความในแชท
 function displayMessages(messages) {
-    const $container = $('#chatMessages');
-    $container.empty();
-    
-    if (messages.length === 0) {
-        $container.html('<div class="empty-state"><h3>No messages yet</h3><p>Start the conversation!</p></div>');
+    const $c = $('#chatMessages');
+    $c.empty();
+    if (!messages.length) {
+        $c.html('<div class="empty-state"><h3>No messages yet</h3><p>Start the conversation!</p></div>');
         return;
     }
-    
-    messages.forEach(function(msg) {
-        appendMessage(msg.role, msg.message, msg.timestamp);
-    });
+    messages.forEach(function(msg) { appendMessage(msg.role, msg.message, msg.timestamp); });
 }
 
-// ✅ เพิ่มข้อความลงในแชท
 function appendMessage(role, text, timestamp) {
-    const $container = $('#chatMessages');
-    $container.find('.empty-state').remove();
-    
+    const $c     = $('#chatMessages');
+    $c.find('.empty-state').remove();
     const isUser = role === 'user';
-    const time = timestamp ? formatTime(timestamp) : 'Now';
-    
-    const $message = $(`
+    const time   = timestamp ? formatTime(timestamp) : 'Now';
+    const label  = isUser ? 'U' : 'AI';
+
+    const $msg = $(`
         <div class="message ${isUser ? 'user' : 'assistant'}">
-            <div class="message-avatar">${isUser ? 'U' : 'AI'}</div>
+            <div class="message-avatar-wrap">
+                <div class="message-avatar">
+                    <span class="avatar-label">${label}</span>
+                </div>
+            </div>
             <div class="message-content">
                 <div class="message-text">${escapeHtml(text)}</div>
                 <div class="message-time">${time}</div>
             </div>
         </div>
     `);
-    
-    $container.append($message);
+    $c.append($msg);
 }
 
-// ✅ ส่งข้อความ
+// =============================================
+// Send message
+// =============================================
 function sendMessage() {
     const message = $('#messageInput').val().trim();
-    
-    if (!message) {
-        return;
-    }
-    
-    // ✅ ต้องมี user_companion_id
+    if (!message) return;
+
     if (!userCompanionId) {
-        Swal.fire({
-            title: 'Error',
-            text: 'AI companion not loaded yet',
-            icon: 'error',
-            background: '#1a1a1a',
-            color: '#fff'
-        });
+        Swal.fire({ title: 'Error', text: 'AI companion not loaded yet', icon: 'error', background: '#1a1a1a', color: '#fff' });
         return;
     }
-    
-    // Disable input
+
     $('#messageInput').prop('disabled', true);
     $('#sendBtn').prop('disabled', true);
-    
-    // แสดงข้อความของ user
+
     appendMessage('user', message, null);
     scrollToBottom();
-    
-    // Clear input
     $('#messageInput').val('').css('height', 'auto');
-    
-    // Show typing indicator
     $('#typingIndicator').addClass('active');
     scrollToBottom();
-    
-    // ✅ เตรียม headers และ data
-    const headers = { 'Content-Type': 'application/json' };
-    const requestData = {
-        user_companion_id: userCompanionId, // ✅ เพิ่มตัวนี้
-        conversation_id: currentConversationId,
-        message: message,
-        language: currentLang
-    };
-    
-    // ✅ Guest Mode Support
-    if (isGuestMode && aiCodeFromURL) {
-        requestData.ai_code = aiCodeFromURL;
-        console.log('🔓 Sending message (Guest Mode)');
-    } else if (jwt) {
-        headers['Authorization'] = 'Bearer ' + jwt;
-        console.log('🔐 Sending message (Login Mode)');
-    }
-    
-    console.log('📤 Sending message:', {
+
+    const hdr  = { 'Content-Type': 'application/json' };
+    const body = {
         user_companion_id: userCompanionId,
-        conversation_id: currentConversationId,
-        message_length: message.length,
-        mode: isGuestMode ? 'guest' : 'login'
-    });
-    
-    // Send to API
+        conversation_id:   currentConversationId,
+        message:           message,
+        language:          typeof currentLang !== 'undefined' ? currentLang : 'th'
+    };
+
+    if (isGuestMode && aiCodeFromURL) { body.ai_code = aiCodeFromURL; }
+    else if (jwt) { hdr['Authorization'] = 'Bearer ' + jwt; }
+
     $.ajax({
-        url: 'app/actions/ai_chat.php',
-        type: 'POST',
-        headers: headers,
-        data: JSON.stringify(requestData),
+        url:      'app/actions/ai_chat.php',
+        type:     'POST',
+        headers:  hdr,
+        data:     JSON.stringify(body),
         dataType: 'json',
-        success: function(response) {
+        success: function(r) {
             $('#typingIndicator').removeClass('active');
-            
-            console.log('✅ Message sent successfully:', response);
-            
-            if (response.status === 'success') {
-                // แสดงคำตอบของ AI
-                appendMessage('assistant', response.ai_message, null);
-                
-                // Update conversation ID (ถ้าเป็นการแชทใหม่)
-                if (currentConversationId === 0) {
-                    currentConversationId = response.conversation_id;
-                    console.log('🆕 New conversation created:', currentConversationId);
-                    loadConversations(); // Reload sidebar
-                }
-                
+
+            if (r.status === 'success') {
+                appendMessage('assistant', r.ai_message, null);
                 scrollToBottom();
+                $('#chatHeader').show();
+
+                if (r.ai_emotion) {
+                    console.log('🎭 AI Emotion:', r.ai_emotion);
+                    playEmotionInBubble(r.ai_emotion);
+                }
+
+                if (currentConversationId === 0) {
+                    currentConversationId = r.conversation_id;
+                    loadConversations();
+                }
             } else {
-                console.error('❌ API returned error:', response.message);
-                Swal.fire({
-                    title: 'Error',
-                    text: response.message,
-                    icon: 'error',
-                    background: '#1a1a1a',
-                    color: '#fff'
-                });
+                Swal.fire({ title: 'Error', text: r.message, icon: 'error', background: '#1a1a1a', color: '#fff' });
             }
-            
-            // Enable input
+
             $('#messageInput').prop('disabled', false).focus();
             $('#sendBtn').prop('disabled', false);
         },
-        error: function(xhr, status, error) {
+        error: function() {
             $('#typingIndicator').removeClass('active');
-            
-            console.error('❌ Error sending message:', {
-                status: status,
-                error: error,
-                response: xhr.responseText
-            });
-            
-            Swal.fire({
-                title: 'Error',
-                text: 'Failed to send message',
-                icon: 'error',
-                background: '#1a1a1a',
-                color: '#fff'
-            });
-            
-            // Enable input
+            Swal.fire({ title: 'Error', text: 'Failed to send message', icon: 'error', background: '#1a1a1a', color: '#fff' });
             $('#messageInput').prop('disabled', false).focus();
             $('#sendBtn').prop('disabled', false);
         }
     });
 }
 
-
-
-// ✅ สร้าง conversation ใหม่
+// =============================================
+// New chat / Delete
+// =============================================
 function createNewChat() {
     currentConversationId = 0;
-    
-    console.log('🆕 Creating new chat');
-    
-    // Clear UI
+    if (emotionTimer) { clearTimeout(emotionTimer); emotionTimer = null; }
+    stopEmotionChromaKey();
+    stopWalkAnimation();
+    $('.emotion-popup').remove();
+
     $('#chatMessages').html(`
         <div class="empty-state">
             <i class="fas fa-comments"></i>
@@ -508,132 +537,71 @@ function createNewChat() {
             <p>Type a message to start chatting with your AI companion</p>
         </div>
     `);
-    
     $('.conversation-item').removeClass('active');
     $('#messageInput').val('').focus();
 }
 
-// ✅ ลบ conversation
 function deleteConversation(conversationId, event) {
     event.stopPropagation();
-    
+
     Swal.fire({
-        title: 'Delete Conversation?',
-        text: 'This action cannot be undone',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#dc3545',
-        confirmButtonText: 'Delete',
-        cancelButtonText: 'Cancel',
-        background: '#1a1a1a',
-        color: '#fff'
+        title: 'Delete Conversation?', text: 'This action cannot be undone', icon: 'warning',
+        showCancelButton: true, confirmButtonColor: '#dc3545',
+        confirmButtonText: 'Delete', cancelButtonText: 'Cancel',
+        background: '#1a1a1a', color: '#fff'
     }).then((result) => {
-        if (result.isConfirmed) {
-            let url = 'app/actions/get_chat_data.php?action=delete_conversation&conversation_id=' + conversationId;
-            const headers = {};
-            
-            // ✅ Guest Mode Support
-            if (isGuestMode && aiCodeFromURL) {
-                url += '&ai_code=' + aiCodeFromURL;
-            } else if (jwt) {
-                headers['Authorization'] = 'Bearer ' + jwt;
-            }
-            
-            console.log('🗑️ Deleting conversation:', conversationId);
-            
-            $.ajax({
-                url: url,
-                type: 'GET',
-                headers: headers,
-                dataType: 'json',
-                success: function(response) {
-                    if (response.status === 'success') {
-                        console.log('✅ Conversation deleted');
-                        
-                        Swal.fire({
-                            title: 'Deleted!',
-                            text: 'Conversation has been deleted',
-                            icon: 'success',
-                            background: '#1a1a1a',
-                            color: '#fff',
-                            timer: 1500,
-                            showConfirmButton: false
-                        });
-                        
-                        // ถ้าลบ conversation ที่กำลังเปิดอยู่
-                        if (conversationId === currentConversationId) {
-                            createNewChat();
-                        }
-                        
-                        loadConversations();
-                    } else {
-                        console.error('❌ Failed to delete:', response.message);
-                        Swal.fire({
-                            title: 'Error',
-                            text: response.message,
-                            icon: 'error',
-                            background: '#1a1a1a',
-                            color: '#fff'
-                        });
-                    }
-                },
-                error: function(xhr, status, error) {
-                    console.error('❌ Error deleting conversation:', error);
-                    Swal.fire({
-                        title: 'Error',
-                        text: 'Failed to delete conversation',
-                        icon: 'error',
-                        background: '#1a1a1a',
-                        color: '#fff'
-                    });
+        if (!result.isConfirmed) return;
+
+        let url   = 'app/actions/get_chat_data.php?action=delete_conversation&conversation_id=' + conversationId;
+        const hdr = {};
+
+        if (isGuestMode && aiCodeFromURL) { url += '&ai_code=' + aiCodeFromURL; }
+        else if (jwt) { hdr['Authorization'] = 'Bearer ' + jwt; }
+
+        $.ajax({
+            url, type: 'GET', headers: hdr, dataType: 'json',
+            success: function(r) {
+                if (r.status === 'success') {
+                    Swal.fire({ title: 'Deleted!', text: 'Conversation deleted', icon: 'success', background: '#1a1a1a', color: '#fff', timer: 1500, showConfirmButton: false });
+                    if (conversationId === currentConversationId) createNewChat();
+                    loadConversations();
+                } else {
+                    Swal.fire({ title: 'Error', text: r.message, icon: 'error', background: '#1a1a1a', color: '#fff' });
                 }
-            });
-        }
+            },
+            error: function() {
+                Swal.fire({ title: 'Error', text: 'Failed to delete', icon: 'error', background: '#1a1a1a', color: '#fff' });
+            }
+        });
     });
 }
 
-// ✅ Handle Enter key
+// =============================================
+// Helpers
+// =============================================
 function handleKeyPress(event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        sendMessage();
-    }
+    if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendMessage(); }
 }
 
-// ✅ Scroll to bottom
 function scrollToBottom() {
-    const $messages = $('#chatMessages');
-    $messages.scrollTop($messages[0].scrollHeight);
+    const $m = $('#chatMessages');
+    $m.scrollTop($m[0].scrollHeight);
 }
 
-// ✅ Helper: Format time
-function formatTime(timestamp) {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+function formatTime(ts) {
+    return new Date(ts).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
 }
 
-// ✅ Helper: Format time ago
-function formatTimeAgo(timestamp) {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diff = Math.floor((now - date) / 1000); // seconds
-    
-    if (diff < 60) return 'Just now';
-    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+function formatTimeAgo(ts) {
+    const diff = Math.floor((new Date() - new Date(ts)) / 1000);
+    if (diff < 60)     return 'Just now';
+    if (diff < 3600)   return Math.floor(diff / 60)    + 'm ago';
+    if (diff < 86400)  return Math.floor(diff / 3600)  + 'h ago';
     if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
-    
-    return date.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' });
+    return new Date(ts).toLocaleDateString('th-TH', { month: 'short', day: 'numeric' });
 }
 
-// ✅ Helper: Escape HTML
 function escapeHtml(text) {
-    const map = {
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-    };
-    return text.replace(/[&<>"']/g, m => map[m]);
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return (text || '').replace(/[&<>"']/g, m => map[m]);
 }
