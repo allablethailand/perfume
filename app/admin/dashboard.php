@@ -258,6 +258,11 @@ body { background:var(--bg) !important; color:var(--text) !important; font-famil
 .ip-sparkline {
   width:100%; height:100%; display:block;
 }
+.leaflet-top, .leaflet-bottom {
+    position: absolute;
+    z-index: 400;
+    pointer-events: none;
+}
 </style>
 </head>
 
