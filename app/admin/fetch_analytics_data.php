@@ -83,30 +83,79 @@ try {
 
     // ── daily_users ─────────────────────────────
     if ($section === 'all' || $section === 'daily_users') {
-        if ($days === 1) {
-            $rows = q($conn, "
-                SELECT DATE_FORMAT(started_at,'%H:00') AS d,
-                       COUNT(DISTINCT visitor_id)      AS n
-                FROM analytics_sessions
-                WHERE DATE(started_at) = CURDATE()
-                GROUP BY DATE_FORMAT(started_at,'%H:00')
-                ORDER BY d ASC
-            ");
-        } else {
-            $rows = q($conn, "
-                SELECT DATE(started_at)           AS d,
-                       COUNT(DISTINCT visitor_id) AS n
-                FROM analytics_sessions
-                WHERE started_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
-                GROUP BY DATE(started_at)
-                ORDER BY d ASC
-            ", 'i', [$days]);
-        }
-        $response['daily_users'] = [
-            'labels' => array_map(fn($r) => $days === 1 ? $r['d'] : date('d M', strtotime($r['d'])), $rows),
-            'data'   => array_map(fn($r) => (int)$r['n'], $rows),
-        ];
+    if ($days === 1) {
+        // All visitors วันนี้ (รายชั่วโมง)
+        $rows = q($conn, "
+            SELECT DATE_FORMAT(started_at,'%H:00') AS d,
+                   COUNT(DISTINCT visitor_id)      AS n
+            FROM analytics_sessions
+            WHERE DATE(started_at) = CURDATE()
+            GROUP BY DATE_FORMAT(started_at,'%H:00')
+            ORDER BY d ASC
+        ");
+
+        // Returning = visitor ที่เคยมาก่อนวันนี้ด้วย
+        $rows_ret = q($conn, "
+            SELECT DATE_FORMAT(s.started_at,'%H:00') AS d,
+                   COUNT(DISTINCT s.visitor_id)      AS n
+            FROM analytics_sessions s
+            WHERE DATE(s.started_at) = CURDATE()
+              AND EXISTS (
+                  SELECT 1 FROM analytics_sessions s2
+                  WHERE s2.visitor_id = s.visitor_id
+                    AND DATE(s2.started_at) < CURDATE()
+              )
+            GROUP BY DATE_FORMAT(s.started_at,'%H:00')
+            ORDER BY d ASC
+        ");
+
+    } else {
+        // All visitors รายวัน
+        $rows = q($conn, "
+            SELECT DATE(started_at)           AS d,
+                   COUNT(DISTINCT visitor_id) AS n
+            FROM analytics_sessions
+            WHERE started_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+            GROUP BY DATE(started_at)
+            ORDER BY d ASC
+        ", 'i', [$days]);
+
+        // Returning = visitor ที่วันนั้นๆ มา และเคยมาก่อนหน้าวันนั้นด้วย
+        $rows_ret = q($conn, "
+            SELECT DATE(s.started_at)           AS d,
+                   COUNT(DISTINCT s.visitor_id) AS n
+            FROM analytics_sessions s
+            WHERE s.started_at >= DATE_SUB(NOW(), INTERVAL ? DAY)
+              AND EXISTS (
+                  SELECT 1 FROM analytics_sessions s2
+                  WHERE s2.visitor_id = s.visitor_id
+                    AND DATE(s2.started_at) < DATE(s.started_at)
+              )
+            GROUP BY DATE(s.started_at)
+            ORDER BY d ASC
+        ", 'i', [$days]);
     }
+
+    // Map returning → key = d
+    $retMap = [];
+    foreach ($rows_ret as $r) $retMap[$r['d']] = (int)$r['n'];
+
+    $labels  = [];
+    $newData = [];
+    $retData = [];
+    foreach ($rows as $r) {
+        $key       = $r['d'];
+        $labels[]  = $days === 1 ? $key : date('d M', strtotime($key));
+        $newData[] = (int)$r['n'];
+        $retData[] = $retMap[$key] ?? 0;
+    }
+
+    $response['daily_users'] = [
+        'labels'    => $labels,
+        'data'      => $newData,
+        'returning' => $retData,
+    ];
+}
 
     // ── source ──────────────────────────────────
     if ($section === 'all' || $section === 'source') {
