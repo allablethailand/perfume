@@ -83,19 +83,43 @@ body { background:var(--bg) !important; color:var(--text) !important; font-famil
 .mleg-item { display:flex; align-items:center; gap:6px; }
 .mleg-dot  { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
 
-/* Leaflet */
-.leaflet-popup-content-wrapper { background:#fff !important; border:1px solid var(--border2) !important; border-radius:var(--r-sm) !important; box-shadow:var(--shadow-lg) !important; color:var(--text) !important; font-family:var(--font) !important; font-size:.82rem !important; min-width:140px; }
+/* ── Leaflet Light Theme ──────────────────────── */
+.leaflet-popup-content-wrapper {
+  background:#fff !important;
+  border:1px solid rgba(0,0,0,0.1) !important;
+  border-radius:var(--r-sm) !important;
+  box-shadow:0 4px 20px rgba(0,0,0,0.12) !important;
+  color:var(--text) !important;
+  font-family:var(--font) !important;
+  font-size:.82rem !important;
+  min-width:140px;
+}
 .leaflet-popup-tip { background:#fff !important; }
 .leaflet-popup-close-button { color:var(--muted) !important; top:6px !important; right:8px !important; }
 .pop-name  { font-weight:600; color:var(--text); margin-bottom:3px; font-size:.85rem; }
 .pop-sub   { font-size:.7rem; color:var(--muted); margin-bottom:5px; }
 .pop-count { font-size:1.15rem; font-weight:600; color:var(--accent); font-family:var(--mono); line-height:1; }
 .pop-unit  { font-size:.68rem; color:var(--muted); margin-top:1px; }
-.leaflet-control-zoom a { background:#fff !important; color:var(--text) !important; border-color:var(--border2) !important; }
-.leaflet-bar { border:1px solid var(--border2) !important; border-radius:var(--r-sm) !important; overflow:hidden; box-shadow:var(--shadow) !important; }
-.leaflet-control-attribution { background:rgba(245,244,240,0.85) !important; color:var(--muted) !important; font-size:.65rem !important; }
-.leaflet-control-attribution a { color:var(--muted) !important; }
-.leaflet-top, .leaflet-bottom { position:absolute; z-index:400; pointer-events:none; }
+.leaflet-control-zoom a {
+  background:#fff !important;
+  color:var(--text2) !important;
+  border-color:rgba(0,0,0,0.12) !important;
+  font-weight:600;
+}
+.leaflet-control-zoom a:hover { background:var(--surface2) !important; color:var(--accent) !important; }
+.leaflet-bar {
+  border:1px solid rgba(0,0,0,0.1) !important;
+  border-radius:var(--r-sm) !important;
+  overflow:hidden;
+  box-shadow:0 2px 10px rgba(0,0,0,0.1) !important;
+}
+.leaflet-control-attribution {
+  background:rgba(255,255,255,0.85) !important;
+  color:#888 !important;
+  font-size:.65rem !important;
+  backdrop-filter:blur(4px);
+}
+.leaflet-control-attribution a { color:#888 !important; }
 
 /* ── Content wrap ─────────────────────────────── */
 .db-wrap { max-width:1440px; margin:0 auto; padding:0 24px 48px; }
@@ -355,11 +379,10 @@ $username = $_SESSION['fullname'] ?? 'Admin';
 
   </div>
 
-  <!-- Device & Platform — NEW SECTION -->
+  <!-- Device & Platform -->
   <p class="sec-label">Device &amp; Platform</p>
   <div class="cgrid cgrid-2">
 
-    <!-- Device Type (Doughnut) -->
     <div class="ccard" style="animation-delay:.15s">
       <div class="ch-row">
         <div class="ch-left">
@@ -377,7 +400,6 @@ $username = $_SESSION['fullname'] ?? 'Admin';
       <div class="ccanvas h260"><canvas id="deviceChart"></canvas></div>
     </div>
 
-    <!-- OS / Browser (Horizontal Bar) -->
     <div class="ccard" style="animation-delay:.21s">
       <div class="ch-row">
         <div class="ch-left">
@@ -509,10 +531,10 @@ $username = $_SESSION['fullname'] ?? 'Admin';
 })();
 
 // ══════════════════════════════════════════════════════════════
-//  UserMap — Dot Density (จุดขนาดเท่ากันทุกจุด)
-//  - ไม่มีการ scale ขนาดตาม count
-//  - สีจุด = teal/cyan คงที่ทุกจุด
-//  - popup แสดงรายละเอียดเมื่อ hover/click
+//  UserMap — Light Theme
+//  - ใช้ tile สว่าง (CartoDB Positron)
+//  - จุดสีส้ม accent เพื่อให้เห็นชัดบน background สว่าง
+//  - popup / zoom control สไตล์ light
 // ══════════════════════════════════════════════════════════════
 class UserMap {
   constructor(id) {
@@ -524,8 +546,10 @@ class UserMap {
       zoomControl: true, attributionControl: true
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      subdomains: 'abcd', maxZoom: 19,
+    // ── Light tile: CartoDB Positron ──────────────────────────
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      maxZoom: 19,
       attribution: '&copy; <a href="https://carto.com/">CartoDB</a>'
     }).addTo(this.map);
 
@@ -554,13 +578,12 @@ class UserMap {
   }
 
   updateData(points) {
-    // ลบ markers เก่า
     this.markers.forEach(({ marker }) => this.map.removeLayer(marker));
     this.markers = [];
 
     if (!points || points.length === 0) {
       document.getElementById('mapLegend').innerHTML =
-        '<span style="color:#666">ไม่มีข้อมูลตำแหน่งในช่วงเวลานี้</span>';
+        '<span style="color:#aaa">ไม่มีข้อมูลตำแหน่งในช่วงเวลานี้</span>';
       return;
     }
 
@@ -568,12 +591,12 @@ class UserMap {
       const label = this._label(pt);
       const sub   = this._sub(pt);
 
-      // จุดขนาดคงที่ทุกจุด — dot density style
+      // ── จุดสีส้มเห็นชัดบน light map ─────────────────────────
       const marker = L.circleMarker([pt.lat, pt.lng], {
-        radius:      4,
-        fillColor:   '#3ecfcf',
-        color:       'rgba(255,255,255,0.15)',
-        weight:      1,
+        radius:      5,
+        fillColor:   '#f5630a',         // accent orange
+        color:       'rgba(255,255,255,0.8)',
+        weight:      1.5,
         fillOpacity: 0.75
       });
 
@@ -585,7 +608,6 @@ class UserMap {
       `, { maxWidth: 200, closeButton: false });
 
       marker.on('mouseover', function () { this.openPopup(); });
-
       marker.addTo(this.map);
       this.markers.push({ marker, pt });
     });
@@ -598,21 +620,19 @@ class UserMap {
     if (!el) return;
     el.innerHTML = '';
 
-    // เรียงตาม count มาก → น้อย แสดงสูงสุด 12 จุด
     const sorted = [...points].sort((a, b) => b.count - a.count).slice(0, 12);
 
     sorted.forEach(pt => {
       const label = this._label(pt);
       const ctry  = pt.country && pt.country !== label
-        ? ` <span style="color:#555">(${pt.country})</span>` : '';
+        ? ` <span style="color:#aaa">(${pt.country})</span>` : '';
 
       const div = document.createElement('div');
       div.className = 'mleg-item';
       div.style.cursor     = 'pointer';
       div.style.transition = 'opacity 0.15s';
-      div.addEventListener('mouseenter', () => div.style.opacity = '0.7');
+      div.addEventListener('mouseenter', () => div.style.opacity = '0.6');
       div.addEventListener('mouseleave', () => div.style.opacity = '1');
-
       div.addEventListener('click', () => {
         const zoom = pt.city ? 10 : pt.province ? 8 : 5;
         this.map.flyTo([pt.lat, pt.lng], zoom, { animate: true, duration: 1.2 });
@@ -621,8 +641,8 @@ class UserMap {
       });
 
       div.innerHTML = `
-        <div class="mleg-dot" style="background:#3ecfcf"></div>
-        <span>${label}${ctry} <b style="color:#a8b3c8">${pt.count.toLocaleString()}</b></span>
+        <div class="mleg-dot" style="background:#f5630a"></div>
+        <span>${label}${ctry} <b style="color:#4a3f35">${pt.count.toLocaleString()}</b></span>
       `;
       el.appendChild(div);
     });
@@ -634,10 +654,10 @@ let mapInstance = null;
 // ══════════════════════════════════════════════════════════════
 //  Chart.js defaults
 // ══════════════════════════════════════════════════════════════
-Chart.defaults.color = '#6b7a96';
+Chart.defaults.color = '#9a8e84';
 Chart.defaults.font.family = "'DM Sans', sans-serif";
 Chart.defaults.font.size = 11;
-const gridOpts = { color:'rgba(255,255,255,0.045)', drawBorder:false };
+const gridOpts = { color:'rgba(0,0,0,0.05)', drawBorder:false };
 const PAL = ['#f5a623','#3ecfcf','#7c6bff','#4caf7d','#ef5350','#FFD93D','#56CFE1','#c77dff','#ff6b6b','#a8e6cf'];
 
 const chartRegistry = {};
@@ -676,34 +696,69 @@ function setCardLoading(section, on) {
 function renderSection(section, data) {
   switch (section) {
 
-    // ── daily_users ──────────────────────────────
     case 'daily_users':
-      mkChart('userChart','line',{
-        labels: data.daily_users.labels,
-        datasets:[{
-          label: data.days===1 ? 'Hourly Users' : 'Daily Active Users',
-          data: data.daily_users.data, fill: true,
-          backgroundColor: ctx => {
-            const g = ctx.chart.ctx.createLinearGradient(0,0,0,280);
-            g.addColorStop(0,'rgba(245,166,35,0.28)');
-            g.addColorStop(1,'rgba(245,166,35,0)');
-            return g;
-          },
-          borderColor:'#f5a623', tension:.4, borderWidth:2,
-          pointBackgroundColor:'#f5a623', pointRadius:2, pointHoverRadius:5
-        }]
-      },{ scales:{y:{beginAtZero:true,grid:gridOpts,ticks:{color:'#6b7a96'}},x:{grid:{display:false},ticks:{color:'#6b7a96',maxTicksLimit:9}}}, plugins:{legend:{display:false}} });
-      break;
+  mkChart('userChart', 'line', {
+    labels: data.daily_users.labels,
+    datasets: [
+      {
+        label: data.days === 1 ? 'Hourly Visitors' : 'All Visitors',
+        data: data.daily_users.data,
+        fill: true,
+        backgroundColor: ctx => {
+          const g = ctx.chart.ctx.createLinearGradient(0,0,0,280);
+          g.addColorStop(0,'rgba(245,166,35,0.18)');
+          g.addColorStop(1,'rgba(245,166,35,0)');
+          return g;
+        },
+        borderColor: '#f5a623', tension: .4, borderWidth: 2,
+        pointBackgroundColor: '#f5a623', pointRadius: 2, pointHoverRadius: 5
+      },
+      {
+        label: 'Returning Visitors',
+        data: data.daily_users.returning ?? [],
+        fill: true,
+        backgroundColor: ctx => {
+          const g = ctx.chart.ctx.createLinearGradient(0,0,0,280);
+          g.addColorStop(0,'rgba(62,207,207,0.13)');
+          g.addColorStop(1,'rgba(62,207,207,0)');
+          return g;
+        },
+        borderColor: '#3ecfcf', tension: .4, borderWidth: 2,
+        pointBackgroundColor: '#3ecfcf', pointRadius: 2, pointHoverRadius: 5,
+      }
+    ]
+  }, {
+    scales: {
+      y: { beginAtZero:true, grid:gridOpts, ticks:{color:'#9a8e84'} },
+      x: { grid:{display:false}, ticks:{color:'#9a8e84', maxTicksLimit:9} }
+    },
+    plugins: {
+      legend: {
+        display: true, position: 'top', align: 'end',
+        labels: {
+          color:'#9a8e84', font:{size:11},
+          usePointStyle:true, pointStyleWidth:16, padding:16
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label(ctx) {
+            const val = Number(ctx.parsed.y).toLocaleString();
+            return ` ${ctx.dataset.label}: ${val}`;
+          }
+        }
+      }
+    }
+  });
+  break;
 
-    // ── source ───────────────────────────────────
     case 'source':
       mkChart('sourceChart','bar',{
         labels: data.source.labels,
         datasets:[{ label:'Users', data:data.source.data, backgroundColor:PAL.slice(0,data.source.data.length), borderRadius:6, borderSkipped:false }]
-      },{ scales:{y:{beginAtZero:true,grid:gridOpts,ticks:{color:'#6b7a96'}},x:{grid:{display:false},ticks:{color:'#6b7a96'}}}, plugins:{legend:{display:false}} });
+      },{ scales:{y:{beginAtZero:true,grid:gridOpts,ticks:{color:'#9a8e84'}},x:{grid:{display:false},ticks:{color:'#9a8e84'}}}, plugins:{legend:{display:false}} });
       break;
 
-    // ── region / map ─────────────────────────────
     case 'region': {
       const points = data.map_points ?? [];
       if (!mapInstance) mapInstance = new UserMap('mapContainer');
@@ -713,36 +768,57 @@ function renderSection(section, data) {
       break;
     }
 
-    // ── device (Doughnut) ─────────────────────────
     case 'device': {
-      const d = data.device ?? {};
-      mkChart('deviceChart', 'doughnut', {
-        labels: d.labels ?? [],
-        datasets: [{
-          data: d.data ?? [],
-          backgroundColor: ['#3ecfcf','#f5a623','#7c6bff','#4caf7d'],
-          borderWidth: 2,
-          borderColor: '#fff',
-          hoverOffset: 6
-        }]
-      }, {
-        cutout: '62%',
-        plugins: {
-          legend: {
-            display: true, position: 'right',
-            labels: { color:'#6b7a96', font:{ size:11 }, padding:14, usePointStyle:true }
-          },
-          tooltip: { callbacks: { label(ctx) {
-            const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
-            const pct   = total ? Math.round(ctx.parsed/total*100) : 0;
-            return ` ${ctx.label}: ${ctx.parsed.toLocaleString()} (${pct}%)`;
-          }}}
+  const d = data.device ?? {};
+  mkChart('deviceChart', 'doughnut', {
+    labels: d.labels ?? [],
+    datasets: [{
+      data: d.data ?? [],
+      backgroundColor: ['#f5630a','#3ecfcf','#7c6bff','#4caf7d'],
+      borderWidth: 2,
+      borderColor: '#fff',
+      hoverOffset: 6
+    }]
+  }, {
+    cutout: '62%',
+    plugins: {
+      legend: {
+        display: true,
+        position: 'right',
+        labels: {
+          color: '#9a8e84',
+          font: { size: 11 },
+          padding: 16,
+          usePointStyle: true,
+          generateLabels(chart) {
+            const dataset = chart.data.datasets[0];
+            const total   = dataset.data.reduce((a, b) => a + b, 0);
+            return chart.data.labels.map((label, i) => ({
+              text:        `${label}   ${dataset.data[i].toLocaleString()}  ·  ${total ? Math.round(dataset.data[i] / total * 100) : 0}%`,
+              fillStyle:   dataset.backgroundColor[i],
+              strokeStyle: dataset.backgroundColor[i],
+              pointStyle:  'circle',
+              index:       i,
+              hidden:      false,
+            }));
+          }
         }
-      });
-      break;
+      },
+      tooltip: {
+        callbacks: {
+          label(ctx) {
+            const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+            const pct   = total ? Math.round(ctx.parsed / total * 100) : 0;
+            return ` ${ctx.label}: ${ctx.parsed.toLocaleString()} (${pct}%)`;
+          }
+        }
+      }
     }
+  });
+  break;
+}
 
-    // ── os_browser (Horizontal Bar) ───────────────
+
     case 'os_browser': {
       const d = data.os_browser ?? {};
       mkChart('osBrowserChart', 'bar', {
@@ -757,20 +833,19 @@ function renderSection(section, data) {
       }, {
         indexAxis: 'y',
         scales: {
-          x: { beginAtZero:true, grid:gridOpts, ticks:{ color:'#6b7a96' } },
-          y: { grid:{ display:false }, ticks:{ color:'#6b7a96' } }
+          x: { beginAtZero:true, grid:gridOpts, ticks:{ color:'#9a8e84' } },
+          y: { grid:{ display:false }, ticks:{ color:'#9a8e84' } }
         },
         plugins: { legend:{ display:false } }
       });
       break;
     }
 
-    // ── top_pages ────────────────────────────────
     case 'top_pages':
       mkChart('topPagesChart','bar',{
         labels: data.top_pages.labels,
         datasets:[{ label:'Users', data:data.top_pages.data, backgroundColor:PAL.slice(0,data.top_pages.data.length), borderRadius:5, borderSkipped:false }]
-      },{ scales:{y:{beginAtZero:true,grid:gridOpts,ticks:{color:'#6b7a96'}},x:{grid:{display:false},ticks:{color:'#6b7a96'}}},
+      },{ scales:{y:{beginAtZero:true,grid:gridOpts,ticks:{color:'#9a8e84'}},x:{grid:{display:false},ticks:{color:'#9a8e84'}}},
           plugins:{legend:{display:false},tooltip:{callbacks:{label(ctx){const i=ctx.dataIndex;return[
             ` Users: ${Number(ctx.parsed.y).toLocaleString()}`,
             ` Views: ${Number((data.top_pages.views??[])[i]??0).toLocaleString()}`,
@@ -778,39 +853,34 @@ function renderSection(section, data) {
           ];}}}} });
       break;
 
-    // ── top_products ─────────────────────────────
     case 'top_products':
       mkChart('topProductsChart','bar',{
         labels: data.top_products.labels,
         datasets:[{ label:'Views', data:data.top_products.data, backgroundColor:PAL.slice(0,data.top_products.data.length), borderRadius:5, borderSkipped:false }]
-      },{ indexAxis:'y', scales:{x:{beginAtZero:true,grid:gridOpts,ticks:{color:'#6b7a96'}},y:{grid:{display:false},ticks:{color:'#6b7a96'}}}, plugins:{legend:{display:false},tooltip:cTip('top_products',data)} });
+      },{ indexAxis:'y', scales:{x:{beginAtZero:true,grid:gridOpts,ticks:{color:'#9a8e84'}},y:{grid:{display:false},ticks:{color:'#9a8e84'}}}, plugins:{legend:{display:false},tooltip:cTip('top_products',data)} });
       break;
 
-    // ── top_projects ─────────────────────────────
     case 'top_projects':
       mkChart('topProjectsChart','bar',{
         labels: data.top_projects?.labels ?? [],
         datasets:[{ label:'Views', data:data.top_projects?.views??[], backgroundColor:PAL.slice(0,(data.top_projects?.views??[]).length), borderRadius:5, borderSkipped:false }]
-      },{ indexAxis:'y', scales:{x:{beginAtZero:true,grid:gridOpts,ticks:{color:'#6b7a96'}},y:{grid:{display:false},ticks:{color:'#6b7a96'}}}, plugins:{legend:{display:false},tooltip:cTip('top_projects',data)} });
+      },{ indexAxis:'y', scales:{x:{beginAtZero:true,grid:gridOpts,ticks:{color:'#9a8e84'}},y:{grid:{display:false},ticks:{color:'#9a8e84'}}}, plugins:{legend:{display:false},tooltip:cTip('top_projects',data)} });
       break;
 
-    // ── top_blogs ────────────────────────────────
     case 'top_blogs':
       mkChart('topBlogsChart','bar',{
         labels: data.top_blogs?.labels ?? [],
         datasets:[{ label:'Views', data:data.top_blogs?.views??[], backgroundColor:PAL.slice(0,(data.top_blogs?.views??[]).length), borderRadius:5, borderSkipped:false }]
-      },{ indexAxis:'y', scales:{x:{beginAtZero:true,grid:gridOpts,ticks:{color:'#6b7a96'}},y:{grid:{display:false},ticks:{color:'#6b7a96'}}}, plugins:{legend:{display:false},tooltip:cTip('top_blogs',data)} });
+      },{ indexAxis:'y', scales:{x:{beginAtZero:true,grid:gridOpts,ticks:{color:'#9a8e84'}},y:{grid:{display:false},ticks:{color:'#9a8e84'}}}, plugins:{legend:{display:false},tooltip:cTip('top_blogs',data)} });
       break;
 
-    // ── top_news ─────────────────────────────────
     case 'top_news':
       mkChart('topNewsChart','bar',{
         labels: data.top_news?.labels ?? [],
         datasets:[{ label:'Views', data:data.top_news?.views??[], backgroundColor:PAL.slice(0,(data.top_news?.views??[]).length), borderRadius:5, borderSkipped:false }]
-      },{ indexAxis:'y', scales:{x:{beginAtZero:true,grid:gridOpts,ticks:{color:'#6b7a96'}},y:{grid:{display:false},ticks:{color:'#6b7a96'}}}, plugins:{legend:{display:false},tooltip:cTip('top_news',data)} });
+      },{ indexAxis:'y', scales:{x:{beginAtZero:true,grid:gridOpts,ticks:{color:'#9a8e84'}},y:{grid:{display:false},ticks:{color:'#9a8e84'}}}, plugins:{legend:{display:false},tooltip:cTip('top_news',data)} });
       break;
 
-    // ── all ──────────────────────────────────────
     case 'all':
       ['daily_users','source','region','device','os_browser',
        'top_pages','top_products','top_projects','top_blogs','top_news']
@@ -871,7 +941,7 @@ function fetchSection(section, days) {
     svg.innerHTML = `
       <defs>
         <linearGradient id="spGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#3ecfcf" stop-opacity="0.4"/>
+          <stop offset="0%" stop-color="#3ecfcf" stop-opacity="0.35"/>
           <stop offset="100%" stop-color="#3ecfcf" stop-opacity="0.02"/>
         </linearGradient>
       </defs>
@@ -893,7 +963,7 @@ function fetchSection(section, days) {
 })();
 
 // ══════════════════════════════════════════════════════════════
-//  Init on DOMContentLoaded
+//  Init
 // ══════════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -908,7 +978,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // initial load — section=all days=30
   setCardLoading('all', true);
   fetch('fetch_analytics_data.php?section=all&days=30&refresh=1')
     .then(r => r.json())
