@@ -45,6 +45,9 @@ if ($result->num_rows === 0) {
 $ai = $result->fetch_assoc();
 $stmt->close();
 
+// Parse emotion_videos JSON
+$emotion_videos_data = json_decode($ai['emotion_videos'] ?? '{}', true) ?: [];
+
 $items_query = "
     SELECT 
         pi.item_id, 
@@ -64,6 +67,16 @@ while ($row = $items_result->fetch_assoc()) {
     $items[] = $row;
 }
 include '../template/header.php';
+
+$emotions = [
+    'happy'      => ['icon' => 'fa-smile',            'color' => '#ffc107', 'label' => 'Happy 😊',      'desc' => 'ตอบแบบดีใจ, ชมเชย, ข่าวดี'],
+    'sad'        => ['icon' => 'fa-sad-tear',          'color' => '#6c757d', 'label' => 'Sad 😢',        'desc' => 'ปลอบใจ, เศร้า, เห็นอกเห็นใจ'],
+    'excited'    => ['icon' => 'fa-grin-stars',        'color' => '#fd7e14', 'label' => 'Excited 🤩',    'desc' => 'แนะนำสิ่งใหม่, ตื่นเต้น'],
+    'calm'       => ['icon' => 'fa-smile-beam',        'color' => '#28a745', 'label' => 'Calm 😌',       'desc' => 'ตอบข้อมูลทั่วไป, เป็นกลาง'],
+    'thinking'   => ['icon' => 'fa-brain',             'color' => '#007bff', 'label' => 'Thinking 🤔',   'desc' => 'วิเคราะห์, คำถามซับซ้อน'],
+    'surprised'  => ['icon' => 'fa-surprise',          'color' => '#e83e8c', 'label' => 'Surprised 😲',  'desc' => 'ข้อมูลน่าสนใจ, ไม่คาดคิด'],
+    'empathetic' => ['icon' => 'fa-hand-holding-heart','color' => '#dc3545', 'label' => 'Empathetic 🤗', 'desc' => 'เข้าใจความรู้สึก, สนับสนุน'],
+];
 ?>
 
 <body>
@@ -105,17 +118,12 @@ include '../template/header.php';
                                             </option>
                                         <?php endforeach; ?>
                                     </select>
-                                    <small class="text-muted">
-                                        <i class="fas fa-info-circle"></i> 
-                                        Each bottle can only have one AI Companion
-                                    </small>
                                 </div>
 
                                 <!-- AI Code -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-qrcode"></i> AI Code (Unique) *</label>
                                     <input type="text" class="form-control" id="ai_code" name="ai_code" required value="<?= htmlspecialchars($ai['ai_code']) ?>">
-                                    <small class="text-muted">This code will be used for QR scanning</small>
                                 </div>
 
                                 <!-- AI Avatar -->
@@ -164,14 +172,12 @@ include '../template/header.php';
                                     </div>
                                     <input type="file" id="aiVideo" name="ai_video" accept="video/*" style="display: none;">
                                     <input type="hidden" id="deleteVideoFlag" name="delete_video" value="0">
-                                    <small class="text-muted">วิดีโอแนะนำตัวเมื่อเริ่มต้นใช้งาน AI</small>
                                 </div>
 
                                 <!-- Idle Videos (Multiple) -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-pause-circle"></i> Idle Videos (หลายไฟล์)</label>
                                     
-                                    <!-- Existing Videos -->
                                     <?php 
                                     $idle_urls = json_decode($ai['idle_video_urls'] ?? '[]', true);
                                     if (!empty($idle_urls)): 
@@ -191,27 +197,20 @@ include '../template/header.php';
                                         </div>
                                     <?php endif; ?>
                                     
-                                    <!-- Upload New Videos -->
                                     <div class="upload-zone" onclick="document.getElementById('idleVideos').click()">
                                         <i class="fas fa-pause-circle"></i>
                                         <p>Click to add more idle videos</p>
-                                        <small>MP4, WebM (Max 50MB each) - Multiple files allowed</small>
+                                        <small>MP4, WebM (Max 50MB each)</small>
                                     </div>
-                                    
                                     <input type="file" id="idleVideos" name="idle_videos[]" accept="video/*" multiple style="display: none;">
                                     <input type="hidden" id="deletedIdleVideos" name="deleted_idle_videos" value="[]">
-                                    
-                                    <!-- Preview Container for New Videos -->
                                     <div id="newIdleVideosPreview" class="video-grid mt-3"></div>
-                                    
-                                    <small class="text-muted">วิดีโอที่แสดงเมื่อ AI ไม่ได้พูด (จะ Random เล่น)</small>
                                 </div>
 
                                 <!-- Talking Videos (Multiple) -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-play-circle"></i> Talking Videos (หลายไฟล์)</label>
                                     
-                                    <!-- Existing Videos -->
                                     <?php 
                                     $talking_urls = json_decode($ai['talking_video_urls'] ?? '[]', true);
                                     if (!empty($talking_urls)): 
@@ -231,38 +230,105 @@ include '../template/header.php';
                                         </div>
                                     <?php endif; ?>
                                     
-                                    <!-- Upload New Videos -->
                                     <div class="upload-zone" onclick="document.getElementById('talkingVideos').click()">
                                         <i class="fas fa-play-circle"></i>
                                         <p>Click to add more talking videos</p>
-                                        <small>MP4, WebM (Max 50MB each) - Multiple files allowed</small>
+                                        <small>MP4, WebM (Max 50MB each)</small>
                                     </div>
-                                    
                                     <input type="file" id="talkingVideos" name="talking_videos[]" accept="video/*" multiple style="display: none;">
                                     <input type="hidden" id="deletedTalkingVideos" name="deleted_talking_videos" value="[]">
-                                    
-                                    <!-- Preview Container for New Videos -->
                                     <div id="newTalkingVideosPreview" class="video-grid mt-3"></div>
-                                    
-                                    <small class="text-muted">วิดีโอที่แสดงเมื่อ AI กำลังพูด (จะ Random เล่น)</small>
                                 </div>
-                                
+
+                                <!-- ✅ NEW: 2D Emotion Videos (Edit) -->
+                                <div class="form-group mb-4">
+                                    <label>
+                                        <i class="fas fa-heart"></i> 
+                                        2D Emotion Videos/GIFs
+                                        <span class="badge badge-info" style="background:#17a2b8;color:#fff;font-size:11px;padding:3px 7px;border-radius:10px;">NEW</span>
+                                    </label>
+                                    <small class="text-muted d-block mb-3">
+                                        <i class="fas fa-info-circle"></i>
+                                        วิดีโอสั้น/GIF แสดงอารมณ์ข้าง Avatar ใน 2D Mode — อัพโหลดได้หลายไฟล์ต่ออารมณ์ (จะ Random เล่น)
+                                    </small>
+
+                                    <?php foreach ($emotions as $emotion_key => $emotion_info): 
+                                        $existing_urls = $emotion_videos_data[$emotion_key] ?? [];
+                                    ?>
+                                    <div class="emotion-upload-block mb-3" style="border:1px solid #e0e0e0; border-radius:10px; padding:15px; background:#fafafa;">
+                                        <div class="d-flex align-items-center mb-2" style="gap:10px;">
+                                            <div style="width:36px;height:36px;border-radius:50%;background:<?= $emotion_info['color'] ?>;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                                                <i class="fas <?= $emotion_info['icon'] ?>" style="color:#fff;font-size:16px;"></i>
+                                            </div>
+                                            <div>
+                                                <strong style="font-size:14px;"><?= $emotion_info['label'] ?></strong>
+                                                <div style="font-size:11px;color:#888;"><?= $emotion_info['desc'] ?></div>
+                                            </div>
+                                            <div class="ms-auto d-flex gap-2">
+                                                <span class="badge" style="background:<?= !empty($existing_urls) ? '#28a745' : '#ccc' ?>;color:#fff;font-size:11px;padding:4px 8px;border-radius:10px;align-self:center;">
+                                                    <?= count($existing_urls) ?> file(s)
+                                                </span>
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-outline-secondary emotion-upload-btn"
+                                                        onclick="document.getElementById('emotionVideos_<?= $emotion_key ?>').click()"
+                                                        style="font-size:12px;">
+                                                    <i class="fas fa-plus"></i> Add
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Existing emotion videos -->
+                                        <?php if (!empty($existing_urls)): ?>
+                                        <div id="existingEmotionVideos_<?= $emotion_key ?>" class="video-grid mb-2">
+                                            <?php foreach ($existing_urls as $vidx => $vurl): ?>
+                                                <div class="video-item" data-url="<?= htmlspecialchars($vurl) ?>">
+                                                    <?php 
+                                                    $ext = strtolower(pathinfo($vurl, PATHINFO_EXTENSION));
+                                                    if ($ext === 'gif'): ?>
+                                                        <img src="<?= htmlspecialchars($vurl) ?>" style="width:100%;height:100px;object-fit:cover;border-radius:6px;">
+                                                    <?php else: ?>
+                                                        <video controls style="width:100%;height:100px;border-radius:6px;object-fit:cover;">
+                                                            <source src="<?= htmlspecialchars($vurl) ?>">
+                                                        </video>
+                                                    <?php endif; ?>
+                                                    <button type="button" 
+                                                            class="delete-btn delete-emotion-video" 
+                                                            data-url="<?= htmlspecialchars($vurl) ?>" 
+                                                            data-emotion="<?= $emotion_key ?>">
+                                                        <i class="fas fa-times"></i>
+                                                    </button>
+                                                    <div class="video-label"><?= ucfirst($emotion_key) ?> <?= $vidx + 1 ?></div>
+                                                </div>
+                                            <?php endforeach; ?>
+                                        </div>
+                                        <?php endif; ?>
+
+                                        <input type="file" 
+                                               id="emotionVideos_<?= $emotion_key ?>" 
+                                               name="emotion_videos[<?= $emotion_key ?>][]" 
+                                               accept="video/*,image/gif" 
+                                               multiple 
+                                               style="display:none;"
+                                               data-emotion="<?= $emotion_key ?>">
+                                        <!-- Hidden field สำหรับ track ไฟล์ที่จะลบ -->
+                                        <input type="hidden" 
+                                               id="deletedEmotionVideos_<?= $emotion_key ?>" 
+                                               name="deleted_emotion_videos[<?= $emotion_key ?>]" 
+                                               value="[]">
+                                        <div id="newEmotionPreview_<?= $emotion_key ?>" class="video-grid" style="margin-top:8px;"></div>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+
                                 <!-- AI Voice (ElevenLabs) -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-volume-up"></i> AI Voice (ElevenLabs)</label>
-                                    
                                     <input type="text" class="form-control mb-2" id="voice_id" name="voice_id" 
-                                        placeholder="Enter Voice ID (e.g., UdFuclGJ1KL5tAeoBeE0)"
+                                        placeholder="Enter Voice ID"
                                         value="<?= htmlspecialchars($ai['voice_id'] ?? '') ?>">
-                                    
                                     <input type="text" class="form-control mb-2" id="voice_name" name="voice_name" 
-                                        placeholder="Voice Name (e.g., Rachel - Female, Multilingual)"
+                                        placeholder="Voice Name"
                                         value="<?= htmlspecialchars($ai['voice_name'] ?? '') ?>">
-                                    
-                                    <small class="text-muted">
-                                        <i class="fas fa-info-circle"></i> 
-                                        Enter ElevenLabs Voice ID and name
-                                    </small>
                                 </div>
                                 
                                 <!-- Status -->
@@ -314,7 +380,6 @@ include '../template/header.php';
                             <div class="card-body">
                                 <div class="tab-content">
                                     
-                                    <!-- Thai -->
                                     <div class="tab-pane fade show active" id="th">
                                         <div class="form-group mb-3">
                                             <label>AI Name (TH) *</label>
@@ -334,7 +399,6 @@ include '../template/header.php';
                                         </div>
                                     </div>
 
-                                    <!-- English -->
                                     <div class="tab-pane fade" id="en">
                                         <div class="form-group mb-3">
                                             <label>AI Name (EN)</label>
@@ -354,7 +418,6 @@ include '../template/header.php';
                                         </div>
                                     </div>
 
-                                    <!-- Chinese -->
                                     <div class="tab-pane fade" id="cn">
                                         <div class="form-group mb-3">
                                             <label>AI Name (CN)</label>
@@ -374,7 +437,6 @@ include '../template/header.php';
                                         </div>
                                     </div>
 
-                                    <!-- Japanese -->
                                     <div class="tab-pane fade" id="jp">
                                         <div class="form-group mb-3">
                                             <label>AI Name (JP)</label>
@@ -394,7 +456,6 @@ include '../template/header.php';
                                         </div>
                                     </div>
 
-                                    <!-- Korean -->
                                     <div class="tab-pane fade" id="kr">
                                         <div class="form-group mb-3">
                                             <label>AI Name (KR)</label>
