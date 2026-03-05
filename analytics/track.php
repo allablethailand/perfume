@@ -87,7 +87,6 @@ function getLocation($ip, $conn) {
             $loc['region'], $loc['city'], $loc['lat'], $loc['lng']
         );
         $st->execute();
-        // ใน getLocation() หลัง curl_exec:
         $debug['ip']       = $ip;
         $debug['curl_err'] = $err ?? '';
         $debug['raw_res']  = $res;
@@ -121,7 +120,29 @@ function parseUA($ua) {
 
 // ── Actions ───────────────────────────────────
 if ($action === 'page_enter') {
-    $loc = getLocation($ip, $conn);
+
+    // ── [แก้ไข] ใช้ GPS จาก client ก่อน ถ้าไม่มีค่อย fallback ไป IP ──
+    $gps_lat = isset($data['lat']) && $data['lat'] !== '' ? (float)$data['lat'] : null;
+    $gps_lng = isset($data['lng']) && $data['lng'] !== '' ? (float)$data['lng'] : null;
+    $gps_valid = ($gps_lat !== null && $gps_lng !== null && $gps_lat != 0 && $gps_lng != 0);
+
+    if ($gps_valid) {
+        // ✅ มี GPS จาก browser → ใช้พิกัดนี้ แม่นกว่า IP มาก
+        // ยังดึง IP location เพื่อเอา country/province/city (ไม่ใช้ lat/lng จาก IP)
+        $ip_loc = getLocation($ip, $conn);
+        $loc = [
+            'country'  => $ip_loc['country']  ?? '',
+            'province' => $ip_loc['province'] ?? '',
+            'region'   => $ip_loc['region']   ?? '',
+            'city'     => $ip_loc['city']     ?? '',
+            'lat'      => $gps_lat,   // ← ใช้ GPS แทน
+            'lng'      => $gps_lng,   // ← ใช้ GPS แทน
+        ];
+    } else {
+        // ❌ ไม่มี GPS → fallback ไปใช้ IP location ทั้งหมด
+        $loc = getLocation($ip, $conn);
+    }
+
     [$os, $browser] = parseUA($data['user_agent'] ?? '');
 
     $url     = substr($data['url']             ?? '', 0, 2048);
