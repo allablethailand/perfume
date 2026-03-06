@@ -1,7 +1,7 @@
 /**
  * AI Chat JavaScript
  * ✅ emotion popup ลอยบนข้อความ + canvas chroma key + safe zone
- * ✅ AI เดินซ้ายขวา + ขนาดเล็ก + ลบพื้นหลังขาว/ดำ
+ * ✅ AI อยู่นิ่ง ไม่เดิน + ขนาดใหญ่ขึ้น + ลบพื้นหลังขาว/ดำ
  */
 
 let currentConversationId = 0;
@@ -14,14 +14,13 @@ const aiCodeFromURL = urlParams.get('ai_code') || '';
 let emotionVideosMap   = {};
 let emotionTimer       = null;
 let emotionChromaFrame = null;
-let walkAnimFrame      = null;
 
 let isGuestMode = !jwt && aiCodeFromURL;
 
 console.log('🚀 AI Chat Initialized:', { isGuestMode, hasJWT: !!jwt, aiCode: aiCodeFromURL });
 
 // =============================================
-// INJECT CSS สำหรับ walk animation + popup out
+// INJECT CSS สำหรับ popup animation
 // =============================================
 (function injectStyles() {
     const style = document.createElement('style');
@@ -36,8 +35,6 @@ console.log('🚀 AI Chat Initialized:', { isGuestMode, hasJWT: !!jwt, aiCode: a
         }
         .emotion-popup {
             animation: popupIn 0.25s ease-out forwards;
-            will-change: transform, left;
-            transition: left 0.05s linear;
         }
     `;
     document.head.appendChild(style);
@@ -134,16 +131,14 @@ function startEmotionChromaKey(video, canvas) {
     const W   = canvas.width;
     const H   = canvas.height;
 
-    // เกณฑ์ลบพื้นหลัง
-    const WHITE_THRESHOLD = 210;  // สว่างมากพอ → ขาว
-    const DARK_THRESHOLD  = 45;   // มืดมากพอ → ดำ
-    const NEUTRAL_DIFF    = 20;   // r≈g≈b = neutral (ขาว/เทา/ดำ)
+    const WHITE_THRESHOLD = 210;
+    const NEUTRAL_DIFF    = 20;
 
-     // ✅ Safe zone — โซนกลางที่ไม่ลบพื้นหลังเด็ดขาด
-    const SAFE_LEFT   = W * 0.40;
-    const SAFE_RIGHT  = W * 0.60;
-    const SAFE_TOP    = H * 0.20;
-    const SAFE_BOTTOM = H * 0.50;
+    // Safe zone — โซนกลางที่ไม่ลบพื้นหลังเด็ดขาด
+    const SAFE_LEFT   = W * 1;
+    const SAFE_RIGHT  = W * 1;
+    const SAFE_TOP    = H * 1;
+    const SAFE_BOTTOM = H * 1;
 
     function processFrame() {
         if (video.paused || video.ended) return;
@@ -174,8 +169,8 @@ function startEmotionChromaKey(video, canvas) {
                     data[i + 3] = 0;
                     continue;
                 }
-                // ลบพื้นดำ/เทาเข้ม
-                if (maxC < DARK_THRESHOLD && diff < NEUTRAL_DIFF) {
+                // ลบพื้นเขียว (green screen)
+                if (g > 80 && g > r * 1.4 && g > b * 1.4) {
                     data[i + 3] = 0;
                 }
             }
@@ -198,38 +193,8 @@ function stopEmotionChromaKey() {
 }
 
 // =============================================
-// Walk animation — AI เดินซ้ายขวาบน bubble
-// =============================================
-function startWalkAnimation($popup, containerWidth, popupWidth) {
-    if (walkAnimFrame) cancelAnimationFrame(walkAnimFrame);
-
-    const maxLeft  = containerWidth - popupWidth;
-    let   pos      = 0;
-    let   dir      = 1;           // 1 = ไปขวา, -1 = กลับซ้าย
-    const speed    = 0.8;         // px ต่อ frame (~48px/วินาที ที่ 60fps)
-
-    function step() {
-        pos += dir * speed;
-
-        if (pos >= maxLeft) { pos = maxLeft; dir = -1; $popup.css('transform', 'scaleX(-1)'); }
-        if (pos <= 0)        { pos = 0;       dir =  1; $popup.css('transform', 'scaleX(1)');  }
-
-        $popup.css('left', pos + 'px');
-        walkAnimFrame = requestAnimationFrame(step);
-    }
-    step();
-}
-
-function stopWalkAnimation() {
-    if (walkAnimFrame) {
-        cancelAnimationFrame(walkAnimFrame);
-        walkAnimFrame = null;
-    }
-}
-
-// =============================================
 // ✅ Emotion Popup — ลอยบน message-content
-//    ขนาดเล็ก + เดินซ้ายขวา + ลบพื้นขาว/ดำ
+//    อยู่นิ่งซ้ายมือ + ขนาดใหญ่ขึ้น + ลบพื้นขาว/ดำ
 // =============================================
 function playEmotionInBubble(emotion) {
     const $lastMsg = $('.message.assistant').last();
@@ -247,16 +212,15 @@ function playEmotionInBubble(emotion) {
     // เคลียร์ของเก่า
     if (emotionTimer) { clearTimeout(emotionTimer); emotionTimer = null; }
     stopEmotionChromaKey();
-    stopWalkAnimation();
     $('.emotion-popup').remove();
 
     const fileUrl = urls[Math.floor(Math.random() * urls.length)];
     const ext     = fileUrl.split('.').pop().split('?')[0].toLowerCase();
     const isGif   = (ext === 'gif');
 
-    // ✅ ขนาดเล็กลง
-    const POPUP_W = 70;
-    const POPUP_H = 90;
+    // ✅ ขนาด 1:1 square
+    const POPUP_W = 100;
+    const POPUP_H = 100;
 
     console.log('🎭 Emotion popup:', emotion, '|', fileUrl);
 
@@ -265,14 +229,14 @@ function playEmotionInBubble(emotion) {
     const $popup = $('<div class="emotion-popup"></div>').css({
         position:      'absolute',
         top:           (-POPUP_H - 6) + 'px',
-        left:          '0px',
+        left:          '0px',          // ✅ อยู่ซ้ายมือตายตัว ไม่ขยับ
         width:         POPUP_W + 'px',
         height:        POPUP_H + 'px',
         borderRadius:  '8px',
         overflow:      'hidden',
         zIndex:        100,
         pointerEvents: 'none',
-        background:    'transparent',   // ✅ ไม่มีพื้นหลัง
+        background:    'transparent',
         boxShadow:     'none',
     });
 
@@ -280,7 +244,7 @@ function playEmotionInBubble(emotion) {
         const $img = $('<img>').attr('src', fileUrl).css({
             width: '100%', height: '100%', objectFit: 'contain',
             display: 'block', background: 'transparent',
-            mixBlendMode: 'multiply'    // ✅ ช่วยลบพื้นขาวของ GIF
+            mixBlendMode: 'multiply'
         });
         $popup.append($img);
         $content.append($popup);
@@ -305,14 +269,9 @@ function playEmotionInBubble(emotion) {
         vid.load();
     }
 
-    // ✅ เริ่ม walk animation หลัง popup ติด DOM
-    const containerW = $content.outerWidth() || 200;
-    startWalkAnimation($popup, containerW, POPUP_W);
-
     // ซ่อนหลัง 5 วินาที
     function hidePopup() {
         stopEmotionChromaKey();
-        stopWalkAnimation();
         $popup.css({ animation: 'popupOut 0.25s ease-in forwards' });
         setTimeout(function() { $popup.remove(); }, 300);
     }
@@ -527,7 +486,6 @@ function createNewChat() {
     currentConversationId = 0;
     if (emotionTimer) { clearTimeout(emotionTimer); emotionTimer = null; }
     stopEmotionChromaKey();
-    stopWalkAnimation();
     $('.emotion-popup').remove();
 
     $('#chatMessages').html(`
