@@ -219,8 +219,8 @@ function playEmotionInBubble(emotion) {
     const isGif   = (ext === 'gif');
 
     // ✅ ขนาด 1:1 square
-    const POPUP_W = 100;
-    const POPUP_H = 100;
+    const POPUP_W = 200;
+    const POPUP_H = 150;
 
     console.log('🎭 Emotion popup:', emotion, '|', fileUrl);
 
