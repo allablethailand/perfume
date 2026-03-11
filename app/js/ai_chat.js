@@ -2,6 +2,7 @@
  * AI Chat JavaScript
  * ✅ emotion popup ลอยบนข้อความ + canvas chroma key + safe zone
  * ✅ AI อยู่นิ่ง ไม่เดิน + ขนาดใหญ่ขึ้น + ลบพื้นหลังขาว/ดำ
+ * ✅ FIX: จำ conversation ล่าสุด + New Chat เริ่ม context ใหม่
  */
 
 let currentConversationId = 0;
@@ -134,7 +135,6 @@ function startEmotionChromaKey(video, canvas) {
     const WHITE_THRESHOLD = 210;
     const NEUTRAL_DIFF    = 20;
 
-    // Safe zone — โซนกลางที่ไม่ลบพื้นหลังเด็ดขาด
     const SAFE_LEFT   = W * 1;
     const SAFE_RIGHT  = W * 1;
     const SAFE_TOP    = H * 1;
@@ -164,12 +164,10 @@ function startEmotionChromaKey(video, canvas) {
                 const minC = Math.min(r, g, b);
                 const diff = maxC - minC;
 
-                // ลบพื้นขาว/เทาอ่อน
                 if (maxC >= WHITE_THRESHOLD && diff < NEUTRAL_DIFF) {
                     data[i + 3] = 0;
                     continue;
                 }
-                // ลบพื้นเขียว (green screen)
                 if (g > 80 && g > r * 1.4 && g > b * 1.4) {
                     data[i + 3] = 0;
                 }
@@ -193,8 +191,7 @@ function stopEmotionChromaKey() {
 }
 
 // =============================================
-// ✅ Emotion Popup — ลอยบน message-content
-//    อยู่นิ่งซ้ายมือ + ขนาดใหญ่ขึ้น + ลบพื้นขาว/ดำ
+// Emotion Popup
 // =============================================
 function playEmotionInBubble(emotion) {
     const $lastMsg = $('.message.assistant').last();
@@ -209,7 +206,6 @@ function playEmotionInBubble(emotion) {
         return;
     }
 
-    // เคลียร์ของเก่า
     if (emotionTimer) { clearTimeout(emotionTimer); emotionTimer = null; }
     stopEmotionChromaKey();
     $('.emotion-popup').remove();
@@ -218,7 +214,6 @@ function playEmotionInBubble(emotion) {
     const ext     = fileUrl.split('.').pop().split('?')[0].toLowerCase();
     const isGif   = (ext === 'gif');
 
-    // ✅ ขนาด 1:1 square
     const POPUP_W = 200;
     const POPUP_H = 150;
 
@@ -229,7 +224,7 @@ function playEmotionInBubble(emotion) {
     const $popup = $('<div class="emotion-popup"></div>').css({
         position:      'absolute',
         top:           (-POPUP_H - 6) + 'px',
-        left:          '0px',          // ✅ อยู่ซ้ายมือตายตัว ไม่ขยับ
+        left:          '0px',
         width:         POPUP_W + 'px',
         height:        POPUP_H + 'px',
         borderRadius:  '8px',
@@ -250,7 +245,6 @@ function playEmotionInBubble(emotion) {
         $content.append($popup);
 
     } else {
-        // Video + canvas chroma key
         const $canvas = $('<canvas>').attr({ width: POPUP_W, height: POPUP_H }).css({
             width: '100%', height: '100%', display: 'block'
         });
@@ -269,7 +263,6 @@ function playEmotionInBubble(emotion) {
         vid.load();
     }
 
-    // ซ่อนหลัง 5 วินาที
     function hidePopup() {
         stopEmotionChromaKey();
         $popup.css({ animation: 'popupOut 0.25s ease-in forwards' });
@@ -298,7 +291,7 @@ function setupButtonHandlers() {
 }
 
 // =============================================
-// Load conversations
+// ✅ Load conversations — จำ conversation ล่าสุด
 // =============================================
 function loadConversations() {
     if (!userCompanionId) { setTimeout(loadConversations, 500); return; }
@@ -313,7 +306,17 @@ function loadConversations() {
     $.ajax({
         url, type: 'GET', headers: hdr, dataType: 'json',
         success: function(r) {
-            if (r.status === 'success') displayConversations(r.conversations);
+            if (r.status === 'success') {
+                displayConversations(r.conversations);
+
+                // ✅ Auto-select: ดึงจาก sessionStorage ก่อน ถ้าไม่มีใช้ conversation แรกใน list
+                if (r.conversations && r.conversations.length > 0) {
+                    const savedId = parseInt(sessionStorage.getItem('last_conversation_id') || '0');
+                    const exists  = savedId && r.conversations.find(c => c.conversation_id === savedId);
+                    const targetId = exists ? savedId : r.conversations[0].conversation_id;
+                    loadConversation(targetId);
+                }
+            }
             else if (r.require_login && !isGuestMode) window.location.href = '?';
         }
     });
@@ -347,6 +350,10 @@ function displayConversations(conversations) {
 
 function loadConversation(conversationId) {
     currentConversationId = conversationId;
+
+    // ✅ บันทึก conversation ล่าสุดไว้ใน sessionStorage
+    sessionStorage.setItem('last_conversation_id', conversationId);
+
     $('.conversation-item').removeClass('active');
     $(`.conversation-item[data-id="${conversationId}"]`).addClass('active');
 
@@ -461,6 +468,8 @@ function sendMessage() {
 
                 if (currentConversationId === 0) {
                     currentConversationId = r.conversation_id;
+                    // ✅ บันทึก conversation ใหม่ที่เพิ่งสร้าง
+                    sessionStorage.setItem('last_conversation_id', currentConversationId);
                     loadConversations();
                 }
             } else {
@@ -480,10 +489,14 @@ function sendMessage() {
 }
 
 // =============================================
-// New chat / Delete
+// ✅ New chat — ล้าง sessionStorage เพื่อเริ่ม context ใหม่
 // =============================================
 function createNewChat() {
     currentConversationId = 0;
+
+    // ✅ ลบ conversation ล่าสุดออก เพื่อให้ครั้งหน้า reload ไม่กลับมา
+    sessionStorage.removeItem('last_conversation_id');
+
     if (emotionTimer) { clearTimeout(emotionTimer); emotionTimer = null; }
     stopEmotionChromaKey();
     $('.emotion-popup').remove();
@@ -521,7 +534,12 @@ function deleteConversation(conversationId, event) {
             success: function(r) {
                 if (r.status === 'success') {
                     Swal.fire({ title: 'Deleted!', text: 'Conversation deleted', icon: 'success', background: '#1a1a1a', color: '#fff', timer: 1500, showConfirmButton: false });
-                    if (conversationId === currentConversationId) createNewChat();
+
+                    // ✅ ถ้าลบ conversation ที่กำลังดูอยู่ ให้ clear sessionStorage ด้วย
+                    if (conversationId === currentConversationId) {
+                        sessionStorage.removeItem('last_conversation_id');
+                        createNewChat();
+                    }
                     loadConversations();
                 } else {
                     Swal.fire({ title: 'Error', text: r.message, icon: 'error', background: '#1a1a1a', color: '#fff' });
