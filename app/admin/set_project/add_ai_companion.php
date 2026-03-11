@@ -56,13 +56,13 @@ while ($row = $items_result->fetch_assoc()) {
 }
 
 $emotions = [
-    'happy'      => ['icon' => 'fa-smile',             'color' => '#ffc107', 'label' => 'Happy 😊',      'desc' => 'ตอบแบบดีใจ, ชมเชย, ข่าวดี'],
-    'sad'        => ['icon' => 'fa-sad-tear',           'color' => '#6c757d', 'label' => 'Sad 😢',        'desc' => 'ปลอบใจ, เศร้า, เห็นอกเห็นใจ'],
-    'excited'    => ['icon' => 'fa-grin-stars',         'color' => '#fd7e14', 'label' => 'Excited 🤩',    'desc' => 'แนะนำสิ่งใหม่, ตื่นเต้น'],
-    'calm'       => ['icon' => 'fa-smile-beam',         'color' => '#28a745', 'label' => 'Calm 😌',       'desc' => 'ตอบข้อมูลทั่วไป, เป็นกลาง'],
-    'thinking'   => ['icon' => 'fa-brain',              'color' => '#007bff', 'label' => 'Thinking 🤔',   'desc' => 'วิเคราะห์, คำถามซับซ้อน'],
-    'surprised'  => ['icon' => 'fa-surprise',           'color' => '#e83e8c', 'label' => 'Surprised 😲',  'desc' => 'ข้อมูลน่าสนใจ, ไม่คาดคิด'],
-    'empathetic' => ['icon' => 'fa-hand-holding-heart', 'color' => '#dc3545', 'label' => 'Empathetic 🤗', 'desc' => 'เข้าใจความรู้สึก, สนับสนุน'],
+    'happy'      => ['icon' => 'fa-smile',             'color' => '#e6a817', 'label' => 'Happy 😊',      'desc' => 'ตอบแบบดีใจ, ชมเชย, ข่าวดี'],
+    'sad'        => ['icon' => 'fa-sad-tear',           'color' => '#5a7fa8', 'label' => 'Sad 😢',        'desc' => 'ปลอบใจ, เศร้า, เห็นอกเห็นใจ'],
+    'excited'    => ['icon' => 'fa-grin-stars',         'color' => '#e06530', 'label' => 'Excited 🤩',    'desc' => 'แนะนำสิ่งใหม่, ตื่นเต้น'],
+    'calm'       => ['icon' => 'fa-smile-beam',         'color' => '#2d8a55', 'label' => 'Calm 😌',       'desc' => 'ตอบข้อมูลทั่วไป, เป็นกลาง'],
+    'thinking'   => ['icon' => 'fa-brain',              'color' => '#4a6fd4', 'label' => 'Thinking 🤔',   'desc' => 'วิเคราะห์, คำถามซับซ้อน'],
+    'surprised'  => ['icon' => 'fa-surprise',           'color' => '#b84a8c', 'label' => 'Surprised 😲',  'desc' => 'ข้อมูลน่าสนใจ, ไม่คาดคิด'],
+    'empathetic' => ['icon' => 'fa-hand-holding-heart', 'color' => '#c04040', 'label' => 'Empathetic 🤗', 'desc' => 'เข้าใจความรู้สึก, สนับสนุน'],
 ];
 
 include '../template/header.php';
@@ -84,15 +84,17 @@ include '../template/header.php';
 
             <form id="formAICompanion" enctype="multipart/form-data">
                 <div class="row">
-                    
-                    <!-- Left Column: Media & Basic Info -->
+
+                    <!-- ============================================================
+                         Left Column: Media & Basic Info
+                         ============================================================ -->
                     <div class="col-lg-5">
                         <div class="card">
                             <div class="card-header">
                                 <h5><i class="fas fa-user-robot"></i> AI Media & Info</h5>
                             </div>
                             <div class="card-body">
-                                
+
                                 <!-- Item Selection -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-bottle-droplet"></i> Select Perfume Bottle *</label>
@@ -148,7 +150,7 @@ include '../template/header.php';
                                     <small class="text-muted">วิดีโอแนะนำตัวเมื่อเริ่มต้นใช้งาน AI</small>
                                 </div>
 
-                                <!-- Idle Videos (Multiple) -->
+                                <!-- Idle Videos -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-pause-circle"></i> Idle Videos (หลายไฟล์)</label>
                                     <div class="upload-zone" onclick="document.getElementById('idleVideos').click()">
@@ -161,7 +163,7 @@ include '../template/header.php';
                                     <small class="text-muted">วิดีโอที่แสดงเมื่อ AI ไม่ได้พูด (จะ Random เล่น)</small>
                                 </div>
 
-                                <!-- Talking Videos (Multiple) -->
+                                <!-- Talking Videos -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-play-circle"></i> Talking Videos (หลายไฟล์)</label>
                                     <div class="upload-zone" onclick="document.getElementById('talkingVideos').click()">
@@ -175,149 +177,180 @@ include '../template/header.php';
                                 </div>
 
                                 <!-- ==========================================
-                                     2D Emotion Videos 
+                                     2D EMOTION VIDEOS — TAB UI
                                      ========================================== -->
                                 <div class="form-group mb-4">
                                     <label>
-                                        <i class="fas fa-heart"></i> 
-                                        2D Emotion Videos/GIFs 
-                                        <span class="badge" style="background:#17a2b8;color:#fff;font-size:11px;padding:3px 7px;border-radius:10px;">2D</span>
+                                        <i class="fas fa-heart"></i>
+                                        2D Emotion Videos/GIFs
+                                        <span class="emotion-mode-badge m2d">2D</span>
                                     </label>
-                                    <small class="text-muted d-block mb-3">
-                                        <i class="fas fa-info-circle"></i> 
+                                    <small class="text-muted d-block mb-2">
+                                        <i class="fas fa-info-circle"></i>
                                         วิดีโอสั้น/GIF แสดงอารมณ์ข้าง Avatar ใน 2D Mode — แต่ละอารมณ์อัพโหลดได้หลายไฟล์ (จะ Random เล่น)
                                     </small>
 
-                                    <?php foreach ($emotions as $emotion_key => $emotion_info): ?>
-                                    <div class="emotion-upload-block mb-3" style="border:1px solid #e0e0e0; border-radius:10px; padding:15px; background:#fafafa;">
-                                        <div class="d-flex align-items-center mb-2" style="gap:10px;">
-                                            <div style="width:36px;height:36px;border-radius:50%;background:<?= $emotion_info['color'] ?>;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                                <i class="fas <?= $emotion_info['icon'] ?>" style="color:#fff;font-size:16px;"></i>
-                                            </div>
-                                            <div>
-                                                <strong style="font-size:14px;"><?= $emotion_info['label'] ?></strong>
-                                                <div style="font-size:11px;color:#888;"><?= $emotion_info['desc'] ?></div>
-                                            </div>
-                                            <div class="ms-auto">
-                                                <button type="button" 
-                                                        class="btn btn-sm btn-outline-secondary emotion-upload-btn"
-                                                        onclick="document.getElementById('emotionVideos_<?= $emotion_key ?>').click()"
-                                                        style="font-size:12px;">
-                                                    <i class="fas fa-cloud-upload-alt"></i> Upload
+                                    <div class="emotion-manager-card">
+                                        <!-- Tab bar -->
+                                        <div class="emotion-manager-header">
+                                            <div class="emotion-tab-bar" role="tablist">
+                                                <?php $first2d = true; foreach ($emotions as $ek => $ei): ?>
+                                                <button type="button"
+                                                        class="emo-tab-btn <?= $first2d ? 'active' : '' ?>"
+                                                        data-target="pane2d-<?= $ek ?>"
+                                                        data-manager="mgr2d"
+                                                        onclick="switchEmoTab(this)">
+                                                    <span class="emo-dot" style="background:<?= $ei['color'] ?>"></span>
+                                                    <?= $ei['label'] ?>
+                                                    <span class="emo-count" id="cnt2d-<?= $ek ?>">0</span>
                                                 </button>
+                                                <?php $first2d = false; endforeach; ?>
                                             </div>
                                         </div>
-                                        <input type="file" 
-                                               id="emotionVideos_<?= $emotion_key ?>" 
-                                               name="emotion_videos[<?= $emotion_key ?>][]" 
-                                               accept="video/*,image/gif" 
-                                               multiple 
-                                               style="display:none;"
-                                               data-emotion="<?= $emotion_key ?>">
-                                        <div id="emotionPreview_<?= $emotion_key ?>" class="video-grid" style="margin-top:8px;"></div>
+
+                                        <!-- Panes -->
+                                        <div class="emotion-manager-body" id="mgr2d">
+                                            <?php $first2d = true; foreach ($emotions as $ek => $ei): ?>
+                                            <div class="emo-pane <?= $first2d ? 'active' : '' ?>" id="pane2d-<?= $ek ?>">
+                                                <div class="emo-pane-title"><?= $ei['label'] ?></div>
+                                                <div class="emo-pane-desc"><?= $ei['desc'] ?></div>
+
+                                                <!-- Preview grid -->
+                                                <div class="emo-video-grid" id="grid2d-<?= $ek ?>"></div>
+
+                                                <!-- Drop zone -->
+                                                <div class="emo-drop-zone" id="dz2d-<?= $ek ?>">
+                                                    <input type="file"
+                                                           id="emotionVideos_<?= $ek ?>"
+                                                           name="emotion_videos[<?= $ek ?>][]"
+                                                           accept="video/*,image/gif"
+                                                           multiple
+                                                           data-emotion="<?= $ek ?>"
+                                                           data-grid="grid2d-<?= $ek ?>"
+                                                           data-counter="cnt2d-<?= $ek ?>">
+                                                    <i class="fas fa-cloud-upload-alt"></i>
+                                                    <div class="dz-text">ลาก & วางไฟล์ที่นี่ หรือ คลิกเพื่อเลือก</div>
+                                                    <div class="dz-hint">MP4, WebM, GIF — อัพโหลดได้หลายไฟล์</div>
+                                                </div>
+                                            </div>
+                                            <?php $first2d = false; endforeach; ?>
+                                        </div>
                                     </div>
-                                    <?php endforeach; ?>
                                 </div>
+                                <!-- END 2D -->
 
                                 <!-- ==========================================
-                                     3D Emotion Videos (idle + talking per emotion)
+                                     3D EMOTION VIDEOS — TAB UI
                                      ========================================== -->
                                 <div class="form-group mb-4">
                                     <label>
                                         <i class="fas fa-cube"></i>
                                         3D Emotion Videos/GIFs
-                                        <span class="badge" style="background:#667eea;color:#fff;font-size:11px;padding:3px 7px;border-radius:10px;">3D</span>
+                                        <span class="emotion-mode-badge m3d">3D</span>
                                     </label>
-                                    <small class="text-muted d-block mb-3">
+                                    <small class="text-muted d-block mb-2">
                                         <i class="fas fa-info-circle"></i>
-                                        วิดีโอ/GIF อารมณ์สำหรับ 3D Mode — แต่ละอารมณ์มี <strong>Idle</strong> (ยืนเฉย) และ <strong>Talking</strong> (กำลังพูด) แยกกัน
+                                        วิดีโอ/GIF อารมณ์สำหรับ 3D Mode — แต่ละอารมณ์มี <strong>Idle</strong> และ <strong>Talking</strong> แยกกัน
                                     </small>
 
-                                    <?php foreach ($emotions as $emotion_key => $emotion_info): ?>
-                                    <div class="emotion-3d-block mb-3"
-                                         style="border:2px solid <?= $emotion_info['color'] ?>33; border-radius:12px; padding:16px; background:#fafafa;">
-
-                                        <!-- Emotion Header -->
-                                        <div class="d-flex align-items-center mb-3" style="gap:10px;">
-                                            <div style="width:38px;height:38px;border-radius:50%;background:<?= $emotion_info['color'] ?>;
-                                                        display:flex;align-items:center;justify-content:center;flex-shrink:0;
-                                                        box-shadow:0 2px 8px <?= $emotion_info['color'] ?>55;">
-                                                <i class="fas <?= $emotion_info['icon'] ?>" style="color:#fff;font-size:17px;"></i>
-                                            </div>
-                                            <div>
-                                                <strong style="font-size:14px;"><?= $emotion_info['label'] ?></strong>
-                                                <div style="font-size:11px;color:#888;"><?= $emotion_info['desc'] ?></div>
+                                    <div class="emotion-manager-card">
+                                        <!-- Tab bar -->
+                                        <div class="emotion-manager-header">
+                                            <div class="emotion-tab-bar" role="tablist">
+                                                <?php $first3d = true; foreach ($emotions as $ek => $ei): ?>
+                                                <button type="button"
+                                                        class="emo-tab-btn <?= $first3d ? 'active' : '' ?>"
+                                                        data-target="pane3d-<?= $ek ?>"
+                                                        data-manager="mgr3d"
+                                                        onclick="switchEmoTab(this)">
+                                                    <span class="emo-dot" style="background:<?= $ei['color'] ?>"></span>
+                                                    <?= $ei['label'] ?>
+                                                    <span class="emo-count" id="cnt3d-<?= $ek ?>">0</span>
+                                                </button>
+                                                <?php $first3d = false; endforeach; ?>
                                             </div>
                                         </div>
 
-                                        <!-- Idle + Talking side by side -->
-                                        <div class="row g-2">
+                                        <!-- Panes -->
+                                        <div class="emotion-manager-body" id="mgr3d">
+                                            <?php $first3d = true; foreach ($emotions as $ek => $ei): ?>
+                                            <div class="emo-pane <?= $first3d ? 'active' : '' ?>" id="pane3d-<?= $ek ?>">
+                                                <div class="emo-pane-title"><?= $ei['label'] ?> — 3D Mode</div>
+                                                <div class="emo-pane-desc"><?= $ei['desc'] ?> — แต่ละ state จะ Random เล่น</div>
 
-                                            <!-- IDLE -->
-                                            <div class="col-6">
-                                                <div style="background:#fff;border:1px dashed #ccc;border-radius:8px;padding:10px;text-align:center;">
-                                                    <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">
-                                                        <i class="fas fa-pause-circle" style="color:#6c757d;"></i> Idle (ยืนเฉย)
+                                                <div class="state-split">
+                                                    <!-- IDLE -->
+                                                    <div class="state-col">
+                                                        <div class="state-col-head">
+                                                            <span class="state-label-text idle">
+                                                                <i class="fas fa-pause-circle"></i> Idle (ยืนเฉย)
+                                                            </span>
+                                                            <span class="state-count-badge" id="cnt3d-<?= $ek ?>-idle">0</span>
+                                                        </div>
+                                                        <div class="state-col-body">
+                                                            <div class="emo-video-grid" id="grid3d-<?= $ek ?>-idle"></div>
+                                                            <div class="emo-drop-zone compact">
+                                                                <input type="file"
+                                                                       id="em3d_<?= $ek ?>_idle"
+                                                                       name="emotion_videos_3d[<?= $ek ?>][idle][]"
+                                                                       accept="video/*,image/gif"
+                                                                       multiple
+                                                                       data-emotion="<?= $ek ?>"
+                                                                       data-state="idle"
+                                                                       data-grid="grid3d-<?= $ek ?>-idle"
+                                                                       data-counter="cnt3d-<?= $ek ?>-idle"
+                                                                       data-parent-counter="cnt3d-<?= $ek ?>">
+                                                                <i class="fas fa-plus"></i>
+                                                                <div class="dz-text">เพิ่ม Idle</div>
+                                                                <div class="dz-hint">MP4, GIF</div>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <button type="button"
-                                                            class="btn btn-sm btn-outline-secondary w-100 mb-2"
-                                                            onclick="document.getElementById('em3d_<?= $emotion_key ?>_idle').click()"
-                                                            style="font-size:11px;">
-                                                        <i class="fas fa-cloud-upload-alt"></i> Upload
-                                                    </button>
-                                                    <input type="file"
-                                                           id="em3d_<?= $emotion_key ?>_idle"
-                                                           name="emotion_videos_3d[<?= $emotion_key ?>][idle][]"
-                                                           accept="video/*,image/gif"
-                                                           multiple
-                                                           style="display:none;"
-                                                           data-emotion="<?= $emotion_key ?>"
-                                                           data-state="idle">
-                                                    <div id="em3d_preview_<?= $emotion_key ?>_idle" class="video-grid"
-                                                         style="margin-top:6px;grid-template-columns:repeat(2,1fr);gap:4px;"></div>
-                                                </div>
-                                            </div>
 
-                                            <!-- TALKING -->
-                                            <div class="col-6">
-                                                <div style="background:#fff;border:1px dashed #ccc;border-radius:8px;padding:10px;text-align:center;">
-                                                    <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">
-                                                        <i class="fas fa-play-circle" style="color:#28a745;"></i> Talking (กำลังพูด)
+                                                    <!-- TALKING -->
+                                                    <div class="state-col" style="border-color:#c3e6cb;">
+                                                        <div class="state-col-head talking-head">
+                                                            <span class="state-label-text talking">
+                                                                <i class="fas fa-play-circle"></i> Talking (กำลังพูด)
+                                                            </span>
+                                                            <span class="state-count-badge" id="cnt3d-<?= $ek ?>-talking">0</span>
+                                                        </div>
+                                                        <div class="state-col-body">
+                                                            <div class="emo-video-grid" id="grid3d-<?= $ek ?>-talking"></div>
+                                                            <div class="emo-drop-zone compact">
+                                                                <input type="file"
+                                                                       id="em3d_<?= $ek ?>_talking"
+                                                                       name="emotion_videos_3d[<?= $ek ?>][talking][]"
+                                                                       accept="video/*,image/gif"
+                                                                       multiple
+                                                                       data-emotion="<?= $ek ?>"
+                                                                       data-state="talking"
+                                                                       data-grid="grid3d-<?= $ek ?>-talking"
+                                                                       data-counter="cnt3d-<?= $ek ?>-talking"
+                                                                       data-parent-counter="cnt3d-<?= $ek ?>">
+                                                                <i class="fas fa-plus"></i>
+                                                                <div class="dz-text">เพิ่ม Talking</div>
+                                                                <div class="dz-hint">MP4, GIF</div>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                    <button type="button"
-                                                            class="btn btn-sm btn-outline-success w-100 mb-2"
-                                                            onclick="document.getElementById('em3d_<?= $emotion_key ?>_talking').click()"
-                                                            style="font-size:11px;">
-                                                        <i class="fas fa-cloud-upload-alt"></i> Upload
-                                                    </button>
-                                                    <input type="file"
-                                                           id="em3d_<?= $emotion_key ?>_talking"
-                                                           name="emotion_videos_3d[<?= $emotion_key ?>][talking][]"
-                                                           accept="video/*,image/gif"
-                                                           multiple
-                                                           style="display:none;"
-                                                           data-emotion="<?= $emotion_key ?>"
-                                                           data-state="talking">
-                                                    <div id="em3d_preview_<?= $emotion_key ?>_talking" class="video-grid"
-                                                         style="margin-top:6px;grid-template-columns:repeat(2,1fr);gap:4px;"></div>
-                                                </div>
+                                                </div><!-- /state-split -->
                                             </div>
-
-                                        </div><!-- /row -->
+                                            <?php $first3d = false; endforeach; ?>
+                                        </div>
                                     </div>
-                                    <?php endforeach; ?>
                                 </div>
-                                <!-- END 3D Emotion Videos -->
+                                <!-- END 3D -->
 
                                 <!-- AI Voice (ElevenLabs) -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-volume-up"></i> AI Voice (ElevenLabs)</label>
-                                    <input type="text" class="form-control mb-2" id="voice_id" name="voice_id" 
+                                    <input type="text" class="form-control mb-2" id="voice_id" name="voice_id"
                                         placeholder="Enter Voice ID (e.g., UdFuclGJ1KL5tAeoBeE0)">
-                                    <input type="text" class="form-control mb-2" id="voice_name" name="voice_name" 
+                                    <input type="text" class="form-control mb-2" id="voice_name" name="voice_name"
                                         placeholder="Voice Name (e.g., Rachel - Female, Multilingual)">
                                     <small class="text-muted">
-                                        <i class="fas fa-info-circle"></i> 
+                                        <i class="fas fa-info-circle"></i>
                                         Enter ElevenLabs Voice ID and name. This voice will be used for all languages
                                     </small>
                                 </div>
@@ -335,7 +368,9 @@ include '../template/header.php';
                         </div>
                     </div>
 
-                    <!-- Right Column: Multilingual Content -->
+                    <!-- ============================================================
+                         Right Column: Multilingual Content
+                         ============================================================ -->
                     <div class="col-lg-7">
                         <div class="card">
                             <div class="card-header p-0">
@@ -367,10 +402,10 @@ include '../template/header.php';
                                     </li>
                                 </ul>
                             </div>
-                            
+
                             <div class="card-body">
                                 <div class="tab-content">
-                                    
+
                                     <!-- Thai -->
                                     <div class="tab-pane fade show active" id="th">
                                         <div class="form-group mb-3">
@@ -475,7 +510,7 @@ include '../template/header.php';
                             </div>
                         </div>
 
-                        <!-- Submit Button -->
+                        <!-- Submit -->
                         <div class="mt-3 text-end">
                             <button type="button" id="submitAddAI" class="btn btn-primary btn-lg">
                                 <i class="fas fa-save"></i> Create AI Companion

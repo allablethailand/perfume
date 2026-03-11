@@ -202,7 +202,7 @@ $(document).ready(function() {
         let defaultLang = getUrlParameter('lang') || 'th';
         loadListAICompanions(defaultLang);
     }
-    
+
     // ========================================
     // GENERATE AI CODE
     // ========================================
@@ -219,7 +219,7 @@ $(document).ready(function() {
             }
         });
     });
-    
+
     // ========================================
     // AVATAR PREVIEW
     // ========================================
@@ -238,7 +238,7 @@ $(document).ready(function() {
             reader.readAsDataURL(file);
         }
     });
-    
+
     // ========================================
     // INTRO VIDEO PREVIEW
     // ========================================
@@ -256,13 +256,12 @@ $(document).ready(function() {
             `);
         }
     });
-    
+
     // ========================================
     // IDLE VIDEOS PREVIEW (ADD + EDIT)
     // ========================================
     $('#idleVideos').on('change', function(e) {
         let files = e.target.files;
-        // Add page: #idleVideosPreview / Edit page: #newIdleVideosPreview
         let previewContainer = $('#idleVideosPreview').length ? $('#idleVideosPreview') : $('#newIdleVideosPreview');
         previewContainer.empty();
         for (let i = 0; i < files.length; i++) {
@@ -297,73 +296,125 @@ $(document).ready(function() {
     });
 
     // ========================================
-    // 2D EMOTION VIDEOS PREVIEW (ADD + EDIT)
+    // EMOTION VIDEO FILE HANDLER (2D + 3D)
+    // Triggered by any file input inside .emo-drop-zone
+    // Uses data-grid, data-counter, data-parent-counter attrs
     // ========================================
-    $(document).on('change', 'input[id^="emotionVideos_"]', function(e) {
-        let files = e.target.files;
-        let emotion = $(this).data('emotion');
-        // Add page: #emotionPreview_X / Edit page: #newEmotionPreview_X
-        let previewId = $('#emotionPreview_' + emotion).length
-            ? '#emotionPreview_' + emotion
-            : '#newEmotionPreview_' + emotion;
-        let previewContainer = $(previewId);
-        previewContainer.empty();
+    $(document).on('change', '.emo-drop-zone input[type="file"]', function(e) {
+        let files      = e.target.files;
+        let gridId     = $(this).data('grid');
+        let counterId  = $(this).data('counter');
+        let parentCntId = $(this).data('parent-counter') || null;
 
-        for (let i = 0; i < files.length; i++) {
-            let file = files[i];
-            let url = URL.createObjectURL(file);
-            let ext = file.name.split('.').pop().toLowerCase();
-            let mediaHtml = ext === 'gif'
-                ? `<img src="${url}" style="width:100%;height:100px;object-fit:cover;border-radius:6px;">`
-                : `<video controls style="width:100%;height:100px;border-radius:6px;object-fit:cover;"><source src="${url}" type="${file.type}"></video>`;
-
-            previewContainer.append(`
-                <div class="video-item">
-                    ${mediaHtml}
-                    <div class="video-label" style="font-size:11px;">
-                        ${file.name}
-                        <span class="badge badge-success" style="background:#28a745;color:#fff;font-size:10px;padding:2px 5px;">New</span>
-                    </div>
-                </div>
-            `);
-        }
-    });
-
-    // ========================================
-    // ✅ 3D EMOTION VIDEOS PREVIEW (ADD + EDIT)
-    // Input IDs: em3d_happy_idle, em3d_happy_talking, etc.
-    // ========================================
-    $(document).on('change', 'input[id^="em3d_"]', function(e) {
-        let files   = e.target.files;
-        let emotion = $(this).data('emotion');
-        let state   = $(this).data('state'); // 'idle' or 'talking'
-
-        let previewContainer = $('#em3d_preview_' + emotion + '_' + state);
-        previewContainer.empty();
-
-        let stateColor = state === 'idle' ? '#6c757d' : '#28a745';
-        let stateLabel = state === 'idle' ? 'Idle' : 'Talking';
+        let grid = $('#' + gridId);
 
         for (let i = 0; i < files.length; i++) {
             let file = files[i];
             let url  = URL.createObjectURL(file);
             let ext  = file.name.split('.').pop().toLowerCase();
+            let shortName = file.name.length > 14 ? file.name.slice(0, 12) + '…' : file.name;
 
             let mediaHtml = ext === 'gif'
-                ? `<img src="${url}" style="width:100%;height:70px;object-fit:cover;border-radius:6px;">`
-                : `<video style="width:100%;height:70px;border-radius:6px;object-fit:cover;"><source src="${url}" type="${file.type}"></video>`;
+                ? `<img src="${url}" alt="">`
+                : `<video src="${url}" loop muted playsinline onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0;"></video>`;
 
-            previewContainer.append(`
-                <div class="video-item" style="position:relative;border-radius:6px;overflow:hidden;">
+            grid.append(`
+                <div class="emo-vcard" data-new="1">
                     ${mediaHtml}
-                    <div style="font-size:9px;color:#fff;text-align:center;padding:2px;
-                                background:${stateColor};border-radius:0 0 6px 6px;">
-                        ${stateLabel}
-                        <span style="background:#fff;color:${stateColor};font-size:8px;padding:1px 4px;border-radius:4px;margin-left:2px;">New</span>
-                    </div>
+                    <span class="emo-new-badge">NEW</span>
+                    <div class="emo-vcard-lbl">${shortName}</div>
+                    <button type="button" class="emo-vcard-del emo-remove-new"
+                            data-counter="${counterId}"
+                            data-parent-counter="${parentCntId || ''}">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
             `);
         }
+
+        refreshEmoCount(counterId, parentCntId);
+    });
+
+    // ========================================
+    // REMOVE NEW (unsaved) EMOTION VIDEO CARD
+    // ========================================
+    $(document).on('click', '.emo-remove-new', function(e) {
+        e.stopPropagation();
+        let counterId   = $(this).data('counter');
+        let parentCntId = $(this).data('parent-counter') || null;
+        $(this).closest('.emo-vcard').remove();
+        refreshEmoCount(counterId, parentCntId);
+    });
+
+    // ========================================
+    // EDIT PAGE — DELETE EXISTING 2D EMOTION VIDEO
+    // ========================================
+    let deletedEmotionVideos = {};
+
+    $(document).on('click', '.delete-emotion-video', function(e) {
+        e.stopPropagation();
+        let videoUrl   = $(this).data('url').replace(/\\\//g, '/');
+        let emotion    = $(this).data('emotion');
+        let counterId  = $(this).data('counter');
+        let vcard      = $(this).closest('.emo-vcard');
+
+        Swal.fire({
+            title: 'Delete this emotion video?',
+            text: `Emotion: ${emotion}`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                if (!deletedEmotionVideos[emotion]) deletedEmotionVideos[emotion] = [];
+                deletedEmotionVideos[emotion].push(videoUrl);
+                $('#deletedEmotionVideos_' + emotion).val(JSON.stringify(deletedEmotionVideos[emotion]));
+                vcard.fadeOut(250, function() {
+                    $(this).remove();
+                    refreshEmoCount(counterId, null);
+                });
+                Swal.fire('Marked!', 'Video will be deleted when you save.', 'success');
+            }
+        });
+    });
+
+    // ========================================
+    // EDIT PAGE — DELETE EXISTING 3D EMOTION VIDEO
+    // ========================================
+    let deletedEmotion3D = {};
+
+    $(document).on('click', '.delete-em3d-video', function(e) {
+        e.stopPropagation();
+        let videoUrl    = $(this).data('url').replace(/\\\//g, '/');
+        let emotion     = $(this).data('emotion');
+        let state       = $(this).data('state');
+        let counterId   = $(this).data('counter');
+        let parentCntId = $(this).data('parent-counter') || null;
+        let vcard       = $(this).closest('.emo-vcard');
+
+        Swal.fire({
+            title: 'Delete this 3D emotion video?',
+            text: `${emotion} — ${state}`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                if (!deletedEmotion3D[emotion])        deletedEmotion3D[emotion] = {};
+                if (!deletedEmotion3D[emotion][state]) deletedEmotion3D[emotion][state] = [];
+                deletedEmotion3D[emotion][state].push(videoUrl);
+                $('#deleted3d_' + emotion + '_' + state).val(
+                    JSON.stringify(deletedEmotion3D[emotion][state])
+                );
+                vcard.fadeOut(250, function() {
+                    $(this).remove();
+                    refreshEmoCount(counterId, parentCntId);
+                });
+                Swal.fire('Marked!', '3D emotion video will be deleted when you save.', 'success');
+            }
+        });
     });
 
     // ========================================
@@ -463,73 +514,24 @@ $(document).ready(function() {
     });
 
     // ========================================
-    // EDIT PAGE — DELETE EXISTING 2D EMOTION VIDEOS
+    // DRAG-AND-DROP SUPPORT FOR EMO DROP ZONES
     // ========================================
-    let deletedEmotionVideos = {};
-
-    $(document).on('click', '.delete-emotion-video', function(e) {
-        e.stopPropagation();
-        let videoUrl  = $(this).data('url').replace(/\\\//g, '/');
-        let emotion   = $(this).data('emotion');
-        let videoItem = $(this).closest('.video-item');
-
-        Swal.fire({
-            title: 'Delete this emotion video?',
-            text: `Emotion: ${emotion}`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete it!'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                if (!deletedEmotionVideos[emotion]) {
-                    deletedEmotionVideos[emotion] = [];
-                }
-                deletedEmotionVideos[emotion].push(videoUrl);
-                $('#deletedEmotionVideos_' + emotion).val(JSON.stringify(deletedEmotionVideos[emotion]));
-                videoItem.fadeOut(300, function() { $(this).remove(); });
-                Swal.fire('Marked!', 'Emotion video will be deleted when you save.', 'success');
-            }
-        });
+    $(document).on('dragover', '.emo-drop-zone', function(e) {
+        e.preventDefault();
+        $(this).addClass('drag-over');
     });
-
-    // ========================================
-    // ✅ EDIT PAGE — DELETE EXISTING 3D EMOTION VIDEOS
-    // Button class: .delete-em3d-video
-    // data-emotion, data-state (idle/talking)
-    // ========================================
-    let deletedEmotion3D = {}; // { happy: { idle: ['url1'], talking: ['url2'] }, ... }
-
-    $(document).on('click', '.delete-em3d-video', function(e) {
-        e.stopPropagation();
-        let videoUrl  = $(this).data('url').replace(/\\\//g, '/');
-        let emotion   = $(this).data('emotion');
-        let state     = $(this).data('state'); // 'idle' or 'talking'
-        let videoItem = $(this).closest('.video-item');
-
-        Swal.fire({
-            title: 'Delete this 3D emotion video?',
-            text: `${emotion} — ${state}`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete it!'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // Track deleted
-                if (!deletedEmotion3D[emotion])       deletedEmotion3D[emotion] = {};
-                if (!deletedEmotion3D[emotion][state]) deletedEmotion3D[emotion][state] = [];
-                deletedEmotion3D[emotion][state].push(videoUrl);
-
-                // Update hidden field: deleted_emotion_videos_3d[emotion][state]
-                $('#deleted3d_' + emotion + '_' + state).val(
-                    JSON.stringify(deletedEmotion3D[emotion][state])
-                );
-
-                videoItem.fadeOut(300, function() { $(this).remove(); });
-                Swal.fire('Marked!', '3D emotion video will be deleted when you save.', 'success');
-            }
-        });
+    $(document).on('dragleave', '.emo-drop-zone', function() {
+        $(this).removeClass('drag-over');
+    });
+    $(document).on('drop', '.emo-drop-zone', function(e) {
+        e.preventDefault();
+        $(this).removeClass('drag-over');
+        let fileInput = $(this).find('input[type="file"]')[0];
+        if (!fileInput) return;
+        let dt = new DataTransfer();
+        Array.from(e.originalEvent.dataTransfer.files).forEach(f => dt.items.add(f));
+        fileInput.files = dt.files;
+        $(fileInput).trigger('change');
     });
 
     // ========================================
@@ -538,8 +540,8 @@ $(document).ready(function() {
     $('#submitAddAI').on('click', function(e) {
         e.preventDefault();
 
-        if (!$('#item_id').val())   { alertError('Please select a bottle'); return; }
-        if (!$('#ai_code').val())   { alertError('Please enter AI Code'); return; }
+        if (!$('#item_id').val())    { alertError('Please select a bottle'); return; }
+        if (!$('#ai_code').val())    { alertError('Please enter AI Code'); return; }
         if (!$('#ai_name_th').val()) { alertError('Please enter AI Name (Thai)'); return; }
 
         let formData = new FormData($('#formAICompanion')[0]);
@@ -634,4 +636,75 @@ $(document).ready(function() {
         });
         Toast.fire({ icon: "error", title: message });
     }
+
 });
+
+// ========================================
+// EMOTION TAB SWITCHING
+// Global function — called from onclick in PHP-rendered HTML
+// ========================================
+function switchEmoTab(btn) {
+    let managerId = btn.dataset.manager;
+    let targetId  = btn.dataset.target;
+    let manager   = document.getElementById(managerId);
+    if (!manager) return;
+
+    // Deactivate all tabs & panes inside this manager's header
+    btn.closest('.emotion-tab-bar').querySelectorAll('.emo-tab-btn').forEach(t => t.classList.remove('active'));
+    manager.querySelectorAll('.emo-pane').forEach(p => p.classList.remove('active'));
+
+    // Activate clicked
+    btn.classList.add('active');
+    let pane = document.getElementById(targetId);
+    if (pane) pane.classList.add('active');
+}
+
+// ========================================
+// REFRESH EMOTION COUNTER BADGES
+// counterId      = e.g. 'cnt2d-happy' or 'cnt3d-happy-idle'
+// parentCounterId = e.g. 'cnt3d-happy' (sum of idle + talking)
+// ========================================
+function refreshEmoCount(counterId, parentCounterId) {
+    if (!counterId) return;
+
+    // Count visible emo-vcard elements in corresponding grids
+    // Grid IDs follow pattern: counterId → replace 'cnt' with 'grid'
+    // e.g. cnt2d-happy → grid2d-happy
+    //      cnt3d-happy-idle → grid3d-happy-idle (new uploads only)
+    // For edit pages we also have existing grids: existing-grid2d-happy / existing3d-happy-idle
+    let baseGridId    = counterId.replace(/^cnt/, 'grid');
+    let existGridId   = counterId.replace(/^cnt/, 'existing-grid');
+    let existGridId3d = counterId.replace(/^cnt3d-(.+)-(.+)$/, 'existing3d-$1-$2');
+
+    let newCount      = $('#' + baseGridId + ' .emo-vcard').length;
+    let existCount    = $('#' + existGridId + ' .emo-vcard').length;
+    let existCount3d  = $('#' + existGridId3d + ' .emo-vcard').length;
+    let total         = newCount + existCount + existCount3d;
+
+    let el = document.getElementById(counterId);
+    if (el) {
+        el.textContent = total;
+        el.classList.toggle('has-files', total > 0);
+    }
+
+    // Also update state-count-badge inside the state column header if exists
+    // (matches pattern like cnt3d-happy-idle → state-count-badge next to it)
+    let stateBadge = document.getElementById(counterId);
+    if (stateBadge && stateBadge.classList.contains('state-count-badge')) {
+        stateBadge.classList.toggle('has-files', total > 0);
+    }
+
+    // Update parent counter (3D tab badge = idle + talking combined)
+    if (parentCounterId) {
+        let emotion = parentCounterId.replace('cnt3d-', '');
+        let idleEl    = document.getElementById('cnt3d-' + emotion + '-idle');
+        let talkingEl = document.getElementById('cnt3d-' + emotion + '-talking');
+        let ni = idleEl    ? parseInt(idleEl.textContent)    || 0 : 0;
+        let nt = talkingEl ? parseInt(talkingEl.textContent) || 0 : 0;
+        let parentEl = document.getElementById(parentCounterId);
+        if (parentEl) {
+            parentEl.textContent = ni + nt;
+            parentEl.classList.toggle('has-files', (ni + nt) > 0);
+        }
+    }
+}
