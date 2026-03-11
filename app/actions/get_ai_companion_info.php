@@ -34,7 +34,7 @@ if (!$user_id) {
 }
 
 try {
-    // ✅ ดึงข้อมูล AI companion ของ user พร้อม video URLs (arrays)
+    // ✅ เพิ่ม emotion_videos, emotion_videos_3d ใน SELECT
     $stmt = $conn->prepare("
         SELECT 
             uc.user_companion_id,
@@ -50,6 +50,8 @@ try {
             ai.ai_avatar_url,
             ai.idle_video_urls,
             ai.talking_video_urls,
+            ai.emotion_videos,
+            ai.emotion_videos_3d,
             ai.voice_id,
             ai.voice_name
         FROM user_ai_companions uc
@@ -78,65 +80,52 @@ try {
     $companion = $result->fetch_assoc();
     $stmt->close();
     
-    // ✅ เลือกชื่อตามภาษาที่ user เลือก (fallback เป็น th ถ้าไม่มี)
+    // เลือกชื่อตามภาษาที่ user เลือก
     $lang = strtolower(trim($companion['preferred_language'] ?? 'th'));
-    
-    // รองรับเฉพาะภาษาที่มีในระบบ
     $supported_langs = ['th', 'en', 'cn', 'jp', 'kr'];
-    if (!in_array($lang, $supported_langs)) {
-        $lang = 'th';
-    }
+    if (!in_array($lang, $supported_langs)) { $lang = 'th'; }
     
     $ai_name_key = 'ai_name_' . $lang;
-    
-    // ถ้าชื่อภาษานั้นไม่มี ให้ fallback เป็น th
     $ai_name = !empty($companion[$ai_name_key]) ? $companion[$ai_name_key] : $companion['ai_name_th'];
+    if (empty($ai_name)) { $ai_name = $companion['ai_code'] ?? 'AI Companion'; }
     
-    // ถ้า th ก็ยังไม่มี ให้ใช้ ai_code แทน
-    if (empty($ai_name)) {
-        $ai_name = $companion['ai_code'] ?? 'AI Companion';
-    }
+    // Parse idle/talking arrays
+    $idle_videos    = json_decode($companion['idle_video_urls']    ?? '[]', true) ?: [];
+    $talking_videos = json_decode($companion['talking_video_urls'] ?? '[]', true) ?: [];
     
-    // ✅ สุ่มเลือกวิดีโอจาก arrays
-    $idle_videos = json_decode($companion['idle_video_urls'] ?? '[]', true);
-    $talking_videos = json_decode($companion['talking_video_urls'] ?? '[]', true);
-    
-    // สุ่ม idle video
-    $idle_video_url = null;
-    if (!empty($idle_videos) && is_array($idle_videos)) {
-        $random_index = array_rand($idle_videos);
-        $idle_video_url = $idle_videos[$random_index];
-        error_log("✅ Random idle video selected for user_id=$user_id: " . $idle_video_url);
-    }
-    
-    // สุ่ม talking video
-    $talking_video_url = null;
-    if (!empty($talking_videos) && is_array($talking_videos)) {
-        $random_index = array_rand($talking_videos);
-        $talking_video_url = $talking_videos[$random_index];
-        error_log("✅ Random talking video selected for user_id=$user_id: " . $talking_video_url);
-    }
+    $idle_video_url    = !empty($idle_videos)    ? $idle_videos[array_rand($idle_videos)]       : null;
+    $talking_video_url = !empty($talking_videos) ? $talking_videos[array_rand($talking_videos)] : null;
+
+    // ✅ Parse emotion_videos (2D)
+    $emotion_videos_array = json_decode($companion['emotion_videos'] ?? '{}', true) ?: [];
+
+    // ✅ Parse emotion_videos_3d
+    $emotion_videos_3d_array = json_decode($companion['emotion_videos_3d'] ?? '{}', true) ?: [];
+
+    error_log("✅ emotion_videos_3d loaded: " . count($emotion_videos_3d_array) . " emotion(s) for user_id=$user_id");
     
     echo json_encode([
         'status' => 'success',
         'companion' => [
-            'user_companion_id' => $companion['user_companion_id'],
-            'ai_id' => $companion['ai_id'],
-            'ai_code' => $companion['ai_code'],
-            'ai_name' => $ai_name,
-            'preferred_language' => $companion['preferred_language'],
-            'ai_avatar_url' => $companion['ai_avatar_url'],
-            'idle_video_url' => $idle_video_url,
-            'talking_video_url' => $talking_video_url,
-            'voice_id' => $companion['voice_id'],
-            'voice_name' => $companion['voice_name'],
-            'last_active_at' => $companion['last_active_at'],
-            // เก็บ arrays ไว้ในกรณีต้องการใช้งานเพิ่มเติม
-            'idle_video_urls_array' => $idle_videos,
-            'talking_video_urls_array' => $talking_videos
+            'user_companion_id'        => $companion['user_companion_id'],
+            'ai_id'                    => $companion['ai_id'],
+            'ai_code'                  => $companion['ai_code'],
+            'ai_name'                  => $ai_name,
+            'preferred_language'       => $companion['preferred_language'],
+            'ai_avatar_url'            => $companion['ai_avatar_url'],
+            'idle_video_url'           => $idle_video_url,
+            'talking_video_url'        => $talking_video_url,
+            'voice_id'                 => $companion['voice_id'],
+            'voice_name'               => $companion['voice_name'],
+            'last_active_at'           => $companion['last_active_at'],
+            'idle_video_urls_array'    => $idle_videos,
+            'talking_video_urls_array' => $talking_videos,
+            'emotion_videos_array'     => $emotion_videos_array,      // ✅ 2D
+            'emotion_videos_3d_array'  => $emotion_videos_3d_array,   // ✅ 3D
         ],
-        'user_id' => $user_id,
-        'companion_id' => $companion['user_companion_id']
+        'user_id'            => $user_id,
+        'companion_id'       => $companion['user_companion_id'],
+        'preferred_language' => $companion['preferred_language'] ?? 'th',
     ]);
     
 } catch (Exception $e) {
