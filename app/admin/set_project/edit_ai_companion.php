@@ -550,27 +550,27 @@ include '../template/header.php';
                             <div class="card-header p-0">
                                 <ul class="nav nav-tabs" id="languageTabs" role="tablist">
                                     <li class="nav-item">
-                                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#th">
+                                        <button type="button" class="nav-link active" data-bs-toggle="tab" data-bs-target="#th">
                                             <img src="https://flagcdn.com/w20/th.png" class="flag-icon"> ไทย
                                         </button>
                                     </li>
                                     <li class="nav-item">
-                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#en">
+                                        <button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#en">
                                             <img src="https://flagcdn.com/w20/gb.png" class="flag-icon"> English
                                         </button>
                                     </li>
                                     <li class="nav-item">
-                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#cn">
+                                        <button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#cn">
                                             <img src="https://flagcdn.com/w20/cn.png" class="flag-icon"> 中文
                                         </button>
                                     </li>
                                     <li class="nav-item">
-                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#jp">
+                                        <button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#jp">
                                             <img src="https://flagcdn.com/w20/jp.png" class="flag-icon"> 日本語
                                         </button>
                                     </li>
                                     <li class="nav-item">
-                                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#kr">
+                                        <button type="button" class="nav-link" data-bs-toggle="tab" data-bs-target="#kr">
                                             <img src="https://flagcdn.com/w20/kr.png" class="flag-icon"> 한국어
                                         </button>
                                     </li>
