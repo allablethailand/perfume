@@ -78,16 +78,13 @@ function handleMultipleFileUpload($file_input_name, $upload_type = 'video') {
     return ['success' => true, 'urls' => $uploaded_urls];
 }
 
-// ✅ NEW: handle nested emotion_videos[emotion][] uploads
-// Returns ['happy' => ['url1','url2'], 'sad' => [...], ...]
+// ✅ 2D Emotion Videos Upload (ไม่แตะ)
 function handleEmotionVideosUpload() {
     global $base_path;
 
     $VALID_EMOTIONS = ['happy', 'sad', 'excited', 'calm', 'thinking', 'surprised', 'empathetic'];
     $result = [];
 
-    // $_FILES['emotion_videos'] will have structure:
-    // name[happy][0], name[sad][0], etc.
     if (!isset($_FILES['emotion_videos'])) {
         return $result;
     }
@@ -107,7 +104,6 @@ function handleEmotionVideosUpload() {
             'size'     => $emotion_files['size'][$emotion],
         ];
 
-        // GIF goes to ai_avatars (image), video goes to ai_videos
         $upload_dir_video = __DIR__ . '/../../../../public/ai_videos/';
         $upload_dir_gif   = __DIR__ . '/../../../../public/ai_avatars/';
         if (!is_dir($upload_dir_video)) { @mkdir($upload_dir_video, 0755, true); }
@@ -145,6 +141,81 @@ function handleEmotionVideosUpload() {
     return $result;
 }
 
+// ✅ NEW: 3D Emotion Videos Upload (idle + talking per emotion)
+// Input name: emotion_videos_3d[happy][idle][], emotion_videos_3d[happy][talking][]
+// Returns: ['happy' => ['idle' => ['url1'], 'talking' => ['url2']], ...]
+function handleEmotionVideos3DUpload() {
+    global $base_path;
+
+    $VALID_EMOTIONS = ['happy', 'sad', 'excited', 'calm', 'thinking', 'surprised', 'empathetic'];
+    $VALID_STATES   = ['idle', 'talking'];
+    $result = [];
+
+    if (!isset($_FILES['emotion_videos_3d'])) {
+        return $result;
+    }
+
+    $emotion_files = $_FILES['emotion_videos_3d'];
+
+    $upload_dir_video = __DIR__ . '/../../../../public/ai_videos/';
+    $upload_dir_gif   = __DIR__ . '/../../../../public/ai_avatars/';
+    if (!is_dir($upload_dir_video)) { @mkdir($upload_dir_video, 0755, true); }
+    if (!is_dir($upload_dir_gif))   { @mkdir($upload_dir_gif,   0755, true); }
+
+    foreach ($VALID_EMOTIONS as $emotion) {
+        if (!isset($emotion_files['name'][$emotion])) {
+            continue;
+        }
+
+        foreach ($VALID_STATES as $state) {
+            if (!isset($emotion_files['name'][$emotion][$state])) {
+                continue;
+            }
+
+            $files_for_slot = [
+                'name'     => $emotion_files['name'][$emotion][$state],
+                'type'     => $emotion_files['type'][$emotion][$state],
+                'tmp_name' => $emotion_files['tmp_name'][$emotion][$state],
+                'error'    => $emotion_files['error'][$emotion][$state],
+                'size'     => $emotion_files['size'][$emotion][$state],
+            ];
+
+            $urls = [];
+            $file_count = count($files_for_slot['name']);
+
+            for ($i = 0; $i < $file_count; $i++) {
+                if ($files_for_slot['error'][$i] === UPLOAD_ERR_NO_FILE) { continue; }
+                if ($files_for_slot['error'][$i] !== UPLOAD_ERR_OK)      { continue; }
+                if (!is_uploaded_file($files_for_slot['tmp_name'][$i]))  { continue; }
+
+                $ext    = strtolower(pathinfo($files_for_slot['name'][$i], PATHINFO_EXTENSION));
+                $is_gif = ($ext === 'gif');
+
+                $upload_dir  = $is_gif ? $upload_dir_gif   : $upload_dir_video;
+                $type_prefix = $is_gif ? 'avatars'         : 'videos';
+
+                $unique_filename = 'em3d_' . $emotion . '_' . $state . '_' . uniqid() . '_' . time() . '_' . $i . '.' . $ext;
+                $file_path  = $upload_dir . $unique_filename;
+                $api_path   = $base_path . '/public/ai_' . $type_prefix . '/' . $unique_filename;
+
+                if (move_uploaded_file($files_for_slot['tmp_name'][$i], $file_path)) {
+                    $urls[] = $api_path;
+                    logDebug("3D Emotion video uploaded [$emotion][$state][$i]: $api_path");
+                }
+            }
+
+            if (!empty($urls)) {
+                if (!isset($result[$emotion])) {
+                    $result[$emotion] = ['idle' => [], 'talking' => []];
+                }
+                $result[$emotion][$state] = $urls;
+            }
+        }
+    }
+
+    return $result;
+}
+
 try {
     if (!isset($_POST['action'])) {
         throw new Exception("No action specified.");
@@ -172,8 +243,8 @@ try {
                             OR pi.serial_number LIKE '%$searchValue%')";
         }
 
-        $totalRecords   = $conn->query("SELECT COUNT(ai_id) FROM ai_companions WHERE del = 0")->fetch_row()[0];
-        $totalFiltered  = $conn->query("SELECT COUNT(ai.ai_id) FROM ai_companions ai LEFT JOIN product_items pi ON ai.item_id = pi.item_id WHERE $whereClause")->fetch_row()[0];
+        $totalRecords  = $conn->query("SELECT COUNT(ai_id) FROM ai_companions WHERE del = 0")->fetch_row()[0];
+        $totalFiltered = $conn->query("SELECT COUNT(ai.ai_id) FROM ai_companions ai LEFT JOIN product_items pi ON ai.item_id = pi.item_id WHERE $whereClause")->fetch_row()[0];
 
         $dataResult = $conn->query("SELECT ai.*, pi.serial_number,
                         (SELECT COUNT(*) FROM user_ai_companions WHERE ai_id = ai.ai_id AND del = 0) as user_count
@@ -190,6 +261,7 @@ try {
                 $row['idle_video_urls_array']    = json_decode($row['idle_video_urls'] ?? '[]', true);
                 $row['talking_video_urls_array'] = json_decode($row['talking_video_urls'] ?? '[]', true);
                 $row['emotion_videos_array']     = json_decode($row['emotion_videos'] ?? '{}', true);
+                $row['emotion_videos_3d_array']  = json_decode($row['emotion_videos_3d'] ?? '{}', true);
                 $data[] = $row;
             }
         }
@@ -235,10 +307,10 @@ try {
         $style_suggestions_jp = $_POST['style_suggestions_jp'] ?? '';
         $style_suggestions_kr = $_POST['style_suggestions_kr'] ?? '';
 
-        $voice_id         = $_POST['voice_id'] ?? null;
-        $voice_name       = $_POST['voice_name'] ?? null;
+        $voice_id          = $_POST['voice_id'] ?? null;
+        $voice_name        = $_POST['voice_name'] ?? null;
         $voice_preview_url = $_POST['voice_preview_url'] ?? null;
-        $status           = $_POST['status'] ?? 1;
+        $status            = $_POST['status'] ?? 1;
 
         if (empty($item_id))    throw new Exception("Bottle item is required.");
         if (empty($ai_code))    throw new Exception("AI Code is required.");
@@ -254,11 +326,12 @@ try {
         $conn->begin_transaction();
 
         try {
-            $ai_avatar_url    = null;
-            $ai_video_url     = null;
-            $idle_video_urls  = '[]';
+            $ai_avatar_url      = null;
+            $ai_video_url       = null;
+            $idle_video_urls    = '[]';
             $talking_video_urls = '[]';
-            $emotion_videos   = '{}';
+            $emotion_videos     = '{}';
+            $emotion_videos_3d  = '{}';
 
             // Avatar
             if (isset($_FILES['ai_avatar']) && $_FILES['ai_avatar']['error'] === UPLOAD_ERR_OK) {
@@ -286,30 +359,43 @@ try {
                 $talking_video_urls = json_encode($r['urls'], JSON_UNESCAPED_SLASHES);
             }
 
-            // ✅ Emotion Videos
+            // 2D Emotion Videos
             $uploaded_emotions = handleEmotionVideosUpload();
             if (!empty($uploaded_emotions)) {
                 $emotion_videos = json_encode($uploaded_emotions, JSON_UNESCAPED_SLASHES);
-                logDebug("Emotion videos uploaded", $uploaded_emotions);
+                logDebug("2D Emotion videos uploaded", $uploaded_emotions);
+            }
+
+            // ✅ 3D Emotion Videos (idle + talking per emotion)
+            $uploaded_emotions_3d = handleEmotionVideos3DUpload();
+            if (!empty($uploaded_emotions_3d)) {
+                $emotion_videos_3d = json_encode($uploaded_emotions_3d, JSON_UNESCAPED_SLASHES);
+                logDebug("3D Emotion videos uploaded", $uploaded_emotions_3d);
             }
 
             $stmt = $conn->prepare("INSERT INTO ai_companions 
                 (item_id, ai_code, 
                  ai_name_th, ai_name_en, ai_name_cn, ai_name_jp, ai_name_kr,
                  ai_avatar_url, ai_video_url, idle_video_urls, talking_video_urls,
-                 emotion_videos,
+                 emotion_videos, emotion_videos_3d,
                  system_prompt_th, system_prompt_en, system_prompt_cn, system_prompt_jp, system_prompt_kr,
                  perfume_knowledge_th, perfume_knowledge_en, perfume_knowledge_cn, perfume_knowledge_jp, perfume_knowledge_kr,
                  style_suggestions_th, style_suggestions_en, style_suggestions_cn, style_suggestions_jp, style_suggestions_kr,
                  voice_id, voice_name, voice_preview_url,
                  status, del) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)");
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)");
 
-            $stmt->bind_param("isssssssssssssssssssssssssssssi",
+            $stmt->bind_param(
+    "issssss" . // item_id(1), ai_code(2), names(3-7) -> 7
+    "ssssss"  . // urls & videos (8-13) -> 6
+    "sssss"   . // system_prompts (14-18) -> 5
+    "sssss"   . // perfume_knowledge (19-23) -> 5
+    "sssss"   . // style_suggestions (24-28) -> 5
+    "sssi",
                 $item_id, $ai_code,
                 $ai_name_th, $ai_name_en, $ai_name_cn, $ai_name_jp, $ai_name_kr,
                 $ai_avatar_url, $ai_video_url, $idle_video_urls, $talking_video_urls,
-                $emotion_videos,
+                $emotion_videos, $emotion_videos_3d,
                 $system_prompt_th, $system_prompt_en, $system_prompt_cn, $system_prompt_jp, $system_prompt_kr,
                 $perfume_knowledge_th, $perfume_knowledge_en, $perfume_knowledge_cn, $perfume_knowledge_jp, $perfume_knowledge_kr,
                 $style_suggestions_th, $style_suggestions_en, $style_suggestions_cn, $style_suggestions_jp, $style_suggestions_kr,
@@ -376,24 +462,37 @@ try {
         $voice_preview_url = $_POST['voice_preview_url'] ?? null;
         $status            = $_POST['status'] ?? 1;
 
-        $delete_avatar   = $_POST['delete_avatar'] ?? '0';
-        $delete_video    = $_POST['delete_video']   ?? '0';
+        $delete_avatar = $_POST['delete_avatar'] ?? '0';
+        $delete_video  = $_POST['delete_video']  ?? '0';
 
         $deleted_idle_videos    = isset($_POST['deleted_idle_videos'])    ? json_decode($_POST['deleted_idle_videos'], true)    : [];
         $deleted_talking_videos = isset($_POST['deleted_talking_videos']) ? json_decode($_POST['deleted_talking_videos'], true) : [];
 
-        // ✅ deleted_emotion_videos[emotion] — one hidden field per emotion
+        // 2D: deleted_emotion_videos[emotion]
         $deleted_emotion_by_emotion = [];
         $VALID_EMOTIONS = ['happy', 'sad', 'excited', 'calm', 'thinking', 'surprised', 'empathetic'];
         foreach ($VALID_EMOTIONS as $em) {
-            $key = 'deleted_emotion_videos[' . $em . ']';
             if (isset($_POST['deleted_emotion_videos'][$em])) {
                 $raw = $_POST['deleted_emotion_videos'][$em];
                 $decoded = is_array($raw) ? $raw : json_decode($raw, true);
                 if (!empty($decoded)) {
-                    $deleted_emotion_by_emotion[$em] = array_map(function($u) {
-                        return str_replace('\\/', '/', $u);
-                    }, $decoded);
+                    $deleted_emotion_by_emotion[$em] = array_map(fn($u) => str_replace('\\/', '/', $u), $decoded);
+                }
+            }
+        }
+
+        // ✅ 3D: deleted_emotion_videos_3d[emotion][state]
+        $VALID_STATES = ['idle', 'talking'];
+        $deleted_emotion_3d = [];
+        foreach ($VALID_EMOTIONS as $em) {
+            foreach ($VALID_STATES as $st) {
+                if (isset($_POST['deleted_emotion_videos_3d'][$em][$st])) {
+                    $raw = $_POST['deleted_emotion_videos_3d'][$em][$st];
+                    $decoded = is_array($raw) ? $raw : json_decode($raw, true);
+                    if (!empty($decoded)) {
+                        if (!isset($deleted_emotion_3d[$em])) $deleted_emotion_3d[$em] = [];
+                        $deleted_emotion_3d[$em][$st] = array_map(fn($u) => str_replace('\\/', '/', $u), $decoded);
+                    }
                 }
             }
         }
@@ -408,16 +507,17 @@ try {
         $conn->begin_transaction();
 
         try {
-            // Get current data
-            $current_result = $conn->query("SELECT ai_avatar_url, ai_video_url, idle_video_urls, talking_video_urls, emotion_videos FROM ai_companions WHERE ai_id = $ai_id");
+            $current_result = $conn->query("SELECT ai_avatar_url, ai_video_url, idle_video_urls, talking_video_urls, 
+                                                   emotion_videos, emotion_videos_3d 
+                                            FROM ai_companions WHERE ai_id = $ai_id");
             $current = $current_result->fetch_assoc();
 
-            $ai_avatar_url          = $current['ai_avatar_url'];
-            $ai_video_url           = $current['ai_video_url'];
-            $idle_video_urls_array  = json_decode($current['idle_video_urls']  ?? '[]', true);
+            $ai_avatar_url            = $current['ai_avatar_url'];
+            $ai_video_url             = $current['ai_video_url'];
+            $idle_video_urls_array    = json_decode($current['idle_video_urls']    ?? '[]', true);
             $talking_video_urls_array = json_decode($current['talking_video_urls'] ?? '[]', true);
-            // ✅ Current emotion videos map
-            $emotion_videos_map     = json_decode($current['emotion_videos'] ?? '{}', true) ?: [];
+            $emotion_videos_map       = json_decode($current['emotion_videos']     ?? '{}', true) ?: [];
+            $emotion_videos_3d_map    = json_decode($current['emotion_videos_3d']  ?? '{}', true) ?: [];
 
             // Avatar
             if ($delete_avatar === '1') {
@@ -435,9 +535,9 @@ try {
                 if ($r['success']) { $ai_video_url = $r['api_path']; }
             }
 
-            // Idle Videos — remove deleted, add new
+            // Idle Videos
             if (!empty($deleted_idle_videos)) {
-                $n_del = array_map(fn($u) => str_replace('\\/', '/', $u), $deleted_idle_videos);
+                $n_del   = array_map(fn($u) => str_replace('\\/', '/', $u), $deleted_idle_videos);
                 $n_exist = array_map(fn($u) => str_replace('\\/', '/', $u), $idle_video_urls_array);
                 $idle_video_urls_array = array_values(array_diff($n_exist, $n_del));
             }
@@ -446,9 +546,9 @@ try {
                 $idle_video_urls_array = array_merge($idle_video_urls_array, $r['urls']);
             }
 
-            // Talking Videos — remove deleted, add new
+            // Talking Videos
             if (!empty($deleted_talking_videos)) {
-                $n_del = array_map(fn($u) => str_replace('\\/', '/', $u), $deleted_talking_videos);
+                $n_del   = array_map(fn($u) => str_replace('\\/', '/', $u), $deleted_talking_videos);
                 $n_exist = array_map(fn($u) => str_replace('\\/', '/', $u), $talking_video_urls_array);
                 $talking_video_urls_array = array_values(array_diff($n_exist, $n_del));
             }
@@ -457,39 +557,55 @@ try {
                 $talking_video_urls_array = array_merge($talking_video_urls_array, $r['urls']);
             }
 
-            // ✅ Emotion Videos — remove deleted per emotion, add new uploads
-            // Step 1: Remove deleted ones
+            // 2D Emotion Videos — remove deleted, add new
             foreach ($deleted_emotion_by_emotion as $em => $del_urls) {
                 if (!isset($emotion_videos_map[$em])) { continue; }
                 $n_exist = array_map(fn($u) => str_replace('\\/', '/', $u), $emotion_videos_map[$em]);
                 $n_del   = array_map(fn($u) => str_replace('\\/', '/', $u), $del_urls);
                 $emotion_videos_map[$em] = array_values(array_diff($n_exist, $n_del));
-                // Remove emotion key if empty
-                if (empty($emotion_videos_map[$em])) {
-                    unset($emotion_videos_map[$em]);
-                }
+                if (empty($emotion_videos_map[$em])) { unset($emotion_videos_map[$em]); }
             }
-
-            // Step 2: Add new uploaded emotion videos
             $new_emotions = handleEmotionVideosUpload();
             foreach ($new_emotions as $em => $new_urls) {
-                if (!isset($emotion_videos_map[$em])) {
-                    $emotion_videos_map[$em] = [];
-                }
+                if (!isset($emotion_videos_map[$em])) { $emotion_videos_map[$em] = []; }
                 $emotion_videos_map[$em] = array_merge($emotion_videos_map[$em], $new_urls);
+            }
+
+            // ✅ 3D Emotion Videos — remove deleted per emotion per state, add new
+            foreach ($deleted_emotion_3d as $em => $states) {
+                foreach ($states as $st => $del_urls) {
+                    if (!isset($emotion_videos_3d_map[$em][$st])) { continue; }
+                    $n_exist = array_map(fn($u) => str_replace('\\/', '/', $u), $emotion_videos_3d_map[$em][$st]);
+                    $emotion_videos_3d_map[$em][$st] = array_values(array_diff($n_exist, $del_urls));
+                }
+                // Remove emotion key if both idle & talking are empty
+                $idle_empty    = empty($emotion_videos_3d_map[$em]['idle']    ?? []);
+                $talking_empty = empty($emotion_videos_3d_map[$em]['talking'] ?? []);
+                if ($idle_empty && $talking_empty) { unset($emotion_videos_3d_map[$em]); }
+            }
+            $new_emotions_3d = handleEmotionVideos3DUpload();
+            foreach ($new_emotions_3d as $em => $states) {
+                if (!isset($emotion_videos_3d_map[$em])) {
+                    $emotion_videos_3d_map[$em] = ['idle' => [], 'talking' => []];
+                }
+                foreach ($states as $st => $new_urls) {
+                    if (!isset($emotion_videos_3d_map[$em][$st])) { $emotion_videos_3d_map[$em][$st] = []; }
+                    $emotion_videos_3d_map[$em][$st] = array_merge($emotion_videos_3d_map[$em][$st], $new_urls);
+                }
             }
 
             $idle_video_urls    = json_encode($idle_video_urls_array,    JSON_UNESCAPED_SLASHES);
             $talking_video_urls = json_encode($talking_video_urls_array, JSON_UNESCAPED_SLASHES);
             $emotion_videos     = json_encode($emotion_videos_map,       JSON_UNESCAPED_SLASHES);
+            $emotion_videos_3d  = json_encode($emotion_videos_3d_map,    JSON_UNESCAPED_SLASHES);
 
-            logDebug("Emotion videos after edit", $emotion_videos_map);
+            logDebug("3D Emotion videos after edit", $emotion_videos_3d_map);
 
             $update_query = "UPDATE ai_companions SET 
                 item_id = ?, ai_code = ?,
                 ai_name_th = ?, ai_name_en = ?, ai_name_cn = ?, ai_name_jp = ?, ai_name_kr = ?,
                 ai_avatar_url = ?, ai_video_url = ?, idle_video_urls = ?, talking_video_urls = ?,
-                emotion_videos = ?,
+                emotion_videos = ?, emotion_videos_3d = ?,
                 system_prompt_th = ?, system_prompt_en = ?, system_prompt_cn = ?, system_prompt_jp = ?, system_prompt_kr = ?,
                 perfume_knowledge_th = ?, perfume_knowledge_en = ?, perfume_knowledge_cn = ?, perfume_knowledge_jp = ?, perfume_knowledge_kr = ?,
                 style_suggestions_th = ?, style_suggestions_en = ?, style_suggestions_cn = ?, style_suggestions_jp = ?, style_suggestions_kr = ?,
@@ -500,18 +616,25 @@ try {
             $stmt = $conn->prepare($update_query);
             if (!$stmt) throw new Exception("Prepare failed: " . $conn->error);
 
-            $stmt->bind_param("isssssssssssssssssssssssssssssii",
-    $item_id, $ai_code,
-    $ai_name_th, $ai_name_en, $ai_name_cn, $ai_name_jp, $ai_name_kr,
-    $ai_avatar_url, $ai_video_url, $idle_video_urls, $talking_video_urls,
-    $emotion_videos,
-    $system_prompt_th, $system_prompt_en, $system_prompt_cn, $system_prompt_jp, $system_prompt_kr,
-    $perfume_knowledge_th, $perfume_knowledge_en, $perfume_knowledge_cn, $perfume_knowledge_jp, $perfume_knowledge_kr,
-    $style_suggestions_th, $style_suggestions_en, $style_suggestions_cn, $style_suggestions_jp, $style_suggestions_kr,
-    $voice_id, $voice_name, $voice_preview_url,
-    $status,
-    $ai_id // This is the 32nd variable for WHERE ai_id = ?
-);
+            $stmt->bind_param(
+    "issssss" . // item_id(i), ai_code(s), name_th..kr(s*5) -> 7
+    "ssssss"  . // avatar(s), video(s), idle(s), talking(s), emotion2d(s), emotion3d(s) -> 6
+    "sssss"   . // system_prompt_th..kr(s*5) -> 5
+    "sssss"   . // perfume_knowledge_th..kr(s*5) -> 5
+    "sssss"   . // style_suggestions_th..kr(s*5) -> 5
+    "sssi"    . // voice_id(s), voice_name(s), voice_preview(s), status(i) -> 4
+    "i",
+                $item_id, $ai_code,
+                $ai_name_th, $ai_name_en, $ai_name_cn, $ai_name_jp, $ai_name_kr,
+                $ai_avatar_url, $ai_video_url, $idle_video_urls, $talking_video_urls,
+                $emotion_videos, $emotion_videos_3d,
+                $system_prompt_th, $system_prompt_en, $system_prompt_cn, $system_prompt_jp, $system_prompt_kr,
+                $perfume_knowledge_th, $perfume_knowledge_en, $perfume_knowledge_cn, $perfume_knowledge_jp, $perfume_knowledge_kr,
+                $style_suggestions_th, $style_suggestions_en, $style_suggestions_cn, $style_suggestions_jp, $style_suggestions_kr,
+                $voice_id, $voice_name, $voice_preview_url,
+                $status,
+                $ai_id
+            );
 
             if (!$stmt->execute()) throw new Exception("Failed to update AI Companion: " . $stmt->error);
 
