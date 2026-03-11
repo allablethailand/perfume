@@ -203,34 +203,86 @@ function fetchAICompanionData() {
         $.ajax({
             url, type: 'GET', headers, dataType: 'json',
             success: function(response) {
-                if (response.status === 'success') {
-                    aiCompanionData = response.ai_data || response.companion;
-                    if (!aiCompanionData) { useVideoAvatar = false; resolve(); return; }
-                    
-                    IDLE_VIDEO_URLS = aiCompanionData.idle_video_urls_array || [];
-                    
-                    if (response.preferred_language) {
-                        userPreferredLanguage = response.preferred_language;
-                    } else if (aiCompanionData.preferred_language) {
-                        userPreferredLanguage = aiCompanionData.preferred_language;
-                    } else {
-                        userPreferredLanguage = langFromURL || 'th';
-                    }
-                    
-                    if (response.companion_id) companionId = response.companion_id;
-                    else if (aiCompanionData.user_companion_id) companionId = aiCompanionData.user_companion_id;
-                    
-                    if (response.user_id) aiCompanionData.user_id = response.user_id;
-                    if (companionId) sessionStorage.setItem('user_companion_id', companionId);
-                    if (aiCompanionData.ai_code) sessionStorage.setItem('ai_code', aiCompanionData.ai_code);
-                    
-                    resolve();
+        if (response.status === 'success') {
+            aiCompanionData = response.ai_data || response.companion;
+            if (!aiCompanionData) { useVideoAvatar = false; resolve(); return; }
+            
+            IDLE_VIDEO_URLS = aiCompanionData.idle_video_urls_array || [];
+            
+            if (response.preferred_language) {
+                userPreferredLanguage = response.preferred_language;
+            } else if (aiCompanionData.preferred_language) {
+                userPreferredLanguage = aiCompanionData.preferred_language;
+            } else {
+                userPreferredLanguage = langFromURL || 'th';
+            }
+            
+            if (response.companion_id) companionId = response.companion_id;
+            else if (aiCompanionData.user_companion_id) companionId = aiCompanionData.user_companion_id;
+            
+            if (response.user_id) aiCompanionData.user_id = response.user_id;
+            if (companionId) sessionStorage.setItem('user_companion_id', companionId);
+            if (aiCompanionData.ai_code) sessionStorage.setItem('ai_code', aiCompanionData.ai_code);
+            
+            // ✅ เพิ่มตรงนี้: auto-login ก่อน resolve
+            autoLoginAsCompanionUser().then(resolve).catch(resolve);  // <-- เปลี่ยนจาก resolve();
+            
+        } else {
+            useVideoAvatar = false;
+            resolve();
+        }
+    },
+    error: function() { useVideoAvatar = false; resolve(); }
+        });
+    });
+}
+
+// ========================================
+// จุดที่ 2: เพิ่ม function นี้หลัง fetchAICompanionData
+// ========================================
+
+function autoLoginAsCompanionUser() {
+    return new Promise((resolve) => {
+        // ถ้ามี JWT อยู่แล้ว → ข้ามไป
+        const existingJwt = sessionStorage.getItem('jwt');
+        if (existingJwt) {
+            console.log('✅ Already have JWT, skipping auto-login');
+            resolve();
+            return;
+        }
+
+        // ต้องมี companionId หรือ aiCode
+        if (!companionId && !aiCodeFromURL) {
+            console.warn('⚠️ No companionId or aiCode for auto-login');
+            resolve();
+            return;
+        }
+
+        const params = new URLSearchParams();
+        if (companionId) params.set('user_companion_id', companionId);
+        if (aiCodeFromURL) params.set('ai_code', aiCodeFromURL);
+
+        console.log('🔐 Attempting auto-login for companion user...');
+
+        $.ajax({
+            url: 'app/actions/get_companion_jwt.php?' + params.toString(),
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success' && response.jwt) {
+                    sessionStorage.setItem('jwt', response.jwt);
+                    jwt = response.jwt;
+                    isGuestMode = false;
+                    console.log('✅ Auto-login success! JWT stored.');
                 } else {
-                    useVideoAvatar = false;
-                    resolve();
+                    console.warn('⚠️ Auto-login skipped:', response.message);
                 }
+                resolve();
             },
-            error: function() { useVideoAvatar = false; resolve(); }
+            error: function() {
+                console.warn('⚠️ Auto-login request failed, continuing anyway');
+                resolve();
+            }
         });
     });
 }
