@@ -135,7 +135,7 @@ $(document).ready(function() {
                     }
                 }
             });
-           
+
             // View QR Code
             $('#td_list_project').on('click', '.btn-view-qr', function() {
                 let aiCode = $(this).data('code');
@@ -204,9 +204,8 @@ $(document).ready(function() {
     }
     
     // ========================================
-    // ADD AI COMPANION PAGE
+    // GENERATE AI CODE
     // ========================================
-    
     $('#btnGenerateCode').on('click', function() {
         $.ajax({
             url: 'actions/process_ai_companions.php',
@@ -221,10 +220,13 @@ $(document).ready(function() {
         });
     });
     
-    // Avatar Preview
+    // ========================================
+    // AVATAR PREVIEW
+    // ========================================
     $('#aiAvatar').on('change', function(e) {
         let file = e.target.files[0];
         if (file) {
+            $('#deleteAvatarFlag').val('0');
             let reader = new FileReader();
             reader.onload = function(event) {
                 $('#avatarPreview').html(`
@@ -237,10 +239,13 @@ $(document).ready(function() {
         }
     });
     
-    // Intro Video Preview (single)
+    // ========================================
+    // INTRO VIDEO PREVIEW
+    // ========================================
     $('#aiVideo').on('change', function(e) {
         let file = e.target.files[0];
         if (file) {
+            $('#deleteVideoFlag').val('0');
             let url = URL.createObjectURL(file);
             $('#videoPreview').html(`
                 <div class="upload-preview-video">
@@ -253,28 +258,12 @@ $(document).ready(function() {
     });
     
     // ========================================
-    // MULTIPLE IDLE VIDEOS PREVIEW (ADD PAGE)
+    // IDLE VIDEOS PREVIEW (ADD + EDIT)
     // ========================================
     $('#idleVideos').on('change', function(e) {
         let files = e.target.files;
-        let previewContainer = $('#idleVideosPreview');
-        previewContainer.empty();
-        for (let i = 0; i < files.length; i++) {
-            let file = files[i];
-            let url = URL.createObjectURL(file);
-            previewContainer.append(`
-                <div class="video-item">
-                    <video controls><source src="${url}" type="${file.type}"></video>
-                    <div class="video-label">${file.name}</div>
-                </div>
-            `);
-        }
-    });
-
-    // MULTIPLE TALKING VIDEOS PREVIEW (ADD PAGE)
-    $('#talkingVideos').on('change', function(e) {
-        let files = e.target.files;
-        let previewContainer = $('#talkingVideosPreview');
+        // Add page: #idleVideosPreview / Edit page: #newIdleVideosPreview
+        let previewContainer = $('#idleVideosPreview').length ? $('#idleVideosPreview') : $('#newIdleVideosPreview');
         previewContainer.empty();
         for (let i = 0; i < files.length; i++) {
             let file = files[i];
@@ -289,54 +278,273 @@ $(document).ready(function() {
     });
 
     // ========================================
-    // ✅ EMOTION VIDEOS PREVIEW (ADD & EDIT PAGE)
+    // TALKING VIDEOS PREVIEW (ADD + EDIT)
+    // ========================================
+    $('#talkingVideos').on('change', function(e) {
+        let files = e.target.files;
+        let previewContainer = $('#talkingVideosPreview').length ? $('#talkingVideosPreview') : $('#newTalkingVideosPreview');
+        previewContainer.empty();
+        for (let i = 0; i < files.length; i++) {
+            let file = files[i];
+            let url = URL.createObjectURL(file);
+            previewContainer.append(`
+                <div class="video-item">
+                    <video controls><source src="${url}" type="${file.type}"></video>
+                    <div class="video-label">${file.name}</div>
+                </div>
+            `);
+        }
+    });
+
+    // ========================================
+    // 2D EMOTION VIDEOS PREVIEW (ADD + EDIT)
     // ========================================
     $(document).on('change', 'input[id^="emotionVideos_"]', function(e) {
         let files = e.target.files;
         let emotion = $(this).data('emotion');
-
-        // Add page uses #emotionPreview_X, edit page uses #newEmotionPreview_X
-        let previewContainerId = $('#emotionPreview_' + emotion).length
+        // Add page: #emotionPreview_X / Edit page: #newEmotionPreview_X
+        let previewId = $('#emotionPreview_' + emotion).length
             ? '#emotionPreview_' + emotion
             : '#newEmotionPreview_' + emotion;
-
-        let previewContainer = $(previewContainerId);
+        let previewContainer = $(previewId);
         previewContainer.empty();
 
         for (let i = 0; i < files.length; i++) {
             let file = files[i];
             let url = URL.createObjectURL(file);
             let ext = file.name.split('.').pop().toLowerCase();
-
-            let mediaHtml = '';
-            if (ext === 'gif') {
-                mediaHtml = `<img src="${url}" style="width:100%;height:100px;object-fit:cover;border-radius:6px;">`;
-            } else {
-                mediaHtml = `<video controls style="width:100%;height:100px;border-radius:6px;object-fit:cover;">
-                                <source src="${url}" type="${file.type}">
-                             </video>`;
-            }
+            let mediaHtml = ext === 'gif'
+                ? `<img src="${url}" style="width:100%;height:100px;object-fit:cover;border-radius:6px;">`
+                : `<video controls style="width:100%;height:100px;border-radius:6px;object-fit:cover;"><source src="${url}" type="${file.type}"></video>`;
 
             previewContainer.append(`
                 <div class="video-item">
                     ${mediaHtml}
-                    <div class="video-label" style="font-size:11px;">${file.name} <span class="badge badge-success" style="background:#28a745;color:#fff;font-size:10px;padding:2px 5px;">New</span></div>
+                    <div class="video-label" style="font-size:11px;">
+                        ${file.name}
+                        <span class="badge badge-success" style="background:#28a745;color:#fff;font-size:10px;padding:2px 5px;">New</span>
+                    </div>
                 </div>
             `);
         }
     });
 
-    // Submit Add AI Companion
+    // ========================================
+    // ✅ 3D EMOTION VIDEOS PREVIEW (ADD + EDIT)
+    // Input IDs: em3d_happy_idle, em3d_happy_talking, etc.
+    // ========================================
+    $(document).on('change', 'input[id^="em3d_"]', function(e) {
+        let files   = e.target.files;
+        let emotion = $(this).data('emotion');
+        let state   = $(this).data('state'); // 'idle' or 'talking'
+
+        let previewContainer = $('#em3d_preview_' + emotion + '_' + state);
+        previewContainer.empty();
+
+        let stateColor = state === 'idle' ? '#6c757d' : '#28a745';
+        let stateLabel = state === 'idle' ? 'Idle' : 'Talking';
+
+        for (let i = 0; i < files.length; i++) {
+            let file = files[i];
+            let url  = URL.createObjectURL(file);
+            let ext  = file.name.split('.').pop().toLowerCase();
+
+            let mediaHtml = ext === 'gif'
+                ? `<img src="${url}" style="width:100%;height:70px;object-fit:cover;border-radius:6px;">`
+                : `<video style="width:100%;height:70px;border-radius:6px;object-fit:cover;"><source src="${url}" type="${file.type}"></video>`;
+
+            previewContainer.append(`
+                <div class="video-item" style="position:relative;border-radius:6px;overflow:hidden;">
+                    ${mediaHtml}
+                    <div style="font-size:9px;color:#fff;text-align:center;padding:2px;
+                                background:${stateColor};border-radius:0 0 6px 6px;">
+                        ${stateLabel}
+                        <span style="background:#fff;color:${stateColor};font-size:8px;padding:1px 4px;border-radius:4px;margin-left:2px;">New</span>
+                    </div>
+                </div>
+            `);
+        }
+    });
+
+    // ========================================
+    // EDIT PAGE — DELETE AVATAR
+    // ========================================
+    $(document).on('click', '#deleteAvatar', function(e) {
+        e.stopPropagation();
+        Swal.fire({
+            title: 'Delete Avatar?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $('#deleteAvatarFlag').val('1');
+                $('#avatarPreview').html(`
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>Click to upload avatar</p>
+                    <small>PNG, JPG, GIF (Max 5MB)</small>
+                `);
+                Swal.fire('Marked!', 'Avatar will be deleted when you save.', 'success');
+            }
+        });
+    });
+
+    // ========================================
+    // EDIT PAGE — DELETE INTRO VIDEO
+    // ========================================
+    $(document).on('click', '#deleteVideo', function(e) {
+        e.stopPropagation();
+        Swal.fire({
+            title: 'Delete Intro Video?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                $('#deleteVideoFlag').val('1');
+                $('#videoPreview').html(`
+                    <i class="fas fa-film"></i>
+                    <p>Click to upload intro video</p>
+                    <small>MP4, WebM (Max 50MB)</small>
+                `);
+                Swal.fire('Marked!', 'Intro video will be deleted when you save.', 'success');
+            }
+        });
+    });
+
+    // ========================================
+    // EDIT PAGE — DELETE EXISTING IDLE VIDEOS
+    // ========================================
+    let deletedIdleVideos = [];
+    $(document).on('click', '.delete-idle-video', function(e) {
+        e.stopPropagation();
+        let videoUrl  = $(this).data('url').replace(/\\\//g, '/');
+        let videoItem = $(this).closest('.video-item');
+        Swal.fire({
+            title: 'Delete this idle video?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                deletedIdleVideos.push(videoUrl);
+                $('#deletedIdleVideos').val(JSON.stringify(deletedIdleVideos));
+                videoItem.fadeOut(300, function() { $(this).remove(); });
+                Swal.fire('Marked!', 'Video will be deleted when you save.', 'success');
+            }
+        });
+    });
+
+    // ========================================
+    // EDIT PAGE — DELETE EXISTING TALKING VIDEOS
+    // ========================================
+    let deletedTalkingVideos = [];
+    $(document).on('click', '.delete-talking-video', function(e) {
+        e.stopPropagation();
+        let videoUrl  = $(this).data('url').replace(/\\\//g, '/');
+        let videoItem = $(this).closest('.video-item');
+        Swal.fire({
+            title: 'Delete this talking video?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                deletedTalkingVideos.push(videoUrl);
+                $('#deletedTalkingVideos').val(JSON.stringify(deletedTalkingVideos));
+                videoItem.fadeOut(300, function() { $(this).remove(); });
+                Swal.fire('Marked!', 'Video will be deleted when you save.', 'success');
+            }
+        });
+    });
+
+    // ========================================
+    // EDIT PAGE — DELETE EXISTING 2D EMOTION VIDEOS
+    // ========================================
+    let deletedEmotionVideos = {};
+
+    $(document).on('click', '.delete-emotion-video', function(e) {
+        e.stopPropagation();
+        let videoUrl  = $(this).data('url').replace(/\\\//g, '/');
+        let emotion   = $(this).data('emotion');
+        let videoItem = $(this).closest('.video-item');
+
+        Swal.fire({
+            title: 'Delete this emotion video?',
+            text: `Emotion: ${emotion}`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                if (!deletedEmotionVideos[emotion]) {
+                    deletedEmotionVideos[emotion] = [];
+                }
+                deletedEmotionVideos[emotion].push(videoUrl);
+                $('#deletedEmotionVideos_' + emotion).val(JSON.stringify(deletedEmotionVideos[emotion]));
+                videoItem.fadeOut(300, function() { $(this).remove(); });
+                Swal.fire('Marked!', 'Emotion video will be deleted when you save.', 'success');
+            }
+        });
+    });
+
+    // ========================================
+    // ✅ EDIT PAGE — DELETE EXISTING 3D EMOTION VIDEOS
+    // Button class: .delete-em3d-video
+    // data-emotion, data-state (idle/talking)
+    // ========================================
+    let deletedEmotion3D = {}; // { happy: { idle: ['url1'], talking: ['url2'] }, ... }
+
+    $(document).on('click', '.delete-em3d-video', function(e) {
+        e.stopPropagation();
+        let videoUrl  = $(this).data('url').replace(/\\\//g, '/');
+        let emotion   = $(this).data('emotion');
+        let state     = $(this).data('state'); // 'idle' or 'talking'
+        let videoItem = $(this).closest('.video-item');
+
+        Swal.fire({
+            title: 'Delete this 3D emotion video?',
+            text: `${emotion} — ${state}`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: 'Yes, delete it!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Track deleted
+                if (!deletedEmotion3D[emotion])       deletedEmotion3D[emotion] = {};
+                if (!deletedEmotion3D[emotion][state]) deletedEmotion3D[emotion][state] = [];
+                deletedEmotion3D[emotion][state].push(videoUrl);
+
+                // Update hidden field: deleted_emotion_videos_3d[emotion][state]
+                $('#deleted3d_' + emotion + '_' + state).val(
+                    JSON.stringify(deletedEmotion3D[emotion][state])
+                );
+
+                videoItem.fadeOut(300, function() { $(this).remove(); });
+                Swal.fire('Marked!', '3D emotion video will be deleted when you save.', 'success');
+            }
+        });
+    });
+
+    // ========================================
+    // SUBMIT ADD AI COMPANION
+    // ========================================
     $('#submitAddAI').on('click', function(e) {
         e.preventDefault();
-        
-        if (!$('#item_id').val()) { alertError('Please select a bottle'); return; }
-        if (!$('#ai_code').val()) { alertError('Please enter AI Code'); return; }
+
+        if (!$('#item_id').val())   { alertError('Please select a bottle'); return; }
+        if (!$('#ai_code').val())   { alertError('Please enter AI Code'); return; }
         if (!$('#ai_name_th').val()) { alertError('Please enter AI Name (Thai)'); return; }
-        
+
         let formData = new FormData($('#formAICompanion')[0]);
         formData.append('action', 'addAICompanion');
-        
+
         $('#loading-overlay').fadeIn();
         $.ajax({
             url: 'actions/process_ai_companions.php',
@@ -362,223 +570,20 @@ $(document).ready(function() {
             }
         });
     });
-    
-    // ========================================
-    // EDIT AI COMPANION PAGE
-    // ========================================
-    
-    // Delete Avatar
-    $('#deleteAvatar').on('click', function(e) {
-        e.stopPropagation();
-        Swal.fire({
-            title: 'Delete Avatar?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete it!'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                $('#deleteAvatarFlag').val('1');
-                $('#avatarPreview').html(`
-                    <i class="fas fa-cloud-upload-alt"></i>
-                    <p>Click to upload avatar</p>
-                    <small>PNG, JPG, GIF (Max 5MB)</small>
-                `);
-                Swal.fire('Marked for deletion!', 'Avatar will be deleted when you save.', 'success');
-            }
-        });
-    });
-    
-    // Delete Intro Video
-    $('#deleteVideo').on('click', function(e) {
-        e.stopPropagation();
-        Swal.fire({
-            title: 'Delete Intro Video?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete it!'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                $('#deleteVideoFlag').val('1');
-                $('#videoPreview').html(`
-                    <i class="fas fa-film"></i>
-                    <p>Click to upload intro video</p>
-                    <small>MP4, WebM (Max 50MB)</small>
-                `);
-                Swal.fire('Marked for deletion!', 'Intro video will be deleted when you save.', 'success');
-            }
-        });
-    });
-    
-    // Delete Existing Idle Videos
-    let deletedIdleVideos = [];
-    $(document).on('click', '.delete-idle-video', function(e) {
-        e.stopPropagation();
-        let videoUrl = $(this).data('url').replace(/\\\//g, '/');
-        let videoItem = $(this).closest('.video-item');
-        Swal.fire({
-            title: 'Delete this idle video?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete it!'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                deletedIdleVideos.push(videoUrl);
-                $('#deletedIdleVideos').val(JSON.stringify(deletedIdleVideos));
-                videoItem.fadeOut(300, function() { $(this).remove(); });
-                Swal.fire('Marked!', 'Video will be deleted when you save.', 'success');
-            }
-        });
-    });
-    
-    // Delete Existing Talking Videos
-    let deletedTalkingVideos = [];
-    $(document).on('click', '.delete-talking-video', function(e) {
-        e.stopPropagation();
-        let videoUrl = $(this).data('url').replace(/\\\//g, '/');
-        let videoItem = $(this).closest('.video-item');
-        Swal.fire({
-            title: 'Delete this talking video?',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete it!'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                deletedTalkingVideos.push(videoUrl);
-                $('#deletedTalkingVideos').val(JSON.stringify(deletedTalkingVideos));
-                videoItem.fadeOut(300, function() { $(this).remove(); });
-                Swal.fire('Marked!', 'Video will be deleted when you save.', 'success');
-            }
-        });
-    });
 
     // ========================================
-    // ✅ DELETE EXISTING EMOTION VIDEOS (EDIT PAGE)
+    // SUBMIT EDIT AI COMPANION
     // ========================================
-    let deletedEmotionVideos = {}; // { happy: ['url1', 'url2'], sad: [...] }
-
-    $(document).on('click', '.delete-emotion-video', function(e) {
-        e.stopPropagation();
-        let videoUrl = $(this).data('url').replace(/\\\//g, '/');
-        let emotion  = $(this).data('emotion');
-        let videoItem = $(this).closest('.video-item');
-
-        Swal.fire({
-            title: 'Delete this emotion video?',
-            text: `Emotion: ${emotion}`,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'Yes, delete it!'
-        }).then((result) => {
-            if (result.isConfirmed) {
-                // Track deleted
-                if (!deletedEmotionVideos[emotion]) {
-                    deletedEmotionVideos[emotion] = [];
-                }
-                deletedEmotionVideos[emotion].push(videoUrl);
-
-                // Update hidden field สำหรับ emotion นั้น
-                let hiddenField = $('#deletedEmotionVideos_' + emotion);
-                hiddenField.val(JSON.stringify(deletedEmotionVideos[emotion]));
-
-                videoItem.fadeOut(300, function() { $(this).remove(); });
-
-                // Update badge count
-                let remaining = $('#existingEmotionVideos_' + emotion + ' .video-item').length - 1;
-                // (fadeOut ยังไม่ remove ทันที ดังนั้น -1)
-
-                Swal.fire('Marked!', 'Emotion video will be deleted when you save.', 'success');
-            }
-        });
-    });
-    
-    // ========================================
-    // NEW IDLE / TALKING VIDEOS PREVIEW (EDIT PAGE)
-    // ========================================
-    $('#idleVideos').on('change', function(e) {
-        let files = e.target.files;
-        let previewContainer = $('#newIdleVideosPreview');
-        previewContainer.empty();
-        for (let i = 0; i < files.length; i++) {
-            let file = files[i];
-            let url = URL.createObjectURL(file);
-            previewContainer.append(`
-                <div class="video-item">
-                    <video controls style="width:100%;height:150px;border-radius:8px;object-fit:cover;">
-                        <source src="${url}" type="${file.type}">
-                    </video>
-                    <div style="margin-top:5px;font-size:12px;color:#666;text-align:center;">
-                        ${file.name} <span class="badge badge-success">New</span>
-                    </div>
-                </div>
-            `);
-        }
-    });
-    
-    $('#talkingVideos').on('change', function(e) {
-        let files = e.target.files;
-        let previewContainer = $('#newTalkingVideosPreview');
-        previewContainer.empty();
-        for (let i = 0; i < files.length; i++) {
-            let file = files[i];
-            let url = URL.createObjectURL(file);
-            previewContainer.append(`
-                <div class="video-item">
-                    <video controls style="width:100%;height:150px;border-radius:8px;object-fit:cover;">
-                        <source src="${url}" type="${file.type}">
-                    </video>
-                    <div style="margin-top:5px;font-size:12px;color:#666;text-align:center;">
-                        ${file.name} <span class="badge badge-success">New</span>
-                    </div>
-                </div>
-            `);
-        }
-    });
-    
-    // Avatar Preview (Edit page)
-    $('#aiAvatar').on('change', function(e) {
-        let file = e.target.files[0];
-        if (file) {
-            $('#deleteAvatarFlag').val('0');
-            let reader = new FileReader();
-            reader.onload = function(event) {
-                $('#avatarPreview').html(`
-                    <img src="${event.target.result}" style="width:100%;height:250px;object-fit:cover;border-radius:8px;">
-                `);
-            };
-            reader.readAsDataURL(file);
-        }
-    });
-    
-    // Intro Video Preview (Edit page)
-    $('#aiVideo').on('change', function(e) {
-        let file = e.target.files[0];
-        if (file) {
-            $('#deleteVideoFlag').val('0');
-            let url = URL.createObjectURL(file);
-            $('#videoPreview').html(`
-                <video controls style="width:100%;height:250px;border-radius:8px;">
-                    <source src="${url}" type="${file.type}">
-                </video>
-            `);
-        }
-    });
-    
-    // Submit Edit AI Companion
     $('#submitEditAI').on('click', function(e) {
         e.preventDefault();
-        
-        if (!$('#item_id').val()) { alertError('Please select a bottle'); return; }
-        if (!$('#ai_code').val()) { alertError('Please enter AI Code'); return; }
+
+        if (!$('#item_id').val())    { alertError('Please select a bottle'); return; }
+        if (!$('#ai_code').val())    { alertError('Please enter AI Code'); return; }
         if (!$('#ai_name_th').val()) { alertError('Please enter AI Name (Thai)'); return; }
-        
+
         let formData = new FormData($('#formAICompanionEdit')[0]);
         formData.append('action', 'editAICompanion');
-        
+
         $('#loading-overlay').fadeIn();
         $.ajax({
             url: 'actions/process_ai_companions.php',
@@ -604,8 +609,10 @@ $(document).ready(function() {
             }
         });
     });
-    
-    // Back Button
+
+    // ========================================
+    // BACK BUTTON
+    // ========================================
     $('#btnAddAI, #backToAIList').on('click', function() {
         if ($(this).attr('id') === 'btnAddAI') {
             window.location.href = 'add_ai_companion.php';
@@ -613,7 +620,10 @@ $(document).ready(function() {
             window.location.href = 'list_project.php';
         }
     });
-    
+
+    // ========================================
+    // ALERT HELPER
+    // ========================================
     function alertError(message) {
         const Toast = Swal.mixin({
             toast: true,

@@ -55,6 +55,16 @@ while ($row = $items_result->fetch_assoc()) {
     $items[] = $row;
 }
 
+$emotions = [
+    'happy'      => ['icon' => 'fa-smile',             'color' => '#ffc107', 'label' => 'Happy 😊',      'desc' => 'ตอบแบบดีใจ, ชมเชย, ข่าวดี'],
+    'sad'        => ['icon' => 'fa-sad-tear',           'color' => '#6c757d', 'label' => 'Sad 😢',        'desc' => 'ปลอบใจ, เศร้า, เห็นอกเห็นใจ'],
+    'excited'    => ['icon' => 'fa-grin-stars',         'color' => '#fd7e14', 'label' => 'Excited 🤩',    'desc' => 'แนะนำสิ่งใหม่, ตื่นเต้น'],
+    'calm'       => ['icon' => 'fa-smile-beam',         'color' => '#28a745', 'label' => 'Calm 😌',       'desc' => 'ตอบข้อมูลทั่วไป, เป็นกลาง'],
+    'thinking'   => ['icon' => 'fa-brain',              'color' => '#007bff', 'label' => 'Thinking 🤔',   'desc' => 'วิเคราะห์, คำถามซับซ้อน'],
+    'surprised'  => ['icon' => 'fa-surprise',           'color' => '#e83e8c', 'label' => 'Surprised 😲',  'desc' => 'ข้อมูลน่าสนใจ, ไม่คาดคิด'],
+    'empathetic' => ['icon' => 'fa-hand-holding-heart', 'color' => '#dc3545', 'label' => 'Empathetic 🤗', 'desc' => 'เข้าใจความรู้สึก, สนับสนุน'],
+];
+
 include '../template/header.php';
 ?>
 
@@ -95,8 +105,7 @@ include '../template/header.php';
                                         <?php endforeach; ?>
                                     </select>
                                     <small class="text-muted">
-                                        <i class="fas fa-info-circle"></i> 
-                                        Each bottle can only have one AI Companion
+                                        <i class="fas fa-info-circle"></i> Each bottle can only have one AI Companion
                                     </small>
                                 </div>
 
@@ -165,30 +174,21 @@ include '../template/header.php';
                                     <small class="text-muted">วิดีโอที่แสดงเมื่อ AI กำลังพูด (จะ Random เล่น)</small>
                                 </div>
 
-                                <!-- ✅ NEW: 2D Emotion Videos (Multiple per emotion) -->
+                                <!-- ==========================================
+                                     2D Emotion Videos 
+                                     ========================================== -->
                                 <div class="form-group mb-4">
                                     <label>
                                         <i class="fas fa-heart"></i> 
                                         2D Emotion Videos/GIFs 
-                                        <span class="badge badge-info" style="background:#17a2b8;color:#fff;font-size:11px;padding:3px 7px;border-radius:10px;">NEW</span>
+                                        <span class="badge" style="background:#17a2b8;color:#fff;font-size:11px;padding:3px 7px;border-radius:10px;">2D</span>
                                     </label>
                                     <small class="text-muted d-block mb-3">
                                         <i class="fas fa-info-circle"></i> 
                                         วิดีโอสั้น/GIF แสดงอารมณ์ข้าง Avatar ใน 2D Mode — แต่ละอารมณ์อัพโหลดได้หลายไฟล์ (จะ Random เล่น)
                                     </small>
 
-                                    <?php
-                                    $emotions = [
-                                        'happy'      => ['icon' => 'fa-smile',        'color' => '#ffc107', 'label' => 'Happy 😊',      'desc' => 'ตอบแบบดีใจ, ชมเชย, ข่าวดี'],
-                                        'sad'        => ['icon' => 'fa-sad-tear',      'color' => '#6c757d', 'label' => 'Sad 😢',        'desc' => 'ปลอบใจ, เศร้า, เห็นอกเห็นใจ'],
-                                        'excited'    => ['icon' => 'fa-grin-stars',    'color' => '#fd7e14', 'label' => 'Excited 🤩',    'desc' => 'แนะนำสิ่งใหม่, ตื่นเต้น'],
-                                        'calm'       => ['icon' => 'fa-smile-beam',    'color' => '#28a745', 'label' => 'Calm 😌',       'desc' => 'ตอบข้อมูลทั่วไป, เป็นกลาง'],
-                                        'thinking'   => ['icon' => 'fa-brain',         'color' => '#007bff', 'label' => 'Thinking 🤔',   'desc' => 'วิเคราะห์, คำถามซับซ้อน'],
-                                        'surprised'  => ['icon' => 'fa-surprise',      'color' => '#e83e8c', 'label' => 'Surprised 😲',  'desc' => 'ข้อมูลน่าสนใจ, ไม่คาดคิด'],
-                                        'empathetic' => ['icon' => 'fa-hand-holding-heart', 'color' => '#dc3545', 'label' => 'Empathetic 🤗', 'desc' => 'เข้าใจความรู้สึก, สนับสนุน'],
-                                    ];
-                                    foreach ($emotions as $emotion_key => $emotion_info):
-                                    ?>
+                                    <?php foreach ($emotions as $emotion_key => $emotion_info): ?>
                                     <div class="emotion-upload-block mb-3" style="border:1px solid #e0e0e0; border-radius:10px; padding:15px; background:#fafafa;">
                                         <div class="d-flex align-items-center mb-2" style="gap:10px;">
                                             <div style="width:36px;height:36px;border-radius:50%;background:<?= $emotion_info['color'] ?>;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
@@ -219,6 +219,96 @@ include '../template/header.php';
                                     <?php endforeach; ?>
                                 </div>
 
+                                <!-- ==========================================
+                                     3D Emotion Videos (idle + talking per emotion)
+                                     ========================================== -->
+                                <div class="form-group mb-4">
+                                    <label>
+                                        <i class="fas fa-cube"></i>
+                                        3D Emotion Videos/GIFs
+                                        <span class="badge" style="background:#667eea;color:#fff;font-size:11px;padding:3px 7px;border-radius:10px;">3D</span>
+                                    </label>
+                                    <small class="text-muted d-block mb-3">
+                                        <i class="fas fa-info-circle"></i>
+                                        วิดีโอ/GIF อารมณ์สำหรับ 3D Mode — แต่ละอารมณ์มี <strong>Idle</strong> (ยืนเฉย) และ <strong>Talking</strong> (กำลังพูด) แยกกัน
+                                    </small>
+
+                                    <?php foreach ($emotions as $emotion_key => $emotion_info): ?>
+                                    <div class="emotion-3d-block mb-3"
+                                         style="border:2px solid <?= $emotion_info['color'] ?>33; border-radius:12px; padding:16px; background:#fafafa;">
+
+                                        <!-- Emotion Header -->
+                                        <div class="d-flex align-items-center mb-3" style="gap:10px;">
+                                            <div style="width:38px;height:38px;border-radius:50%;background:<?= $emotion_info['color'] ?>;
+                                                        display:flex;align-items:center;justify-content:center;flex-shrink:0;
+                                                        box-shadow:0 2px 8px <?= $emotion_info['color'] ?>55;">
+                                                <i class="fas <?= $emotion_info['icon'] ?>" style="color:#fff;font-size:17px;"></i>
+                                            </div>
+                                            <div>
+                                                <strong style="font-size:14px;"><?= $emotion_info['label'] ?></strong>
+                                                <div style="font-size:11px;color:#888;"><?= $emotion_info['desc'] ?></div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Idle + Talking side by side -->
+                                        <div class="row g-2">
+
+                                            <!-- IDLE -->
+                                            <div class="col-6">
+                                                <div style="background:#fff;border:1px dashed #ccc;border-radius:8px;padding:10px;text-align:center;">
+                                                    <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">
+                                                        <i class="fas fa-pause-circle" style="color:#6c757d;"></i> Idle (ยืนเฉย)
+                                                    </div>
+                                                    <button type="button"
+                                                            class="btn btn-sm btn-outline-secondary w-100 mb-2"
+                                                            onclick="document.getElementById('em3d_<?= $emotion_key ?>_idle').click()"
+                                                            style="font-size:11px;">
+                                                        <i class="fas fa-cloud-upload-alt"></i> Upload
+                                                    </button>
+                                                    <input type="file"
+                                                           id="em3d_<?= $emotion_key ?>_idle"
+                                                           name="emotion_videos_3d[<?= $emotion_key ?>][idle][]"
+                                                           accept="video/*,image/gif"
+                                                           multiple
+                                                           style="display:none;"
+                                                           data-emotion="<?= $emotion_key ?>"
+                                                           data-state="idle">
+                                                    <div id="em3d_preview_<?= $emotion_key ?>_idle" class="video-grid"
+                                                         style="margin-top:6px;grid-template-columns:repeat(2,1fr);gap:4px;"></div>
+                                                </div>
+                                            </div>
+
+                                            <!-- TALKING -->
+                                            <div class="col-6">
+                                                <div style="background:#fff;border:1px dashed #ccc;border-radius:8px;padding:10px;text-align:center;">
+                                                    <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">
+                                                        <i class="fas fa-play-circle" style="color:#28a745;"></i> Talking (กำลังพูด)
+                                                    </div>
+                                                    <button type="button"
+                                                            class="btn btn-sm btn-outline-success w-100 mb-2"
+                                                            onclick="document.getElementById('em3d_<?= $emotion_key ?>_talking').click()"
+                                                            style="font-size:11px;">
+                                                        <i class="fas fa-cloud-upload-alt"></i> Upload
+                                                    </button>
+                                                    <input type="file"
+                                                           id="em3d_<?= $emotion_key ?>_talking"
+                                                           name="emotion_videos_3d[<?= $emotion_key ?>][talking][]"
+                                                           accept="video/*,image/gif"
+                                                           multiple
+                                                           style="display:none;"
+                                                           data-emotion="<?= $emotion_key ?>"
+                                                           data-state="talking">
+                                                    <div id="em3d_preview_<?= $emotion_key ?>_talking" class="video-grid"
+                                                         style="margin-top:6px;grid-template-columns:repeat(2,1fr);gap:4px;"></div>
+                                                </div>
+                                            </div>
+
+                                        </div><!-- /row -->
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                <!-- END 3D Emotion Videos -->
+
                                 <!-- AI Voice (ElevenLabs) -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-volume-up"></i> AI Voice (ElevenLabs)</label>
@@ -228,7 +318,7 @@ include '../template/header.php';
                                         placeholder="Voice Name (e.g., Rachel - Female, Multilingual)">
                                     <small class="text-muted">
                                         <i class="fas fa-info-circle"></i> 
-                                        Enter ElevenLabs Voice ID and name. This voice will be used for all languages (TH, EN, CN, JP, KR)
+                                        Enter ElevenLabs Voice ID and name. This voice will be used for all languages
                                     </small>
                                 </div>
 
@@ -293,11 +383,11 @@ include '../template/header.php';
                                         </div>
                                         <div class="form-group mb-3">
                                             <label>Perfume Knowledge (TH)</label>
-                                            <textarea class="form-control" id="perfume_knowledge_th" name="perfume_knowledge_th" rows="5" placeholder="กลิ่นหอมนี้มีโน้ตของดอกกุหลาบ, แจสมิน..."></textarea>
+                                            <textarea class="form-control" id="perfume_knowledge_th" name="perfume_knowledge_th" rows="5"></textarea>
                                         </div>
                                         <div class="form-group">
                                             <label>Style Suggestions (TH)</label>
-                                            <textarea class="form-control" id="style_suggestions_th" name="style_suggestions_th" rows="5" placeholder="แนะนำให้แต่งตัวสไตล์เรียบหรู..."></textarea>
+                                            <textarea class="form-control" id="style_suggestions_th" name="style_suggestions_th" rows="5"></textarea>
                                         </div>
                                     </div>
 
@@ -309,15 +399,15 @@ include '../template/header.php';
                                         </div>
                                         <div class="form-group mb-3">
                                             <label>System Prompt (EN)</label>
-                                            <textarea class="form-control" id="system_prompt_en" name="system_prompt_en" rows="4" placeholder="You are an AI who understands and cares for users..."></textarea>
+                                            <textarea class="form-control" id="system_prompt_en" name="system_prompt_en" rows="4"></textarea>
                                         </div>
                                         <div class="form-group mb-3">
                                             <label>Perfume Knowledge (EN)</label>
-                                            <textarea class="form-control" id="perfume_knowledge_en" name="perfume_knowledge_en" rows="5" placeholder="This fragrance features notes of rose, jasmine..."></textarea>
+                                            <textarea class="form-control" id="perfume_knowledge_en" name="perfume_knowledge_en" rows="5"></textarea>
                                         </div>
                                         <div class="form-group">
                                             <label>Style Suggestions (EN)</label>
-                                            <textarea class="form-control" id="style_suggestions_en" name="style_suggestions_en" rows="5" placeholder="Recommend elegant style clothing..."></textarea>
+                                            <textarea class="form-control" id="style_suggestions_en" name="style_suggestions_en" rows="5"></textarea>
                                         </div>
                                     </div>
 
@@ -325,7 +415,7 @@ include '../template/header.php';
                                     <div class="tab-pane fade" id="cn">
                                         <div class="form-group mb-3">
                                             <label>AI Name (CN)</label>
-                                            <input type="text" class="form-control" id="ai_name_cn" name="ai_name_cn" placeholder="例如: 玫瑰 - 你的理解之友">
+                                            <input type="text" class="form-control" id="ai_name_cn" name="ai_name_cn">
                                         </div>
                                         <div class="form-group mb-3">
                                             <label>System Prompt (CN)</label>
@@ -345,7 +435,7 @@ include '../template/header.php';
                                     <div class="tab-pane fade" id="jp">
                                         <div class="form-group mb-3">
                                             <label>AI Name (JP)</label>
-                                            <input type="text" class="form-control" id="ai_name_jp" name="ai_name_jp" placeholder="例: ローズ - あなたを理解する友達">
+                                            <input type="text" class="form-control" id="ai_name_jp" name="ai_name_jp">
                                         </div>
                                         <div class="form-group mb-3">
                                             <label>System Prompt (JP)</label>
@@ -365,7 +455,7 @@ include '../template/header.php';
                                     <div class="tab-pane fade" id="kr">
                                         <div class="form-group mb-3">
                                             <label>AI Name (KR)</label>
-                                            <input type="text" class="form-control" id="ai_name_kr" name="ai_name_kr" placeholder="예: 로즈 - 당신을 이해하는 친구">
+                                            <input type="text" class="form-control" id="ai_name_kr" name="ai_name_kr">
                                         </div>
                                         <div class="form-group mb-3">
                                             <label>System Prompt (KR)</label>
