@@ -293,9 +293,9 @@ select.form-control {
    ======================================== */
 .video-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 16px;
-    margin-top: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
 }
 
 .video-item {
@@ -312,27 +312,28 @@ select.form-control {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-.video-item video {
+.video-item video,
+.video-item img {
     width: 100%;
-    height: 140px;
+    height: 100px;
     object-fit: cover;
     display: block;
 }
 
 .video-item .delete-btn {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    background: rgba(0, 0, 0, 0.8);
+    top: 6px;
+    right: 6px;
+    background: rgba(0, 0, 0, 0.75);
     color: white;
     border: none;
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 12px;
+    font-size: 11px;
     cursor: pointer;
     transition: all 0.2s;
     opacity: 0;
@@ -348,18 +349,21 @@ select.form-control {
 }
 
 .video-item .video-label {
-    padding: 8px 12px;
-    font-size: 12px;
+    padding: 6px 8px;
+    font-size: 11px;
     color: var(--text-secondary);
     text-align: center;
     background: white;
     border-top: 1px solid var(--border-gray);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .video-item .badge {
-    margin-left: 6px;
-    padding: 2px 8px;
-    font-size: 10px;
+    margin-left: 4px;
+    padding: 1px 6px;
+    font-size: 9px;
     border-radius: 4px;
 }
 
@@ -466,6 +470,17 @@ select.form-control {
     background: var(--primary-black);
     color: white;
     border-color: var(--primary-black);
+}
+
+.btn-outline-success {
+    background: white;
+    color: var(--accent-green);
+    border: 1.5px solid var(--accent-green);
+}
+
+.btn-outline-success:hover {
+    background: var(--accent-green);
+    color: white;
 }
 
 .btn-lg {
@@ -690,6 +705,284 @@ small.text-muted {
 }
 
 /* ========================================
+   EMOTION MANAGER — TAB UI
+   ======================================== */
+
+/* Wrapper card */
+.emotion-manager-card {
+    border: 1.5px solid var(--border-gray);
+    border-radius: 14px;
+    overflow: hidden;
+    background: #fff;
+    margin-bottom: 0;
+}
+
+/* Header strip */
+.emotion-manager-header {
+    background: #fff;
+    border-bottom: 1px solid var(--border-gray);
+    padding: 14px 16px 0;
+}
+
+.emotion-manager-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+}
+
+.emotion-mode-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+}
+.emotion-mode-badge.m2d { background: #dff6fb; color: #0a7a96; }
+.emotion-mode-badge.m3d { background: #ede8ff; color: #5b35c4; }
+
+/* Emotion pill tabs */
+.emotion-tab-bar {
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    padding-bottom: 0;
+    scrollbar-width: none;
+}
+.emotion-tab-bar::-webkit-scrollbar { display: none; }
+
+.emo-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 9px 14px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color .15s, border-color .15s;
+    position: relative;
+    top: 1px;
+}
+.emo-tab-btn:hover { color: var(--primary-black); }
+.emo-tab-btn.active {
+    color: var(--primary-black);
+    border-bottom-color: var(--primary-black);
+    font-weight: 600;
+}
+
+.emo-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    display: inline-block;
+}
+
+.emo-count {
+    font-size: 10px;
+    background: #eee;
+    color: var(--text-secondary);
+    border-radius: 10px;
+    padding: 1px 6px;
+    font-weight: 600;
+    min-width: 18px;
+    text-align: center;
+    transition: background .2s, color .2s;
+}
+.emo-tab-btn.active .emo-count {
+    background: var(--primary-black);
+    color: white;
+}
+.emo-count.has-files {
+    background: #16a34a;
+    color: white;
+}
+
+/* Tab pane body */
+.emotion-manager-body {
+    padding: 16px;
+}
+
+.emo-pane { display: none; }
+.emo-pane.active { display: block; }
+
+.emo-pane-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--primary-black);
+    margin-bottom: 2px;
+}
+.emo-pane-desc {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+}
+
+/* Drop zone inside emotion manager */
+.emo-drop-zone {
+    border: 2px dashed var(--border-gray);
+    border-radius: 10px;
+    padding: 18px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    background: #fafafa;
+    position: relative;
+}
+.emo-drop-zone input[type="file"] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer; z-index: 2;
+}
+.emo-drop-zone:hover {
+    border-color: var(--primary-black);
+    background: #f2f2f2;
+}
+.emo-drop-zone.drag-over {
+    border-color: var(--primary-black);
+    background: #f0f0f0;
+}
+.emo-drop-zone i { font-size: 22px; color: var(--text-secondary); display: block; margin-bottom: 5px; }
+.emo-drop-zone .dz-text { font-size: 12px; font-weight: 500; color: var(--text-primary); }
+.emo-drop-zone .dz-hint { font-size: 11px; color: var(--text-secondary); margin-top: 2px; }
+
+/* compact drop zone for 3D columns */
+.emo-drop-zone.compact { padding: 10px 8px; }
+.emo-drop-zone.compact i { font-size: 16px; margin-bottom: 3px; }
+.emo-drop-zone.compact .dz-text { font-size: 11px; }
+.emo-drop-zone.compact .dz-hint { font-size: 10px; }
+
+/* 3D state split layout */
+.state-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.state-col {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1.5px solid var(--border-gray);
+}
+
+.state-col-head {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-gray);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    background: #fafafa;
+}
+
+.state-col-head.talking-head {
+    background: #f0faf4;
+    border-bottom-color: #c3e6cb;
+}
+
+.state-label-text {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .6px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.state-label-text.idle  { color: #555; }
+.state-label-text.talking { color: #1a6b3c; }
+
+.state-count-badge {
+    font-size: 10px;
+    background: #eee;
+    color: #555;
+    border-radius: 10px;
+    padding: 1px 7px;
+    font-weight: 600;
+    transition: background .2s, color .2s;
+}
+.state-count-badge.has-files {
+    background: #16a34a;
+    color: white;
+}
+
+.state-col-body {
+    padding: 10px;
+}
+
+/* Emotion video grid (smaller thumbnails) */
+.emo-video-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 6px;
+    margin-bottom: 8px;
+}
+.emo-video-grid:empty { display: none; }
+
+.emo-vcard {
+    position: relative;
+    border-radius: 7px;
+    overflow: hidden;
+    background: var(--border-gray);
+    aspect-ratio: 16/10;
+}
+.emo-vcard video,
+.emo-vcard img {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: block;
+}
+.emo-vcard-del {
+    position: absolute;
+    top: 3px; right: 3px;
+    width: 20px; height: 20px;
+    background: rgba(0,0,0,.7);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity .15s, background .15s;
+}
+.emo-vcard:hover .emo-vcard-del { opacity: 1; }
+.emo-vcard-del:hover { background: var(--accent-red); }
+
+.emo-vcard-lbl {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    background: linear-gradient(transparent, rgba(0,0,0,.5));
+    padding: 8px 3px 3px;
+    font-size: 9px;
+    color: rgba(255,255,255,.9);
+    text-align: center;
+}
+
+.emo-new-badge {
+    position: absolute;
+    top: 3px; left: 3px;
+    background: #16a34a;
+    color: white;
+    font-size: 8px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 3px;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+}
+
+/* ========================================
    RESPONSIVE
    ======================================== */
 @media (max-width: 768px) {
@@ -698,28 +991,36 @@ small.text-muted {
         align-items: flex-start;
         gap: 16px;
     }
-    
+
     .page-header h4 {
         font-size: 24px;
     }
-    
+
     .card-body {
         padding: 20px;
     }
-    
+
     .video-grid {
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 12px;
+        grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+        gap: 8px;
     }
-    
+
     .nav-tabs .nav-link {
         padding: 12px 14px;
         font-size: 13px;
+    }
+
+    .state-split {
+        grid-template-columns: 1fr;
     }
 }
 
 @media (max-width: 576px) {
     .video-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .emo-video-grid {
+        grid-template-columns: 1fr 1fr;
     }
 }

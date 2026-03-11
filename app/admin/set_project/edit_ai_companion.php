@@ -68,13 +68,13 @@ while ($row = $items_result->fetch_assoc()) {
 }
 
 $emotions = [
-    'happy'      => ['icon' => 'fa-smile',             'color' => '#ffc107', 'label' => 'Happy 😊',      'desc' => 'ตอบแบบดีใจ, ชมเชย, ข่าวดี'],
-    'sad'        => ['icon' => 'fa-sad-tear',           'color' => '#6c757d', 'label' => 'Sad 😢',        'desc' => 'ปลอบใจ, เศร้า, เห็นอกเห็นใจ'],
-    'excited'    => ['icon' => 'fa-grin-stars',         'color' => '#fd7e14', 'label' => 'Excited 🤩',    'desc' => 'แนะนำสิ่งใหม่, ตื่นเต้น'],
-    'calm'       => ['icon' => 'fa-smile-beam',         'color' => '#28a745', 'label' => 'Calm 😌',       'desc' => 'ตอบข้อมูลทั่วไป, เป็นกลาง'],
-    'thinking'   => ['icon' => 'fa-brain',              'color' => '#007bff', 'label' => 'Thinking 🤔',   'desc' => 'วิเคราะห์, คำถามซับซ้อน'],
-    'surprised'  => ['icon' => 'fa-surprise',           'color' => '#e83e8c', 'label' => 'Surprised 😲',  'desc' => 'ข้อมูลน่าสนใจ, ไม่คาดคิด'],
-    'empathetic' => ['icon' => 'fa-hand-holding-heart', 'color' => '#dc3545', 'label' => 'Empathetic 🤗', 'desc' => 'เข้าใจความรู้สึก, สนับสนุน'],
+    'happy'      => ['icon' => 'fa-smile',             'color' => '#e6a817', 'label' => 'Happy 😊',      'desc' => 'ตอบแบบดีใจ, ชมเชย, ข่าวดี'],
+    'sad'        => ['icon' => 'fa-sad-tear',           'color' => '#5a7fa8', 'label' => 'Sad 😢',        'desc' => 'ปลอบใจ, เศร้า, เห็นอกเห็นใจ'],
+    'excited'    => ['icon' => 'fa-grin-stars',         'color' => '#e06530', 'label' => 'Excited 🤩',    'desc' => 'แนะนำสิ่งใหม่, ตื่นเต้น'],
+    'calm'       => ['icon' => 'fa-smile-beam',         'color' => '#2d8a55', 'label' => 'Calm 😌',       'desc' => 'ตอบข้อมูลทั่วไป, เป็นกลาง'],
+    'thinking'   => ['icon' => 'fa-brain',              'color' => '#4a6fd4', 'label' => 'Thinking 🤔',   'desc' => 'วิเคราะห์, คำถามซับซ้อน'],
+    'surprised'  => ['icon' => 'fa-surprise',           'color' => '#b84a8c', 'label' => 'Surprised 😲',  'desc' => 'ข้อมูลน่าสนใจ, ไม่คาดคิด'],
+    'empathetic' => ['icon' => 'fa-hand-holding-heart', 'color' => '#c04040', 'label' => 'Empathetic 🤗', 'desc' => 'เข้าใจความรู้สึก, สนับสนุน'],
 ];
 
 include '../template/header.php';
@@ -96,24 +96,26 @@ include '../template/header.php';
 
             <form id="formAICompanionEdit" enctype="multipart/form-data">
                 <input type="hidden" name="ai_id" value="<?= $ai['ai_id'] ?>">
-                
+
                 <div class="row">
-                    
-                    <!-- Left Column: Media & Basic Info -->
+
+                    <!-- ============================================================
+                         Left Column: Media & Basic Info
+                         ============================================================ -->
                     <div class="col-lg-5">
                         <div class="card">
                             <div class="card-header">
                                 <h5><i class="fas fa-user-robot"></i> AI Media & Info</h5>
                             </div>
                             <div class="card-body">
-                                
+
                                 <!-- Item Selection -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-bottle-droplet"></i> Select Perfume Bottle *</label>
                                     <select class="form-control" id="item_id" name="item_id" required>
                                         <option value="">-- Select Bottle --</option>
                                         <?php foreach ($items as $item): ?>
-                                            <option value="<?= $item['item_id'] ?>" 
+                                            <option value="<?= $item['item_id'] ?>"
                                                     <?= $ai['item_id'] == $item['item_id'] ? 'selected' : '' ?>>
                                                 Serial Number: <?= htmlspecialchars($item['serial_number']) ?>
                                             </option>
@@ -189,7 +191,7 @@ include '../template/header.php';
                                                     <button type="button" class="delete-btn delete-idle-video" data-url="<?= htmlspecialchars($url) ?>">
                                                         <i class="fas fa-times"></i>
                                                     </button>
-                                                    <div class="video-label">Idle Video <?= $idx + 1 ?></div>
+                                                    <div class="video-label">Idle <?= $idx + 1 ?></div>
                                                 </div>
                                             <?php endforeach; ?>
                                         </div>
@@ -218,7 +220,7 @@ include '../template/header.php';
                                                     <button type="button" class="delete-btn delete-talking-video" data-url="<?= htmlspecialchars($url) ?>">
                                                         <i class="fas fa-times"></i>
                                                     </button>
-                                                    <div class="video-label">Talking Video <?= $idx + 1 ?></div>
+                                                    <div class="video-label">Talking <?= $idx + 1 ?></div>
                                                 </div>
                                             <?php endforeach; ?>
                                         </div>
@@ -234,262 +236,287 @@ include '../template/header.php';
                                 </div>
 
                                 <!-- ==========================================
-                                     2D Emotion Videos (Edit)
+                                     2D EMOTION VIDEOS — TAB UI (EDIT)
                                      ========================================== -->
                                 <div class="form-group mb-4">
                                     <label>
                                         <i class="fas fa-heart"></i>
                                         2D Emotion Videos/GIFs
-                                        <span class="badge" style="background:#17a2b8;color:#fff;font-size:11px;padding:3px 7px;border-radius:10px;">2D</span>
+                                        <span class="emotion-mode-badge m2d">2D</span>
                                     </label>
-                                    <small class="text-muted d-block mb-3">
+                                    <small class="text-muted d-block mb-2">
                                         <i class="fas fa-info-circle"></i>
                                         วิดีโอสั้น/GIF แสดงอารมณ์ข้าง Avatar ใน 2D Mode
                                     </small>
 
-                                    <?php foreach ($emotions as $emotion_key => $emotion_info):
-                                        $existing_2d_urls = $emotion_videos_data[$emotion_key] ?? [];
-                                    ?>
-                                    <div class="emotion-upload-block mb-3" style="border:1px solid #e0e0e0; border-radius:10px; padding:15px; background:#fafafa;">
-                                        <div class="d-flex align-items-center mb-2" style="gap:10px;">
-                                            <div style="width:36px;height:36px;border-radius:50%;background:<?= $emotion_info['color'] ?>;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                                                <i class="fas <?= $emotion_info['icon'] ?>" style="color:#fff;font-size:16px;"></i>
-                                            </div>
-                                            <div>
-                                                <strong style="font-size:14px;"><?= $emotion_info['label'] ?></strong>
-                                                <div style="font-size:11px;color:#888;"><?= $emotion_info['desc'] ?></div>
-                                            </div>
-                                            <div class="ms-auto d-flex gap-2">
-                                                <span class="badge" style="background:<?= !empty($existing_2d_urls) ? '#28a745' : '#ccc' ?>;color:#fff;font-size:11px;padding:4px 8px;border-radius:10px;align-self:center;">
-                                                    <?= count($existing_2d_urls) ?> file(s)
-                                                </span>
+                                    <div class="emotion-manager-card">
+                                        <!-- Tab bar -->
+                                        <div class="emotion-manager-header">
+                                            <div class="emotion-tab-bar" role="tablist">
+                                                <?php $first2d = true; foreach ($emotions as $ek => $ei):
+                                                    $existing_2d = $emotion_videos_data[$ek] ?? [];
+                                                    $cnt2d = count($existing_2d);
+                                                ?>
                                                 <button type="button"
-                                                        class="btn btn-sm btn-outline-secondary emotion-upload-btn"
-                                                        onclick="document.getElementById('emotionVideos_<?= $emotion_key ?>').click()"
-                                                        style="font-size:12px;">
-                                                    <i class="fas fa-plus"></i> Add
+                                                        class="emo-tab-btn <?= $first2d ? 'active' : '' ?>"
+                                                        data-target="pane2d-<?= $ek ?>"
+                                                        data-manager="mgr2d"
+                                                        onclick="switchEmoTab(this)">
+                                                    <span class="emo-dot" style="background:<?= $ei['color'] ?>"></span>
+                                                    <?= $ei['label'] ?>
+                                                    <span class="emo-count <?= $cnt2d > 0 ? 'has-files' : '' ?>" id="cnt2d-<?= $ek ?>"><?= $cnt2d ?></span>
                                                 </button>
+                                                <?php $first2d = false; endforeach; ?>
                                             </div>
                                         </div>
 
-                                        <?php if (!empty($existing_2d_urls)): ?>
-                                        <div id="existingEmotionVideos_<?= $emotion_key ?>" class="video-grid mb-2">
-                                            <?php foreach ($existing_2d_urls as $vidx => $vurl):
-                                                $ext = strtolower(pathinfo($vurl, PATHINFO_EXTENSION));
+                                        <!-- Panes -->
+                                        <div class="emotion-manager-body" id="mgr2d">
+                                            <?php $first2d = true; foreach ($emotions as $ek => $ei):
+                                                $existing_2d = $emotion_videos_data[$ek] ?? [];
                                             ?>
-                                                <div class="video-item" data-url="<?= htmlspecialchars($vurl) ?>">
-                                                    <?php if ($ext === 'gif'): ?>
-                                                        <img src="<?= htmlspecialchars($vurl) ?>" style="width:100%;height:100px;object-fit:cover;border-radius:6px;">
-                                                    <?php else: ?>
-                                                        <video controls style="width:100%;height:100px;border-radius:6px;object-fit:cover;">
-                                                            <source src="<?= htmlspecialchars($vurl) ?>">
-                                                        </video>
-                                                    <?php endif; ?>
-                                                    <button type="button"
-                                                            class="delete-btn delete-emotion-video"
-                                                            data-url="<?= htmlspecialchars($vurl) ?>"
-                                                            data-emotion="<?= $emotion_key ?>">
-                                                        <i class="fas fa-times"></i>
-                                                    </button>
-                                                    <div class="video-label"><?= ucfirst($emotion_key) ?> <?= $vidx + 1 ?></div>
-                                                </div>
-                                            <?php endforeach; ?>
-                                        </div>
-                                        <?php endif; ?>
+                                            <div class="emo-pane <?= $first2d ? 'active' : '' ?>" id="pane2d-<?= $ek ?>">
+                                                <div class="emo-pane-title"><?= $ei['label'] ?></div>
+                                                <div class="emo-pane-desc"><?= $ei['desc'] ?></div>
 
-                                        <input type="file"
-                                               id="emotionVideos_<?= $emotion_key ?>"
-                                               name="emotion_videos[<?= $emotion_key ?>][]"
-                                               accept="video/*,image/gif"
-                                               multiple
-                                               style="display:none;"
-                                               data-emotion="<?= $emotion_key ?>">
-                                        <input type="hidden"
-                                               id="deletedEmotionVideos_<?= $emotion_key ?>"
-                                               name="deleted_emotion_videos[<?= $emotion_key ?>]"
-                                               value="[]">
-                                        <div id="newEmotionPreview_<?= $emotion_key ?>" class="video-grid" style="margin-top:8px;"></div>
+                                                <!-- Existing files -->
+                                                <?php if (!empty($existing_2d)): ?>
+                                                <div class="emo-video-grid" id="existing-grid2d-<?= $ek ?>">
+                                                    <?php foreach ($existing_2d as $vidx => $vurl):
+                                                        $ext = strtolower(pathinfo($vurl, PATHINFO_EXTENSION));
+                                                    ?>
+                                                    <div class="emo-vcard" data-url="<?= htmlspecialchars($vurl) ?>">
+                                                        <?php if ($ext === 'gif'): ?>
+                                                            <img src="<?= htmlspecialchars($vurl) ?>" alt="">
+                                                        <?php else: ?>
+                                                            <video src="<?= htmlspecialchars($vurl) ?>" loop muted playsinline
+                                                                   onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0;"></video>
+                                                        <?php endif; ?>
+                                                        <button type="button"
+                                                                class="emo-vcard-del delete-emotion-video"
+                                                                data-url="<?= htmlspecialchars($vurl) ?>"
+                                                                data-emotion="<?= $ek ?>"
+                                                                data-counter="cnt2d-<?= $ek ?>">
+                                                            <i class="fas fa-times"></i>
+                                                        </button>
+                                                        <div class="emo-vcard-lbl"><?= ucfirst($ek) ?> <?= $vidx + 1 ?></div>
+                                                    </div>
+                                                    <?php endforeach; ?>
+                                                </div>
+                                                <?php endif; ?>
+
+                                                <!-- New uploads grid -->
+                                                <div class="emo-video-grid" id="grid2d-<?= $ek ?>"></div>
+
+                                                <!-- Drop zone -->
+                                                <div class="emo-drop-zone">
+                                                    <input type="file"
+                                                           id="emotionVideos_<?= $ek ?>"
+                                                           name="emotion_videos[<?= $ek ?>][]"
+                                                           accept="video/*,image/gif"
+                                                           multiple
+                                                           data-emotion="<?= $ek ?>"
+                                                           data-grid="grid2d-<?= $ek ?>"
+                                                           data-counter="cnt2d-<?= $ek ?>">
+                                                    <i class="fas fa-plus"></i>
+                                                    <div class="dz-text">เพิ่มไฟล์ใหม่ — ลากวางหรือคลิก</div>
+                                                    <div class="dz-hint">MP4, WebM, GIF</div>
+                                                </div>
+
+                                                <input type="hidden"
+                                                       id="deletedEmotionVideos_<?= $ek ?>"
+                                                       name="deleted_emotion_videos[<?= $ek ?>]"
+                                                       value="[]">
+                                            </div>
+                                            <?php $first2d = false; endforeach; ?>
+                                        </div>
                                     </div>
-                                    <?php endforeach; ?>
                                 </div>
+                                <!-- END 2D -->
 
                                 <!-- ==========================================
-                                     3D Emotion Videos (Edit) — idle + talking per emotion
+                                     3D EMOTION VIDEOS — TAB UI (EDIT)
                                      ========================================== -->
                                 <div class="form-group mb-4">
                                     <label>
                                         <i class="fas fa-cube"></i>
                                         3D Emotion Videos/GIFs
-                                        <span class="badge" style="background:#667eea;color:#fff;font-size:11px;padding:3px 7px;border-radius:10px;">3D</span>
+                                        <span class="emotion-mode-badge m3d">3D</span>
                                     </label>
-                                    <small class="text-muted d-block mb-3">
+                                    <small class="text-muted d-block mb-2">
                                         <i class="fas fa-info-circle"></i>
-                                        วิดีโอ/GIF อารมณ์สำหรับ 3D Mode — แต่ละอารมณ์มี <strong>Idle</strong> (ยืนเฉย) และ <strong>Talking</strong> (กำลังพูด) แยกกัน
+                                        วิดีโอ/GIF อารมณ์สำหรับ 3D Mode — แต่ละอารมณ์มี <strong>Idle</strong> และ <strong>Talking</strong> แยกกัน
                                     </small>
 
-                                    <?php foreach ($emotions as $emotion_key => $emotion_info):
-                                        $existing_idle    = $emotion_videos_3d_data[$emotion_key]['idle']    ?? [];
-                                        $existing_talking = $emotion_videos_3d_data[$emotion_key]['talking'] ?? [];
-                                        $total_3d = count($existing_idle) + count($existing_talking);
-                                    ?>
-                                    <div class="emotion-3d-block mb-3"
-                                         style="border:2px solid <?= $emotion_info['color'] ?>33; border-radius:12px; padding:16px; background:#fafafa;">
-
-                                        <!-- Emotion Header -->
-                                        <div class="d-flex align-items-center mb-3" style="gap:10px;">
-                                            <div style="width:38px;height:38px;border-radius:50%;background:<?= $emotion_info['color'] ?>;
-                                                        display:flex;align-items:center;justify-content:center;flex-shrink:0;
-                                                        box-shadow:0 2px 8px <?= $emotion_info['color'] ?>55;">
-                                                <i class="fas <?= $emotion_info['icon'] ?>" style="color:#fff;font-size:17px;"></i>
-                                            </div>
-                                            <div>
-                                                <strong style="font-size:14px;"><?= $emotion_info['label'] ?></strong>
-                                                <div style="font-size:11px;color:#888;"><?= $emotion_info['desc'] ?></div>
-                                            </div>
-                                            <div class="ms-auto">
-                                                <span class="badge" style="background:<?= $total_3d > 0 ? '#28a745' : '#ccc' ?>;color:#fff;font-size:11px;padding:4px 8px;border-radius:10px;">
-                                                    <?= $total_3d ?> file(s)
-                                                </span>
+                                    <div class="emotion-manager-card">
+                                        <!-- Tab bar -->
+                                        <div class="emotion-manager-header">
+                                            <div class="emotion-tab-bar" role="tablist">
+                                                <?php $first3d = true; foreach ($emotions as $ek => $ei):
+                                                    $ex_idle    = $emotion_videos_3d_data[$ek]['idle']    ?? [];
+                                                    $ex_talking = $emotion_videos_3d_data[$ek]['talking'] ?? [];
+                                                    $total3d    = count($ex_idle) + count($ex_talking);
+                                                ?>
+                                                <button type="button"
+                                                        class="emo-tab-btn <?= $first3d ? 'active' : '' ?>"
+                                                        data-target="pane3d-<?= $ek ?>"
+                                                        data-manager="mgr3d"
+                                                        onclick="switchEmoTab(this)">
+                                                    <span class="emo-dot" style="background:<?= $ei['color'] ?>"></span>
+                                                    <?= $ei['label'] ?>
+                                                    <span class="emo-count <?= $total3d > 0 ? 'has-files' : '' ?>" id="cnt3d-<?= $ek ?>"><?= $total3d ?></span>
+                                                </button>
+                                                <?php $first3d = false; endforeach; ?>
                                             </div>
                                         </div>
 
-                                        <div class="row g-2">
+                                        <!-- Panes -->
+                                        <div class="emotion-manager-body" id="mgr3d">
+                                            <?php $first3d = true; foreach ($emotions as $ek => $ei):
+                                                $ex_idle    = $emotion_videos_3d_data[$ek]['idle']    ?? [];
+                                                $ex_talking = $emotion_videos_3d_data[$ek]['talking'] ?? [];
+                                            ?>
+                                            <div class="emo-pane <?= $first3d ? 'active' : '' ?>" id="pane3d-<?= $ek ?>">
+                                                <div class="emo-pane-title"><?= $ei['label'] ?> — 3D Mode</div>
+                                                <div class="emo-pane-desc"><?= $ei['desc'] ?></div>
 
-                                            <!-- IDLE COLUMN -->
-                                            <div class="col-6">
-                                                <div style="background:#fff;border:1px dashed #ccc;border-radius:8px;padding:10px;">
-                                                    <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;text-align:center;">
-                                                        <i class="fas fa-pause-circle" style="color:#6c757d;"></i> Idle (ยืนเฉย)
-                                                    </div>
+                                                <div class="state-split">
 
-                                                    <?php if (!empty($existing_idle)): ?>
-                                                    <div id="existing3d_<?= $emotion_key ?>_idle" class="video-grid mb-2"
-                                                         style="grid-template-columns:repeat(2,1fr);gap:4px;">
-                                                        <?php foreach ($existing_idle as $vidx => $vurl):
-                                                            $ext = strtolower(pathinfo($vurl, PATHINFO_EXTENSION));
-                                                        ?>
-                                                            <div class="video-item" data-url="<?= htmlspecialchars($vurl) ?>"
-                                                                 style="position:relative;border-radius:6px;overflow:hidden;">
-                                                                <?php if ($ext === 'gif'): ?>
-                                                                    <img src="<?= htmlspecialchars($vurl) ?>"
-                                                                         style="width:100%;height:70px;object-fit:cover;border-radius:6px;">
-                                                                <?php else: ?>
-                                                                    <video style="width:100%;height:70px;border-radius:6px;object-fit:cover;">
-                                                                        <source src="<?= htmlspecialchars($vurl) ?>">
-                                                                    </video>
-                                                                <?php endif; ?>
-                                                                <button type="button"
-                                                                        class="delete-em3d-video"
-                                                                        data-url="<?= htmlspecialchars($vurl) ?>"
-                                                                        data-emotion="<?= $emotion_key ?>"
-                                                                        data-state="idle"
-                                                                        style="position:absolute;top:2px;right:2px;width:20px;height:20px;
-                                                                               border-radius:50%;background:rgba(220,53,69,.85);color:#fff;
-                                                                               border:none;cursor:pointer;font-size:10px;
-                                                                               display:flex;align-items:center;justify-content:center;">
-                                                                    <i class="fas fa-times"></i>
-                                                                </button>
-                                                                <div style="font-size:9px;color:#666;text-align:center;padding:2px;">
-                                                                    Idle <?= $vidx + 1 ?>
+                                                    <!-- IDLE COLUMN -->
+                                                    <div class="state-col">
+                                                        <div class="state-col-head">
+                                                            <span class="state-label-text idle">
+                                                                <i class="fas fa-pause-circle"></i> Idle (ยืนเฉย)
+                                                            </span>
+                                                            <span class="state-count-badge <?= count($ex_idle) > 0 ? 'has-files' : '' ?>"
+                                                                  id="cnt3d-<?= $ek ?>-idle"><?= count($ex_idle) ?></span>
+                                                        </div>
+                                                        <div class="state-col-body">
+                                                            <!-- Existing idle -->
+                                                            <?php if (!empty($ex_idle)): ?>
+                                                            <div class="emo-video-grid" id="existing3d-<?= $ek ?>-idle">
+                                                                <?php foreach ($ex_idle as $vidx => $vurl):
+                                                                    $ext = strtolower(pathinfo($vurl, PATHINFO_EXTENSION));
+                                                                ?>
+                                                                <div class="emo-vcard" data-url="<?= htmlspecialchars($vurl) ?>">
+                                                                    <?php if ($ext === 'gif'): ?>
+                                                                        <img src="<?= htmlspecialchars($vurl) ?>" alt="">
+                                                                    <?php else: ?>
+                                                                        <video src="<?= htmlspecialchars($vurl) ?>"
+                                                                               onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0;"></video>
+                                                                    <?php endif; ?>
+                                                                    <button type="button"
+                                                                            class="emo-vcard-del delete-em3d-video"
+                                                                            data-url="<?= htmlspecialchars($vurl) ?>"
+                                                                            data-emotion="<?= $ek ?>"
+                                                                            data-state="idle"
+                                                                            data-counter="cnt3d-<?= $ek ?>-idle"
+                                                                            data-parent-counter="cnt3d-<?= $ek ?>">
+                                                                        <i class="fas fa-times"></i>
+                                                                    </button>
+                                                                    <div class="emo-vcard-lbl">Idle <?= $vidx + 1 ?></div>
                                                                 </div>
+                                                                <?php endforeach; ?>
                                                             </div>
-                                                        <?php endforeach; ?>
-                                                    </div>
-                                                    <?php endif; ?>
+                                                            <?php endif; ?>
 
-                                                    <button type="button"
-                                                            class="btn btn-sm btn-outline-secondary w-100 mb-1"
-                                                            onclick="document.getElementById('em3d_<?= $emotion_key ?>_idle').click()"
-                                                            style="font-size:11px;">
-                                                        <i class="fas fa-plus"></i> Add Idle
-                                                    </button>
-                                                    <input type="file"
-                                                           id="em3d_<?= $emotion_key ?>_idle"
-                                                           name="emotion_videos_3d[<?= $emotion_key ?>][idle][]"
-                                                           accept="video/*,image/gif"
-                                                           multiple
-                                                           style="display:none;"
-                                                           data-emotion="<?= $emotion_key ?>"
-                                                           data-state="idle">
-                                                    <input type="hidden"
-                                                           id="deleted3d_<?= $emotion_key ?>_idle"
-                                                           name="deleted_emotion_videos_3d[<?= $emotion_key ?>][idle]"
-                                                           value="[]">
-                                                    <div id="em3d_preview_<?= $emotion_key ?>_idle" class="video-grid"
-                                                         style="margin-top:4px;grid-template-columns:repeat(2,1fr);gap:4px;"></div>
-                                                </div>
-                                            </div>
+                                                            <!-- New idle uploads -->
+                                                            <div class="emo-video-grid" id="grid3d-<?= $ek ?>-idle"></div>
 
-                                            <!-- TALKING COLUMN -->
-                                            <div class="col-6">
-                                                <div style="background:#fff;border:1px dashed #ccc;border-radius:8px;padding:10px;">
-                                                    <div style="font-size:11px;font-weight:600;color:#555;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;text-align:center;">
-                                                        <i class="fas fa-play-circle" style="color:#28a745;"></i> Talking (กำลังพูด)
+                                                            <div class="emo-drop-zone compact">
+                                                                <input type="file"
+                                                                       id="em3d_<?= $ek ?>_idle"
+                                                                       name="emotion_videos_3d[<?= $ek ?>][idle][]"
+                                                                       accept="video/*,image/gif"
+                                                                       multiple
+                                                                       data-emotion="<?= $ek ?>"
+                                                                       data-state="idle"
+                                                                       data-grid="grid3d-<?= $ek ?>-idle"
+                                                                       data-counter="cnt3d-<?= $ek ?>-idle"
+                                                                       data-parent-counter="cnt3d-<?= $ek ?>">
+                                                                <i class="fas fa-plus"></i>
+                                                                <div class="dz-text">เพิ่ม Idle</div>
+                                                                <div class="dz-hint">MP4, GIF</div>
+                                                            </div>
+
+                                                            <input type="hidden"
+                                                                   id="deleted3d_<?= $ek ?>_idle"
+                                                                   name="deleted_emotion_videos_3d[<?= $ek ?>][idle]"
+                                                                   value="[]">
+                                                        </div>
                                                     </div>
 
-                                                    <?php if (!empty($existing_talking)): ?>
-                                                    <div id="existing3d_<?= $emotion_key ?>_talking" class="video-grid mb-2"
-                                                         style="grid-template-columns:repeat(2,1fr);gap:4px;">
-                                                        <?php foreach ($existing_talking as $vidx => $vurl):
-                                                            $ext = strtolower(pathinfo($vurl, PATHINFO_EXTENSION));
-                                                        ?>
-                                                            <div class="video-item" data-url="<?= htmlspecialchars($vurl) ?>"
-                                                                 style="position:relative;border-radius:6px;overflow:hidden;">
-                                                                <?php if ($ext === 'gif'): ?>
-                                                                    <img src="<?= htmlspecialchars($vurl) ?>"
-                                                                         style="width:100%;height:70px;object-fit:cover;border-radius:6px;">
-                                                                <?php else: ?>
-                                                                    <video style="width:100%;height:70px;border-radius:6px;object-fit:cover;">
-                                                                        <source src="<?= htmlspecialchars($vurl) ?>">
-                                                                    </video>
-                                                                <?php endif; ?>
-                                                                <button type="button"
-                                                                        class="delete-em3d-video"
-                                                                        data-url="<?= htmlspecialchars($vurl) ?>"
-                                                                        data-emotion="<?= $emotion_key ?>"
-                                                                        data-state="talking"
-                                                                        style="position:absolute;top:2px;right:2px;width:20px;height:20px;
-                                                                               border-radius:50%;background:rgba(220,53,69,.85);color:#fff;
-                                                                               border:none;cursor:pointer;font-size:10px;
-                                                                               display:flex;align-items:center;justify-content:center;">
-                                                                    <i class="fas fa-times"></i>
-                                                                </button>
-                                                                <div style="font-size:9px;color:#666;text-align:center;padding:2px;">
-                                                                    Talking <?= $vidx + 1 ?>
+                                                    <!-- TALKING COLUMN -->
+                                                    <div class="state-col" style="border-color:#c3e6cb;">
+                                                        <div class="state-col-head talking-head">
+                                                            <span class="state-label-text talking">
+                                                                <i class="fas fa-play-circle"></i> Talking (กำลังพูด)
+                                                            </span>
+                                                            <span class="state-count-badge <?= count($ex_talking) > 0 ? 'has-files' : '' ?>"
+                                                                  id="cnt3d-<?= $ek ?>-talking"><?= count($ex_talking) ?></span>
+                                                        </div>
+                                                        <div class="state-col-body">
+                                                            <!-- Existing talking -->
+                                                            <?php if (!empty($ex_talking)): ?>
+                                                            <div class="emo-video-grid" id="existing3d-<?= $ek ?>-talking">
+                                                                <?php foreach ($ex_talking as $vidx => $vurl):
+                                                                    $ext = strtolower(pathinfo($vurl, PATHINFO_EXTENSION));
+                                                                ?>
+                                                                <div class="emo-vcard" data-url="<?= htmlspecialchars($vurl) ?>">
+                                                                    <?php if ($ext === 'gif'): ?>
+                                                                        <img src="<?= htmlspecialchars($vurl) ?>" alt="">
+                                                                    <?php else: ?>
+                                                                        <video src="<?= htmlspecialchars($vurl) ?>"
+                                                                               onmouseenter="this.play()" onmouseleave="this.pause();this.currentTime=0;"></video>
+                                                                    <?php endif; ?>
+                                                                    <button type="button"
+                                                                            class="emo-vcard-del delete-em3d-video"
+                                                                            data-url="<?= htmlspecialchars($vurl) ?>"
+                                                                            data-emotion="<?= $ek ?>"
+                                                                            data-state="talking"
+                                                                            data-counter="cnt3d-<?= $ek ?>-talking"
+                                                                            data-parent-counter="cnt3d-<?= $ek ?>">
+                                                                        <i class="fas fa-times"></i>
+                                                                    </button>
+                                                                    <div class="emo-vcard-lbl">Talking <?= $vidx + 1 ?></div>
                                                                 </div>
+                                                                <?php endforeach; ?>
                                                             </div>
-                                                        <?php endforeach; ?>
+                                                            <?php endif; ?>
+
+                                                            <!-- New talking uploads -->
+                                                            <div class="emo-video-grid" id="grid3d-<?= $ek ?>-talking"></div>
+
+                                                            <div class="emo-drop-zone compact">
+                                                                <input type="file"
+                                                                       id="em3d_<?= $ek ?>_talking"
+                                                                       name="emotion_videos_3d[<?= $ek ?>][talking][]"
+                                                                       accept="video/*,image/gif"
+                                                                       multiple
+                                                                       data-emotion="<?= $ek ?>"
+                                                                       data-state="talking"
+                                                                       data-grid="grid3d-<?= $ek ?>-talking"
+                                                                       data-counter="cnt3d-<?= $ek ?>-talking"
+                                                                       data-parent-counter="cnt3d-<?= $ek ?>">
+                                                                <i class="fas fa-plus"></i>
+                                                                <div class="dz-text">เพิ่ม Talking</div>
+                                                                <div class="dz-hint">MP4, GIF</div>
+                                                            </div>
+
+                                                            <input type="hidden"
+                                                                   id="deleted3d_<?= $ek ?>_talking"
+                                                                   name="deleted_emotion_videos_3d[<?= $ek ?>][talking]"
+                                                                   value="[]">
+                                                        </div>
                                                     </div>
-                                                    <?php endif; ?>
 
-                                                    <button type="button"
-                                                            class="btn btn-sm btn-outline-success w-100 mb-1"
-                                                            onclick="document.getElementById('em3d_<?= $emotion_key ?>_talking').click()"
-                                                            style="font-size:11px;">
-                                                        <i class="fas fa-plus"></i> Add Talking
-                                                    </button>
-                                                    <input type="file"
-                                                           id="em3d_<?= $emotion_key ?>_talking"
-                                                           name="emotion_videos_3d[<?= $emotion_key ?>][talking][]"
-                                                           accept="video/*,image/gif"
-                                                           multiple
-                                                           style="display:none;"
-                                                           data-emotion="<?= $emotion_key ?>"
-                                                           data-state="talking">
-                                                    <input type="hidden"
-                                                           id="deleted3d_<?= $emotion_key ?>_talking"
-                                                           name="deleted_emotion_videos_3d[<?= $emotion_key ?>][talking]"
-                                                           value="[]">
-                                                    <div id="em3d_preview_<?= $emotion_key ?>_talking" class="video-grid"
-                                                         style="margin-top:4px;grid-template-columns:repeat(2,1fr);gap:4px;"></div>
-                                                </div>
+                                                </div><!-- /state-split -->
                                             </div>
-
-                                        </div><!-- /row -->
+                                            <?php $first3d = false; endforeach; ?>
+                                        </div>
                                     </div>
-                                    <?php endforeach; ?>
                                 </div>
-                                <!-- END 3D Emotion Videos -->
+                                <!-- END 3D -->
 
                                 <!-- AI Voice (ElevenLabs) -->
                                 <div class="form-group mb-4">
@@ -515,7 +542,9 @@ include '../template/header.php';
                         </div>
                     </div>
 
-                    <!-- Right Column: Multilingual Content -->
+                    <!-- ============================================================
+                         Right Column: Multilingual Content
+                         ============================================================ -->
                     <div class="col-lg-7">
                         <div class="card">
                             <div class="card-header p-0">
@@ -649,7 +678,7 @@ include '../template/header.php';
                             </div>
                         </div>
 
-                        <!-- Submit Button -->
+                        <!-- Submit -->
                         <div class="mt-3 text-end">
                             <button type="button" id="submitEditAI" class="btn btn-success btn-lg">
                                 <i class="fas fa-save"></i> Update AI Companion
