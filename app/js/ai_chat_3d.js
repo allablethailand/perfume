@@ -7,6 +7,7 @@
  * ✅ NEW: สุ่มวิดีโอถัดไปไม่ซ้ำกับอันที่เพิ่งเล่น
  * ✅ NEW: พูดสภาพอากาศทุกครั้งที่เข้ามา
  * ✅ FIX: จำ conversation ล่าสุด + New Chat เริ่ม context ใหม่
+ * ✅ NEW: 3D Emotion Videos — talking วนจนเสียงเสร็จ แล้วกลับ idle ของ emotion นั้น
  */
 
 // ========== Global Variables ==========
@@ -29,12 +30,16 @@ let useVideoAvatar = true;
 
 let IDLE_VIDEO_URLS = [];
 let SPEAKING_VIDEO_URLS = [];
+let EMOTION_VIDEOS_3D = {}; // ✅ NEW: { happy: { idle: ['url1'], talking: ['url2'] }, ... }
+let currentEmotion = 'calm'; // ✅ NEW: emotion ปัจจุบัน
+
 let currentVideoState = 'idle';
 let isTransitioning = false;
 let preloadedSpeakingVideo = null;
 
 let lastPlayedIdleVideo = null;
 let lastPlayedSpeakingVideo = null;
+let playEmotionIdleOnce = false; // ✅ เล่น emotion idle แค่ 1 ครั้งแล้วกลับ general idle
 
 window.isSpeaking = false;
 window.waveIntensity = 0;
@@ -57,7 +62,7 @@ let weatherData = null;
 
 // ========== Initialize ==========
 $(document).ready(function() {
-    console.log('🚀 Initializing AI Chat 3D with TTS Cache...');
+    console.log('🚀 Initializing AI Chat 3D with TTS Cache + 3D Emotion Videos...');
     
     if (!aiCodeFromURL && !jwt) {
         Swal.fire({
@@ -203,47 +208,51 @@ function fetchAICompanionData() {
         $.ajax({
             url, type: 'GET', headers, dataType: 'json',
             success: function(response) {
-        if (response.status === 'success') {
-            aiCompanionData = response.ai_data || response.companion;
-            if (!aiCompanionData) { useVideoAvatar = false; resolve(); return; }
-            
-            IDLE_VIDEO_URLS = aiCompanionData.idle_video_urls_array || [];
-            
-            if (response.preferred_language) {
-                userPreferredLanguage = response.preferred_language;
-            } else if (aiCompanionData.preferred_language) {
-                userPreferredLanguage = aiCompanionData.preferred_language;
-            } else {
-                userPreferredLanguage = langFromURL || 'th';
-            }
-            
-            if (response.companion_id) companionId = response.companion_id;
-            else if (aiCompanionData.user_companion_id) companionId = aiCompanionData.user_companion_id;
-            
-            if (response.user_id) aiCompanionData.user_id = response.user_id;
-            if (companionId) sessionStorage.setItem('user_companion_id', companionId);
-            if (aiCompanionData.ai_code) sessionStorage.setItem('ai_code', aiCompanionData.ai_code);
-            
-            // ✅ เพิ่มตรงนี้: auto-login ก่อน resolve
-            autoLoginAsCompanionUser().then(resolve).catch(resolve);  // <-- เปลี่ยนจาก resolve();
-            
-        } else {
-            useVideoAvatar = false;
-            resolve();
-        }
-    },
-    error: function() { useVideoAvatar = false; resolve(); }
+                // ✅ DEBUG — ลบออกหลังแก้เสร็จ
+                console.log('📦 Full API Response:', JSON.stringify(response));
+                console.log('🎭 emotion_videos_3d_array:', response.ai_data?.emotion_videos_3d_array || response.companion?.emotion_videos_3d_array);
+
+                if (response.status === 'success') {
+                    aiCompanionData = response.ai_data || response.companion;
+                    if (!aiCompanionData) { useVideoAvatar = false; resolve(); return; }
+                    
+                    IDLE_VIDEO_URLS    = aiCompanionData.idle_video_urls_array    || [];
+                    SPEAKING_VIDEO_URLS = aiCompanionData.talking_video_urls_array || [];
+
+                    // ✅ โหลด 3D Emotion Videos
+                    EMOTION_VIDEOS_3D = aiCompanionData.emotion_videos_3d_array || {};
+                    console.log('✅ 3D Emotion videos loaded:', Object.keys(EMOTION_VIDEOS_3D));
+                    console.log('✅ EMOTION_VIDEOS_3D full data:', JSON.stringify(EMOTION_VIDEOS_3D));
+                    
+                    if (response.preferred_language) {
+                        userPreferredLanguage = response.preferred_language;
+                    } else if (aiCompanionData.preferred_language) {
+                        userPreferredLanguage = aiCompanionData.preferred_language;
+                    } else {
+                        userPreferredLanguage = langFromURL || 'th';
+                    }
+                    
+                    if (response.companion_id) companionId = response.companion_id;
+                    else if (aiCompanionData.user_companion_id) companionId = aiCompanionData.user_companion_id;
+                    
+                    if (response.user_id) aiCompanionData.user_id = response.user_id;
+                    if (companionId) sessionStorage.setItem('user_companion_id', companionId);
+                    if (aiCompanionData.ai_code) sessionStorage.setItem('ai_code', aiCompanionData.ai_code);
+                    
+                    autoLoginAsCompanionUser().then(resolve).catch(resolve);
+                    
+                } else {
+                    useVideoAvatar = false;
+                    resolve();
+                }
+            },
+            error: function() { useVideoAvatar = false; resolve(); }
         });
     });
 }
 
-// ========================================
-// จุดที่ 2: เพิ่ม function นี้หลัง fetchAICompanionData
-// ========================================
-
 function autoLoginAsCompanionUser() {
     return new Promise((resolve) => {
-        // ถ้ามี JWT อยู่แล้ว → ข้ามไป
         const existingJwt = sessionStorage.getItem('jwt');
         if (existingJwt) {
             console.log('✅ Already have JWT, skipping auto-login');
@@ -251,7 +260,6 @@ function autoLoginAsCompanionUser() {
             return;
         }
 
-        // ต้องมี companionId หรือ aiCode
         if (!companionId && !aiCodeFromURL) {
             console.warn('⚠️ No companionId or aiCode for auto-login');
             resolve();
@@ -345,8 +353,12 @@ function preloadAllAudioChunksWithCache(chunks, langCode, cacheType = 'welcome')
     });
 }
 
-// ========== Speak AI Response (ไม่ใช้ CACHE) ==========
-function speakAIResponseDirectly(text, forceLangCode = null) {
+// ========== Speak AI Response (ไม่ใช้ CACHE) — รับ emotion ==========
+function speakAIResponseDirectly(text, forceLangCode = null, emotion = 'calm') {
+    // ✅ บันทึก emotion ปัจจุบัน
+    currentEmotion = emotion || 'calm';
+    console.log('🎭 Current emotion set to:', currentEmotion);
+
     updateStatus('Preparing voice...', false);
     $('#messageText').html('<span class="typing-indicator">Thinking...</span>');
     $('#currentMessage').fadeIn();
@@ -409,6 +421,7 @@ function playPreloadedAudio(audioUrls, langCode, fullText, onComplete) {
     window.isSpeaking = true;
     updateStatus('Speaking in ' + (langNames[langCode] || 'English') + '...', true);
     
+    // ✅ เริ่ม emotion talking animation
     if (useVideoAvatar) playSpeakingAnimation();
     
     playAudioUrlsSequentially(audioUrls, 0, () => {
@@ -417,6 +430,8 @@ function playPreloadedAudio(audioUrls, langCode, fullText, onComplete) {
         updateStatus('Ready to chat', false);
         $('#currentMessage').fadeOut();
         if (mouth) mouth.scale.y = 1;
+
+        // ✅ เสียงเสร็จแล้ว กลับไป emotion idle
         if (useVideoAvatar) stopSpeakingAnimation();
         if (onComplete) onComplete();
     });
@@ -437,6 +452,25 @@ function playAudioUrlsSequentially(audioUrls, index, onComplete) {
     };
     audio.onerror = function() { playAudioUrlsSequentially(audioUrls, index + 1, onComplete); };
     audio.load();
+}
+
+// ========== ✅ NEW: Get emotion-specific 3D video URL ==========
+function getEmotionVideo3D(emotion, state) {
+    const emotionData = EMOTION_VIDEOS_3D[emotion];
+    if (emotionData && emotionData[state] && emotionData[state].length > 0) {
+        const urls = emotionData[state];
+        // สุ่มไม่ซ้ำ
+        const lastPlayed = state === 'idle' ? lastPlayedIdleVideo : lastPlayedSpeakingVideo;
+        const available = urls.length > 1 ? urls.filter(v => v !== lastPlayed) : urls;
+        const selected = available[Math.floor(Math.random() * available.length)];
+        if (state === 'idle') lastPlayedIdleVideo = selected;
+        else lastPlayedSpeakingVideo = selected;
+        console.log(`🎭 3D Emotion video [${emotion}][${state}]:`, selected);
+        return selected;
+    }
+    // fallback: general idle/talking
+    console.log(`⚠️ No 3D emotion video for [${emotion}][${state}], falling back to general`);
+    return state === 'talking' ? getRandomSpeakingVideo() : getRandomIdleVideo();
 }
 
 // ========== Random Video Selection ==========
@@ -480,17 +514,36 @@ function initVideoAvatar() {
     videoAvatar.loop = false;
     videoAvatar.preload = 'auto';
     
+    // ✅ แก้ ended event — ตรวจสอบ isSpeaking ด้วย
     videoAvatar.addEventListener('ended', function() {
         if (currentVideoState === 'idle') {
-            const v = getRandomIdleVideo();
-            if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
+            if (playEmotionIdleOnce) {
+                // เล่น emotion idle ครบ 1 รอบแล้ว → กลับ general idle
+                playEmotionIdleOnce = false;
+                currentEmotion = 'calm';
+                const v = getRandomIdleVideo();
+                if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
+            } else {
+                // general idle → วนต่อไปเรื่อยๆ
+                const v = getRandomIdleVideo();
+                if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
+            }
         } else if (currentVideoState === 'speaking') {
-            const v = getRandomSpeakingVideo();
-            if (v) { this.muted = true; this.src = v; this.load(); this.play().catch(e => {}); }
+            if (isSpeaking) {
+                // ยังพูดอยู่ → วนเล่น emotion talking ต่อ
+                const v = getEmotionVideo3D(currentEmotion, 'talking') || getRandomSpeakingVideo();
+                if (v) { this.muted = true; this.src = v; this.load(); this.play().catch(e => {}); }
+            } else {
+                // เสียงเสร็จแล้ว → เล่น emotion idle 1 ครั้ง
+                currentVideoState = 'idle';
+                playEmotionIdleOnce = true;
+                const v = getEmotionVideo3D(currentEmotion, 'idle') || getRandomIdleVideo();
+                if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
+            }
         }
     });
     
-    const initialIdleVideo = getRandomIdleVideo();
+    const initialIdleVideo = getEmotionVideo3D(currentEmotion, 'idle') || getRandomIdleVideo();
     videoAvatar.src = initialIdleVideo;
     currentVideoState = 'idle';
     container.appendChild(videoAvatar);
@@ -518,17 +571,33 @@ function initVideoAvatar() {
     videoAvatar.load();
 }
 
-function playIdleAnimation() {
-    if (!videoAvatar || isTransitioning || currentVideoState === 'idle') return;
-    const v = getRandomIdleVideo();
-    if (v) switchToVideo(v, 'idle');
-}
-
+// ✅ playSpeakingAnimation — ใช้ emotion talking video
 function playSpeakingAnimation() {
     if (!videoAvatar || isTransitioning || currentVideoState === 'speaking') return;
-    loadSpeakingVideosIfNeeded();
-    const v = getRandomSpeakingVideo();
-    if (v) switchToVideo(v, 'speaking');
+    const videoUrl = getEmotionVideo3D(currentEmotion, 'talking');
+    if (videoUrl) switchToVideo(videoUrl, 'speaking');
+}
+
+// ✅ playIdleAnimation — ใช้ emotion idle video
+function playIdleAnimation() {
+    if (!videoAvatar || isTransitioning || currentVideoState === 'idle') return;
+    const videoUrl = getEmotionVideo3D(currentEmotion, 'idle') || getRandomIdleVideo();
+    if (videoUrl) switchToVideo(videoUrl, 'idle');
+}
+
+// ✅ stopSpeakingAnimation — เล่น emotion idle 1 ครั้ง แล้ว ended event จะกลับ general idle เอง
+function stopSpeakingAnimation() {
+    if (!videoAvatar || isTransitioning) return;
+    const emotionIdleUrl = getEmotionVideo3D(currentEmotion, 'idle');
+    if (emotionIdleUrl) {
+        playEmotionIdleOnce = true; // ✅ บอกให้เล่นแค่ 1 รอบ
+        switchToVideo(emotionIdleUrl, 'idle');
+    } else {
+        // ไม่มี emotion idle → กลับ general idle เลย
+        playEmotionIdleOnce = false;
+        currentEmotion = 'calm';
+        playIdleAnimation();
+    }
 }
 
 function switchToVideo(videoUrl, newState) {
@@ -545,14 +614,33 @@ function switchToVideo(videoUrl, newState) {
     newVideo.playsInline = true;
     newVideo.loop = false;
     newVideo.src = videoUrl;
-    
+
+    // ✅ แก้ ended event บน newVideo — ตรวจสอบ isSpeaking ด้วย
     newVideo.addEventListener('ended', function() {
         if (currentVideoState === 'idle') {
-            const v = getRandomIdleVideo();
-            if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
+            if (playEmotionIdleOnce) {
+                // เล่น emotion idle ครบ 1 รอบ → กลับ general idle
+                playEmotionIdleOnce = false;
+                currentEmotion = 'calm';
+                const v = getRandomIdleVideo();
+                if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
+            } else {
+                // general idle → วนต่อ
+                const v = getRandomIdleVideo();
+                if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
+            }
         } else if (currentVideoState === 'speaking') {
-            const v = getRandomSpeakingVideo();
-            if (v) { this.muted = true; this.src = v; this.load(); this.play().catch(e => {}); }
+            if (isSpeaking) {
+                // ยังพูดอยู่ → วนเล่น emotion talking ต่อ
+                const v = getEmotionVideo3D(currentEmotion, 'talking') || getRandomSpeakingVideo();
+                if (v) { this.muted = true; this.src = v; this.load(); this.play().catch(e => {}); }
+            } else {
+                // เสียงเสร็จแล้ว → เล่น emotion idle 1 ครั้ง
+                currentVideoState = 'idle';
+                playEmotionIdleOnce = true;
+                const v = getEmotionVideo3D(currentEmotion, 'idle') || getRandomIdleVideo();
+                if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
+            }
         }
     });
     
@@ -564,21 +652,23 @@ function switchToVideo(videoUrl, newState) {
             videoAvatar.style.opacity = '0';
             newVideo.style.opacity = '1';
             setTimeout(() => {
-                container.removeChild(videoAvatar);
+                if (videoAvatar && videoAvatar.parentElement === container) {
+                    container.removeChild(videoAvatar);
+                }
                 videoAvatar = newVideo;
                 currentVideoState = newState;
                 isTransitioning = false;
             }, 300);
         }).catch(e => {
-            container.removeChild(newVideo);
+            if (newVideo.parentElement === container) {
+                container.removeChild(newVideo);
+            }
             isTransitioning = false;
         });
     });
     
     newVideo.load();
 }
-
-function stopSpeakingAnimation() { playIdleAnimation(); }
 
 function init3DAvatar() {
     const canvas = document.getElementById('avatarCanvas');
@@ -781,7 +871,12 @@ function sendMessage() {
                     companionId = response.user_companion_id;
                     sessionStorage.setItem('user_companion_id', companionId);
                 }
-                speakAIResponseDirectly(response.ai_message, response.language_used || requestData.preferred_language);
+                // ✅ ส่ง emotion เข้าไปด้วย
+                speakAIResponseDirectly(
+                    response.ai_message,
+                    response.language_used || requestData.preferred_language,
+                    response.ai_emotion || 'calm'
+                );
             } else {
                 Swal.fire('Error', response.message, 'error');
                 updateStatus('Ready to chat', false);
@@ -840,9 +935,14 @@ function fallbackToGoogleTTS(text, langCode, onComplete) {
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     currentAudio = new Audio(ttsUrl);
     currentAudio.oncanplaythrough = function() { this.play().catch(err => { if (onComplete) onComplete(); }); };
-    currentAudio.onplay = function() { isSpeaking = true; window.isSpeaking = true; if (useVideoAvatar) playSpeakingAnimation(); };
+    currentAudio.onplay = function() {
+        isSpeaking = true;
+        window.isSpeaking = true;
+        if (useVideoAvatar) playSpeakingAnimation();
+    };
     currentAudio.onended = function() {
-        isSpeaking = false; window.isSpeaking = false;
+        isSpeaking = false;
+        window.isSpeaking = false;
         updateStatus('Ready to chat', false);
         $('#currentMessage').fadeOut();
         if (useVideoAvatar) stopSpeakingAnimation();
@@ -863,6 +963,9 @@ function createNewChat() {
     // ✅ ล้าง last_conversation_id เพื่อให้ครั้งหน้า reload ไม่กลับมา conversation เก่า
     sessionStorage.removeItem('last_conversation_id');
 
+    // ✅ Reset emotion กลับ calm
+    currentEmotion = 'calm';
+
     $('.conversation-item').removeClass('active');
     $('#messageInput').val('').focus();
     $('#currentMessage').fadeOut();
@@ -873,7 +976,9 @@ function createNewChat() {
     isSpeaking = false;
     window.isSpeaking = false;
     updateStatus('Ready to chat', false);
-    if (useVideoAvatar) playIdleAnimation();
+
+    // ✅ กลับ idle ของ emotion ปัจจุบัน (calm)
+    if (useVideoAvatar) stopSpeakingAnimation();
     
     $('#dropdownMenu').removeClass('show');
     $('#menuToggle').removeClass('active');
@@ -949,4 +1054,4 @@ function goToPreferences() {
     window.location.href = url;
 }
 
-console.log('✅ AI Chat 3D loaded — with last_conversation_id persistence');
+console.log('✅ AI Chat 3D loaded — with 3D Emotion Videos (idle/talking per emotion)');
