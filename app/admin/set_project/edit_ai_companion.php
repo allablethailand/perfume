@@ -94,7 +94,7 @@ include '../template/header.php';
                 </button>
             </div>
 
-            <form id="formAICompanionEdit" enctype="multipart/form-data">
+            <form id="formAICompanionEdit" enctype="multipart/form-data" method="POST" action="#">
                 <input type="hidden" name="ai_id" value="<?= $ai['ai_id'] ?>">
 
                 <div class="row">
