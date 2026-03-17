@@ -2,8 +2,8 @@
  * AI Chat 3D
  * ✅ โหลดเสียงทุก chunk พร้อมกันรอบเดียว (parallel)
  * ✅ Subtitle แสดงทีละประโยคสั้นตาม chunk เสียงที่กำลังเล่น (typewriter)
- * ✅ audio chunk = 200 chars (น้อย chunk → โหลดไว)
- * ✅ subtitle chunk = แบ่งจาก audio chunk อีกทีตามประโยค (สั้น ≤80 chars)
+ * ✅ FIX: thinking video เล่นเฉพาะตอน user ส่งข้อความ → รอ AI → รอโหลดเสียง
+ * ✅ FIX: stopThinkingAnimation() หยุด thinking ได้จริง
  * ✅ ค้าง subtitle สุดท้ายจนเสียงจบแล้ว fade out
  * ✅ 3D Emotion Videos
  */
@@ -31,8 +31,11 @@ let SPEAKING_VIDEO_URLS = [];
 let EMOTION_VIDEOS_3D = {};
 let currentEmotion = 'calm';
 
+// ✅ video states: 'idle' | 'thinking' | 'speaking'
 let currentVideoState = 'idle';
 let isTransitioning = false;
+// ✅ flag ควบคุม thinking loop
+let isThinking = false;
 
 let lastPlayedIdleVideo = null;
 let lastPlayedSpeakingVideo = null;
@@ -42,6 +45,7 @@ window.isSpeaking = false;
 window.waveIntensity = 0;
 
 let typewriterTimer = null;
+let subtitleSequenceTimers = [];
 
 const WELCOME_MESSAGES = {
     th: "ยินดีต้อนรับกลับมานะเพื่อน",
@@ -104,9 +108,50 @@ $(document).ready(function() {
     $('#dropdownMenu').on('click', function(e) { e.stopPropagation(); });
 });
 
-// ========== ✅ Audio chunks — ใหญ่ (200 chars) ลด API calls ==========
+// ========== ✅ Thinking Video — เล่นเฉพาะตอน user ส่งข้อความ ==========
+function startThinkingAnimation() {
+    if (!useVideoAvatar || !videoAvatar) return;
+    isThinking = true;
+
+    // ดึงวิดีโอ thinking จาก EMOTION_VIDEOS_3D['thinking'] ถ้ามี
+    const thinkingUrl = getThinkingVideo();
+    if (!thinkingUrl) {
+        console.log('⚠️ No thinking video found, staying idle');
+        return;
+    }
+    console.log('🤔 Starting thinking animation:', thinkingUrl);
+    switchToVideo(thinkingUrl, 'thinking');
+}
+
+function stopThinkingAnimation() {
+    if (!isThinking) return;
+    isThinking = false;
+    console.log('✅ Stopping thinking animation');
+
+    if (!useVideoAvatar || !videoAvatar) return;
+
+    // ถ้าอยู่ใน thinking state → switch กลับ idle ทันที
+    if (currentVideoState === 'thinking') {
+        const idleUrl = getEmotionVideo3D(currentEmotion, 'idle') || getRandomIdleVideo();
+        if (idleUrl) switchToVideo(idleUrl, 'idle');
+    }
+}
+
+function getThinkingVideo() {
+    // ดึงจาก EMOTION_VIDEOS_3D['thinking']['idle'] ถ้ามี
+    const thinkingData = EMOTION_VIDEOS_3D['thinking'];
+    if (thinkingData) {
+        // รองรับทั้ง { idle: [...] } และ array ตรงๆ
+        const urls = thinkingData['idle'] || thinkingData['talking'] || (Array.isArray(thinkingData) ? thinkingData : null);
+        if (urls && urls.length > 0) {
+            return urls[Math.floor(Math.random() * urls.length)];
+        }
+    }
+    return null; // ไม่มี thinking video
+}
+
+// ========== Text Splitting ==========
 function splitIntoAudioChunks(text, maxLength = 200) {
-    // ลบ markdown bold
     let cleaned = text
         .replace(/\*\*([^*]+)\*\*/g, '$1')
         .replace(/\*/g, '')
@@ -130,10 +175,8 @@ function splitIntoAudioChunks(text, maxLength = 200) {
     return chunks.length > 0 ? chunks : [cleaned];
 }
 
-// ========== ✅ Subtitle sentences — สั้น (≤80 chars) สำหรับ display ==========
 function splitIntoSubtitleSentences(text) {
     if (!text) return [''];
-
     let cleaned = text
         .replace(/\*\*([^*]+)\*\*/g, '$1')
         .replace(/\*/g, '')
@@ -149,7 +192,6 @@ function splitIntoSubtitleSentences(text) {
         if (s.length <= MAX) {
             chunks.push(s);
         } else {
-            // ตัดยาวด้วย comma หรือ space
             const parts = s.match(/.{1,80}(?:[,\s]|$)/g) || [s];
             for (let p of parts) {
                 p = p.trim();
@@ -169,7 +211,6 @@ function fetchWeatherData() {
                     fetchWeatherByCoordinates(position.coords.latitude, position.coords.longitude).then(resolve);
                 },
                 (error) => {
-                    console.warn('⚠️ Geolocation denied:', error.message);
                     weatherData = null; weatherReportPlayed = true; resolve();
                 }
             );
@@ -202,8 +243,9 @@ function playWelcomeWithWeather() {
     isWelcomeMessagePlayed = true;
     const welcomeText = WELCOME_MESSAGES[userPreferredLanguage] || WELCOME_MESSAGES.th;
     if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
-        videoAvatar.play().catch(e => console.warn('⚠️ Autoplay blocked'));
+        videoAvatar.play().catch(e => {});
     }
+    // ✅ welcome/weather ไม่เล่น thinking — ใช้ speakTextWithCache ตรงๆ
     speakTextWithCache(welcomeText, userPreferredLanguage, 'welcome').then(() => {
         if (weatherData && !weatherReportPlayed) {
             setTimeout(() => { playWeatherReport(); }, 1000);
@@ -248,6 +290,7 @@ function fetchAICompanionData() {
                     SPEAKING_VIDEO_URLS = aiCompanionData.talking_video_urls_array || [];
                     EMOTION_VIDEOS_3D   = aiCompanionData.emotion_videos_3d_array  || {};
                     console.log('✅ 3D Emotion videos loaded:', Object.keys(EMOTION_VIDEOS_3D));
+                    console.log('🤔 Thinking videos:', EMOTION_VIDEOS_3D['thinking'] || 'none');
 
                     if (response.preferred_language) userPreferredLanguage = response.preferred_language;
                     else if (aiCompanionData.preferred_language) userPreferredLanguage = aiCompanionData.preferred_language;
@@ -296,7 +339,7 @@ function autoLoginAsCompanionUser() {
     });
 }
 
-// ========== Speak with CACHE ==========
+// ========== ✅ Speak with CACHE — ไม่เล่น thinking (ใช้สำหรับ welcome/weather) ==========
 function speakTextWithCache(text, forceLangCode = null, cacheType = 'welcome') {
     return new Promise((resolve) => {
         updateStatus('Preparing voice...', false);
@@ -313,38 +356,42 @@ function speakTextWithCache(text, forceLangCode = null, cacheType = 'welcome') {
     });
 }
 
-// ========== Speak AI Response ==========
+// ========== ✅ Speak AI Response — เล่น thinking ขณะโหลดเสียง ==========
 function speakAIResponseDirectly(text, forceLangCode = null, emotion = 'calm') {
     currentEmotion = emotion || 'calm';
     console.log('🎭 emotion:', currentEmotion);
 
     updateStatus('Preparing voice...', false);
+    // ✅ thinking ยังวนอยู่จาก sendMessage() — ไม่ต้องเรียกซ้ำ
+
     let langCode = forceLangCode || detectLanguage(text);
     const audioChunks = splitIntoAudioChunks(text);
 
     preloadAllAudio(audioChunks, langCode, 'ai', null).then((audioUrls) => {
+        // ✅ โหลดเสียงเสร็จ — หยุด thinking แล้วเริ่มพูด
+        stopThinkingAnimation();
         playAudioWithSubtitles(audioUrls, audioChunks, langCode, null);
     }).catch((error) => {
         console.error('❌ AI audio preload failed:', error);
+        stopThinkingAnimation();
         showMessage(text);
         fallbackToGoogleTTS(text, langCode);
     });
 }
 
-// ========== ✅ Preload ALL audio URLs พร้อมกัน (parallel) ==========
+// ========== Preload ALL audio URLs พร้อมกัน (parallel) ==========
 function preloadAllAudio(audioChunks, langCode, mode, cacheType) {
     return new Promise((resolve, reject) => {
         const audioUrls = new Array(audioChunks.length).fill(null);
         let loadedCount = 0;
         let hasError = false;
 
-        // ✅ timeout ใหญ่ขึ้น: 15 วินาที × จำนวน chunk (min 30s, max 120s)
         const timeoutMs = Math.min(Math.max(audioChunks.length * 15000, 30000), 120000);
 
         const timer = setTimeout(() => {
             if (loadedCount < audioChunks.length && !hasError) {
                 hasError = true;
-                reject(new Error(`Timeout after ${timeoutMs/1000}s (loaded ${loadedCount}/${audioChunks.length})`));
+                reject(new Error(`Timeout after ${timeoutMs/1000}s (${loadedCount}/${audioChunks.length})`));
             }
         }, timeoutMs);
 
@@ -380,16 +427,14 @@ function preloadAllAudio(audioChunks, langCode, mode, cacheType) {
                             resolve(audioUrls);
                         }
                     } else if (!hasError) {
-                        hasError = true;
-                        clearTimeout(timer);
-                        reject(new Error('No audio URL for chunk: ' + chunk));
+                        hasError = true; clearTimeout(timer);
+                        reject(new Error('No audio URL for: ' + chunk));
                     }
                 },
                 error: function(xhr, status, error) {
                     if (!hasError) {
-                        hasError = true;
-                        clearTimeout(timer);
-                        reject(new Error('TTS API error: ' + error));
+                        hasError = true; clearTimeout(timer);
+                        reject(new Error('TTS error: ' + error));
                     }
                 }
             });
@@ -397,15 +442,10 @@ function preloadAllAudio(audioChunks, langCode, mode, cacheType) {
     });
 }
 
-// ========== ✅ เล่น audio + แสดง subtitle ทีละประโยคสั้น ==========
+// ========== เล่น audio + subtitle ทีละประโยค ==========
 function playAudioWithSubtitles(audioUrls, audioChunks, langCode, onComplete) {
     const langNames = { 'th': 'Thai', 'en': 'English', 'cn': 'Chinese', 'jp': 'Japanese', 'kr': 'Korean' };
-
-    // ✅ สร้าง subtitle sentences จากทุก audio chunk รวมกัน
-    // แต่ map กลับไปหา audio chunk index ด้วย
-    // โครงสร้าง: subtitleMap[audioIndex] = ['ประโยค1', 'ประโยค2', ...]
     const subtitleMap = audioChunks.map(chunk => splitIntoSubtitleSentences(chunk));
-    console.log('🎬 subtitleMap:', subtitleMap);
 
     isSpeaking = true;
     window.isSpeaking = true;
@@ -418,17 +458,13 @@ function playAudioWithSubtitles(audioUrls, audioChunks, langCode, onComplete) {
         updateStatus('Ready to chat', false);
         if (mouth) mouth.scale.y = 1;
 
-        // ค้าง subtitle สุดท้าย 1200ms แล้ว fade out
-        setTimeout(() => {
-            $('#currentMessage').fadeOut(600);
-        }, 1200);
+        setTimeout(() => { $('#currentMessage').fadeOut(600); }, 1200);
 
         if (useVideoAvatar) stopSpeakingAnimation();
         if (onComplete) onComplete();
     });
 }
 
-// ========== ✅ เล่น audio ทีละ chunk + subtitle ทีละประโยค ==========
 function playAudioSequence(audioUrls, subtitleMap, index, onComplete) {
     if (index >= audioUrls.length) {
         if (onComplete) onComplete();
@@ -441,7 +477,7 @@ function playAudioSequence(audioUrls, subtitleMap, index, onComplete) {
         return;
     }
 
-    const sentences = subtitleMap[index] || [''];
+    const sentences    = subtitleMap[index] || [''];
     const isFirstChunk = (index === 0);
     const isLastChunk  = (index >= audioUrls.length - 1);
 
@@ -454,21 +490,14 @@ function playAudioSequence(audioUrls, subtitleMap, index, onComplete) {
     };
 
     audio.onplay = function() {
-        // ✅ เริ่ม typewriter subtitle ทีละประโยคตามเสียง
-        // แบ่งเวลา duration ของ audio chunk ออกเป็นส่วนๆ ตามจำนวนประโยค
-        const audioDuration = this.duration || 5; // fallback 5s
-        playSubtitleSentences(sentences, audioDuration, isFirstChunk);
-    };
-
-    audio.onloadedmetadata = function() {
-        // ถ้ารู้ duration แล้ว ไม่ต้องทำอะไรเพิ่ม onplay จะจัดการ
+        const dur = this.duration || 5;
+        playSubtitleSentences(sentences, dur, isFirstChunk);
     };
 
     audio.onended = function() {
-        const delay = isLastChunk ? 0 : 200;
         setTimeout(() => {
             playAudioSequence(audioUrls, subtitleMap, index + 1, onComplete);
-        }, delay);
+        }, isLastChunk ? 0 : 200);
     };
 
     audio.onerror = function() {
@@ -478,9 +507,7 @@ function playAudioSequence(audioUrls, subtitleMap, index, onComplete) {
     audio.load();
 }
 
-// ========== ✅ แสดง subtitle ทีละประโยคตาม duration ==========
-let subtitleSequenceTimers = [];
-
+// ========== Subtitle Typewriter ==========
 function clearSubtitleTimers() {
     subtitleSequenceTimers.forEach(t => clearTimeout(t));
     subtitleSequenceTimers = [];
@@ -489,29 +516,20 @@ function clearSubtitleTimers() {
 
 function playSubtitleSentences(sentences, audioDuration, isFirstChunk) {
     clearSubtitleTimers();
-
     if (!sentences || sentences.length === 0) return;
 
-    const count = sentences.length;
-    // แบ่งเวลาเท่าๆ กัน ต่อ 1 ประโยค
-    const perSentenceMs = (audioDuration * 1000) / count;
+    const perMs = (audioDuration * 1000) / sentences.length;
 
     sentences.forEach((sentence, i) => {
-        const delay = i * perSentenceMs;
         const t = setTimeout(() => {
-            const isFirst = (isFirstChunk && i === 0);
-            showSubtitleTypewriter(sentence, isFirst);
-        }, delay);
+            showSubtitleTypewriter(sentence, isFirstChunk && i === 0);
+        }, i * perMs);
         subtitleSequenceTimers.push(t);
     });
 }
 
-// ========== ✅ Typewriter Subtitle ==========
 function showSubtitleTypewriter(text, isFirst) {
-    if (typewriterTimer) {
-        clearInterval(typewriterTimer);
-        typewriterTimer = null;
-    }
+    if (typewriterTimer) { clearInterval(typewriterTimer); typewriterTimer = null; }
 
     const $msg  = $('#currentMessage');
     const $text = $('#messageText');
@@ -519,7 +537,6 @@ function showSubtitleTypewriter(text, isFirst) {
     function startTyping() {
         $text.text('');
         $msg.stop(true).fadeIn(200);
-
         let i = 0;
         const isAsian = /[\u0E00-\u0E7F\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/.test(text);
         const speed = isAsian ? 35 : 25;
@@ -538,13 +555,10 @@ function showSubtitleTypewriter(text, isFirst) {
     if (isFirst) {
         startTyping();
     } else {
-        $msg.stop(true).fadeOut(120, function() {
-            startTyping();
-        });
+        $msg.stop(true).fadeOut(120, function() { startTyping(); });
     }
 }
 
-// ========== showMessage (โหลด conversation — ไม่ typewriter) ==========
 function showMessage(text) {
     clearSubtitleTimers();
     const firstSentence = splitIntoSubtitleSentences(text)[0] || text;
@@ -552,7 +566,7 @@ function showMessage(text) {
     $('#currentMessage').stop(true).fadeIn(300);
 }
 
-// ========== Get emotion-specific 3D video URL ==========
+// ========== Get emotion video ==========
 function getEmotionVideo3D(emotion, state) {
     const emotionData = EMOTION_VIDEOS_3D[emotion];
     if (emotionData && emotionData[state] && emotionData[state].length > 0) {
@@ -564,10 +578,10 @@ function getEmotionVideo3D(emotion, state) {
         else lastPlayedSpeakingVideo = selected;
         return selected;
     }
-    return state === 'talking' ? getRandomSpeakingVideo() : getRandomIdleVideo();
+    if (state === 'talking') return getRandomSpeakingVideo();
+    return getRandomIdleVideo();
 }
 
-// ========== Random Video Selection ==========
 function loadSpeakingVideosIfNeeded() {
     if (SPEAKING_VIDEO_URLS.length === 0 && aiCompanionData) {
         SPEAKING_VIDEO_URLS = aiCompanionData.talking_video_urls_array || [];
@@ -595,7 +609,7 @@ function getRandomSpeakingVideo() {
     return selected;
 }
 
-// ========== Video Avatar Functions ==========
+// ========== Video Avatar Init ==========
 function initVideoAvatar() {
     const container = document.querySelector('.avatar-container');
 
@@ -609,15 +623,26 @@ function initVideoAvatar() {
     videoAvatar.preload = 'auto';
 
     videoAvatar.addEventListener('ended', function() {
-        if (currentVideoState === 'idle') {
-            if (playEmotionIdleOnce) {
-                playEmotionIdleOnce = false; currentEmotion = 'calm';
-                const v = getRandomIdleVideo();
-                if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
+        if (currentVideoState === 'thinking') {
+            // ✅ ตรวจ flag — ถ้ายัง thinking อยู่ให้วนซ้ำ ถ้าไม่ให้กลับ idle
+            if (isThinking) {
+                const v = getThinkingVideo() || getRandomIdleVideo();
+                if (v) { this.src = v; this.load(); this.play().catch(e => {}); }
             } else {
+                currentVideoState = 'idle';
                 const v = getRandomIdleVideo();
                 if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
             }
+            return;
+        }
+
+        if (currentVideoState === 'idle') {
+            if (playEmotionIdleOnce) {
+                playEmotionIdleOnce = false; currentEmotion = 'calm';
+            }
+            const v = getRandomIdleVideo();
+            if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
+
         } else if (currentVideoState === 'speaking') {
             if (isSpeaking) {
                 const v = getEmotionVideo3D(currentEmotion, 'talking') || getRandomSpeakingVideo();
@@ -680,21 +705,32 @@ function switchToVideo(videoUrl, newState) {
     newVideo.style.cssText = videoAvatar.style.cssText;
     newVideo.style.opacity = '0';
     newVideo.muted = (newState === 'speaking');
-    if (newState === 'idle') newVideo.volume = 0.7;
+    if (newState !== 'speaking') newVideo.volume = 0.7;
     newVideo.playsInline = true;
     newVideo.loop = false;
     newVideo.src = videoUrl;
 
     newVideo.addEventListener('ended', function() {
-        if (currentVideoState === 'idle') {
-            if (playEmotionIdleOnce) {
-                playEmotionIdleOnce = false; currentEmotion = 'calm';
-                const v = getRandomIdleVideo();
-                if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
+        if (currentVideoState === 'thinking') {
+            // ✅ ตรวจ flag
+            if (isThinking) {
+                const v = getThinkingVideo() || getRandomIdleVideo();
+                if (v) { this.src = v; this.load(); this.play().catch(e => {}); }
             } else {
+                currentVideoState = 'idle';
                 const v = getRandomIdleVideo();
                 if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
             }
+            return;
+        }
+
+        if (currentVideoState === 'idle') {
+            if (playEmotionIdleOnce) {
+                playEmotionIdleOnce = false; currentEmotion = 'calm';
+            }
+            const v = getRandomIdleVideo();
+            if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
+
         } else if (currentVideoState === 'speaking') {
             if (isSpeaking) {
                 const v = getEmotionVideo3D(currentEmotion, 'talking') || getRandomSpeakingVideo();
@@ -881,6 +917,9 @@ function sendMessage() {
     $('#messageInput').val('').css('height', 'auto');
     updateStatus('Thinking...', false);
 
+    // ✅ เริ่ม thinking ทันทีที่กด send
+    startThinkingAnimation();
+
     const headers = { 'Content-Type': 'application/json' };
     const requestData = {
         conversation_id: currentConversationId,
@@ -907,12 +946,14 @@ function sendMessage() {
                     loadConversations();
                 }
                 if (response.user_companion_id) { companionId = response.user_companion_id; sessionStorage.setItem('user_companion_id', companionId); }
+                // ✅ thinking ยังวนอยู่ — speakAIResponseDirectly จะหยุดเองเมื่อโหลดเสียงเสร็จ
                 speakAIResponseDirectly(
                     response.ai_message,
                     response.language_used || requestData.preferred_language,
                     response.ai_emotion || 'calm'
                 );
             } else {
+                stopThinkingAnimation(); // ✅ หยุด thinking ถ้า error
                 Swal.fire('Error', response.message, 'error');
                 updateStatus('Ready to chat', false);
             }
@@ -920,6 +961,7 @@ function sendMessage() {
             $('#sendBtn').prop('disabled', false);
         },
         error: function() {
+            stopThinkingAnimation(); // ✅ หยุด thinking ถ้า error
             Swal.fire('Error', 'Failed to send message', 'error');
             updateStatus('Ready to chat', false);
             $('#messageInput').prop('disabled', false).focus();
@@ -970,6 +1012,7 @@ function createNewChat() {
     currentConversationId = 0;
     sessionStorage.removeItem('last_conversation_id');
     currentEmotion = 'calm';
+    isThinking = false; // ✅ reset flag
     clearSubtitleTimers();
     $('.conversation-item').removeClass('active');
     $('#messageInput').val('').focus();
@@ -978,7 +1021,10 @@ function createNewChat() {
     if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     isSpeaking = false; window.isSpeaking = false;
     updateStatus('Ready to chat', false);
-    if (useVideoAvatar) stopSpeakingAnimation();
+    if (useVideoAvatar && currentVideoState !== 'idle') {
+        const v = getRandomIdleVideo();
+        if (v) switchToVideo(v, 'idle');
+    }
     $('#dropdownMenu').removeClass('show');
     $('#menuToggle').removeClass('active');
 }
@@ -1043,4 +1089,4 @@ function goToPreferences() {
     window.location.href = url;
 }
 
-console.log('✅ AI Chat 3D loaded — Parallel preload + per-sentence subtitle typewriter');
+console.log('✅ AI Chat 3D — Thinking flag-based + Parallel preload + Typewriter subtitle');
