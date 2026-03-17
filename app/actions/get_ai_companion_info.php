@@ -34,7 +34,7 @@ if (!$user_id) {
 }
 
 try {
-    // ✅ เพิ่ม emotion_videos, emotion_videos_3d ใน SELECT
+    // ✅ เพิ่ม startup_actions ใน SELECT
     $stmt = $conn->prepare("
         SELECT 
             uc.user_companion_id,
@@ -52,6 +52,7 @@ try {
             ai.talking_video_urls,
             ai.emotion_videos,
             ai.emotion_videos_3d,
+            ai.startup_actions,
             ai.voice_id,
             ai.voice_name
         FROM user_ai_companions uc
@@ -102,7 +103,11 @@ try {
     // ✅ Parse emotion_videos_3d
     $emotion_videos_3d_array = json_decode($companion['emotion_videos_3d'] ?? '{}', true) ?: [];
 
+    // ✅ Parse startup_actions
+    $startup_actions = json_decode($companion['startup_actions'] ?? '{}', true) ?: (object)[];
+
     error_log("✅ emotion_videos_3d loaded: " . count($emotion_videos_3d_array) . " emotion(s) for user_id=$user_id");
+    error_log("✅ startup_actions: " . json_encode($startup_actions));
     
     echo json_encode([
         'status' => 'success',
@@ -120,8 +125,9 @@ try {
             'last_active_at'           => $companion['last_active_at'],
             'idle_video_urls_array'    => $idle_videos,
             'talking_video_urls_array' => $talking_videos,
-            'emotion_videos_array'     => $emotion_videos_array,      // ✅ 2D
-            'emotion_videos_3d_array'  => $emotion_videos_3d_array,   // ✅ 3D
+            'emotion_videos_array'     => $emotion_videos_array,
+            'emotion_videos_3d_array'  => $emotion_videos_3d_array,
+            'startup_actions'          => $startup_actions,  // ✅ เพิ่ม
         ],
         'user_id'            => $user_id,
         'companion_id'       => $companion['user_companion_id'],
@@ -136,4 +142,3 @@ try {
 }
 
 $conn->close();
-?>

@@ -48,6 +48,13 @@ $stmt->close();
 $emotion_videos_data    = json_decode($ai['emotion_videos']    ?? '{}', true) ?: [];
 $emotion_videos_3d_data = json_decode($ai['emotion_videos_3d'] ?? '{}', true) ?: [];
 
+// ✅ Load startup_actions
+$startup_actions  = json_decode($ai['startup_actions'] ?? '{}', true) ?: [];
+$sa_weather       = !empty($startup_actions['weather']);
+$sa_news_world    = !empty($startup_actions['news_world']);
+$sa_news_country  = !empty($startup_actions['news_country']);
+$sa_country_code  = $startup_actions['news_country_code'] ?? 'th';
+
 $items_query = "
     SELECT 
         pi.item_id, 
@@ -100,7 +107,7 @@ include '../template/header.php';
                 <div class="row">
 
                     <!-- ============================================================
-                         Left Column: Media & Basic Info
+                         Left Column
                          ============================================================ -->
                     <div class="col-lg-5">
                         <div class="card">
@@ -235,9 +242,7 @@ include '../template/header.php';
                                     <div id="newTalkingVideosPreview" class="video-grid mt-3"></div>
                                 </div>
 
-                                <!-- ==========================================
-                                     2D EMOTION VIDEOS — TAB UI (EDIT)
-                                     ========================================== -->
+                                <!-- 2D EMOTION VIDEOS (EDIT) -->
                                 <div class="form-group mb-4">
                                     <label>
                                         <i class="fas fa-heart"></i>
@@ -248,9 +253,7 @@ include '../template/header.php';
                                         <i class="fas fa-info-circle"></i>
                                         วิดีโอสั้น/GIF แสดงอารมณ์ข้าง Avatar ใน 2D Mode
                                     </small>
-
                                     <div class="emotion-manager-card">
-                                        <!-- Tab bar -->
                                         <div class="emotion-manager-header">
                                             <div class="emotion-tab-bar" role="tablist">
                                                 <?php $first2d = true; foreach ($emotions as $ek => $ei):
@@ -269,8 +272,6 @@ include '../template/header.php';
                                                 <?php $first2d = false; endforeach; ?>
                                             </div>
                                         </div>
-
-                                        <!-- Panes -->
                                         <div class="emotion-manager-body" id="mgr2d">
                                             <?php $first2d = true; foreach ($emotions as $ek => $ei):
                                                 $existing_2d = $emotion_videos_data[$ek] ?? [];
@@ -278,8 +279,6 @@ include '../template/header.php';
                                             <div class="emo-pane <?= $first2d ? 'active' : '' ?>" id="pane2d-<?= $ek ?>">
                                                 <div class="emo-pane-title"><?= $ei['label'] ?></div>
                                                 <div class="emo-pane-desc"><?= $ei['desc'] ?></div>
-
-                                                <!-- Existing files -->
                                                 <?php if (!empty($existing_2d)): ?>
                                                 <div class="emo-video-grid" id="existing-grid2d-<?= $ek ?>">
                                                     <?php foreach ($existing_2d as $vidx => $vurl):
@@ -304,11 +303,7 @@ include '../template/header.php';
                                                     <?php endforeach; ?>
                                                 </div>
                                                 <?php endif; ?>
-
-                                                <!-- New uploads grid -->
                                                 <div class="emo-video-grid" id="grid2d-<?= $ek ?>"></div>
-
-                                                <!-- Drop zone -->
                                                 <div class="emo-drop-zone">
                                                     <input type="file"
                                                            id="emotionVideos_<?= $ek ?>"
@@ -322,7 +317,6 @@ include '../template/header.php';
                                                     <div class="dz-text">เพิ่มไฟล์ใหม่ — ลากวางหรือคลิก</div>
                                                     <div class="dz-hint">MP4, WebM, GIF</div>
                                                 </div>
-
                                                 <input type="hidden"
                                                        id="deletedEmotionVideos_<?= $ek ?>"
                                                        name="deleted_emotion_videos[<?= $ek ?>]"
@@ -332,11 +326,8 @@ include '../template/header.php';
                                         </div>
                                     </div>
                                 </div>
-                                <!-- END 2D -->
 
-                                <!-- ==========================================
-                                     3D EMOTION VIDEOS — TAB UI (EDIT)
-                                     ========================================== -->
+                                <!-- 3D EMOTION VIDEOS (EDIT) -->
                                 <div class="form-group mb-4">
                                     <label>
                                         <i class="fas fa-cube"></i>
@@ -347,9 +338,7 @@ include '../template/header.php';
                                         <i class="fas fa-info-circle"></i>
                                         วิดีโอ/GIF อารมณ์สำหรับ 3D Mode — แต่ละอารมณ์มี <strong>Idle</strong> และ <strong>Talking</strong> แยกกัน
                                     </small>
-
                                     <div class="emotion-manager-card">
-                                        <!-- Tab bar -->
                                         <div class="emotion-manager-header">
                                             <div class="emotion-tab-bar" role="tablist">
                                                 <?php $first3d = true; foreach ($emotions as $ek => $ei):
@@ -369,8 +358,6 @@ include '../template/header.php';
                                                 <?php $first3d = false; endforeach; ?>
                                             </div>
                                         </div>
-
-                                        <!-- Panes -->
                                         <div class="emotion-manager-body" id="mgr3d">
                                             <?php $first3d = true; foreach ($emotions as $ek => $ei):
                                                 $ex_idle    = $emotion_videos_3d_data[$ek]['idle']    ?? [];
@@ -379,10 +366,9 @@ include '../template/header.php';
                                             <div class="emo-pane <?= $first3d ? 'active' : '' ?>" id="pane3d-<?= $ek ?>">
                                                 <div class="emo-pane-title"><?= $ei['label'] ?> — 3D Mode</div>
                                                 <div class="emo-pane-desc"><?= $ei['desc'] ?></div>
-
                                                 <div class="state-split">
 
-                                                    <!-- IDLE COLUMN -->
+                                                    <!-- IDLE -->
                                                     <div class="state-col">
                                                         <div class="state-col-head">
                                                             <span class="state-label-text idle">
@@ -392,7 +378,6 @@ include '../template/header.php';
                                                                   id="cnt3d-<?= $ek ?>-idle"><?= count($ex_idle) ?></span>
                                                         </div>
                                                         <div class="state-col-body">
-                                                            <!-- Existing idle -->
                                                             <?php if (!empty($ex_idle)): ?>
                                                             <div class="emo-video-grid" id="existing3d-<?= $ek ?>-idle">
                                                                 <?php foreach ($ex_idle as $vidx => $vurl):
@@ -419,10 +404,7 @@ include '../template/header.php';
                                                                 <?php endforeach; ?>
                                                             </div>
                                                             <?php endif; ?>
-
-                                                            <!-- New idle uploads -->
                                                             <div class="emo-video-grid" id="grid3d-<?= $ek ?>-idle"></div>
-
                                                             <div class="emo-drop-zone compact">
                                                                 <input type="file"
                                                                        id="em3d_<?= $ek ?>_idle"
@@ -438,7 +420,6 @@ include '../template/header.php';
                                                                 <div class="dz-text">เพิ่ม Idle</div>
                                                                 <div class="dz-hint">MP4, GIF</div>
                                                             </div>
-
                                                             <input type="hidden"
                                                                    id="deleted3d_<?= $ek ?>_idle"
                                                                    name="deleted_emotion_videos_3d[<?= $ek ?>][idle]"
@@ -446,7 +427,7 @@ include '../template/header.php';
                                                         </div>
                                                     </div>
 
-                                                    <!-- TALKING COLUMN -->
+                                                    <!-- TALKING -->
                                                     <div class="state-col" style="border-color:#c3e6cb;">
                                                         <div class="state-col-head talking-head">
                                                             <span class="state-label-text talking">
@@ -456,7 +437,6 @@ include '../template/header.php';
                                                                   id="cnt3d-<?= $ek ?>-talking"><?= count($ex_talking) ?></span>
                                                         </div>
                                                         <div class="state-col-body">
-                                                            <!-- Existing talking -->
                                                             <?php if (!empty($ex_talking)): ?>
                                                             <div class="emo-video-grid" id="existing3d-<?= $ek ?>-talking">
                                                                 <?php foreach ($ex_talking as $vidx => $vurl):
@@ -483,10 +463,7 @@ include '../template/header.php';
                                                                 <?php endforeach; ?>
                                                             </div>
                                                             <?php endif; ?>
-
-                                                            <!-- New talking uploads -->
                                                             <div class="emo-video-grid" id="grid3d-<?= $ek ?>-talking"></div>
-
                                                             <div class="emo-drop-zone compact">
                                                                 <input type="file"
                                                                        id="em3d_<?= $ek ?>_talking"
@@ -502,7 +479,6 @@ include '../template/header.php';
                                                                 <div class="dz-text">เพิ่ม Talking</div>
                                                                 <div class="dz-hint">MP4, GIF</div>
                                                             </div>
-
                                                             <input type="hidden"
                                                                    id="deleted3d_<?= $ek ?>_talking"
                                                                    name="deleted_emotion_videos_3d[<?= $ek ?>][talking]"
@@ -510,15 +486,14 @@ include '../template/header.php';
                                                         </div>
                                                     </div>
 
-                                                </div><!-- /state-split -->
+                                                </div>
                                             </div>
                                             <?php $first3d = false; endforeach; ?>
                                         </div>
                                     </div>
                                 </div>
-                                <!-- END 3D -->
 
-                                <!-- AI Voice (ElevenLabs) -->
+                                <!-- AI Voice -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-volume-up"></i> AI Voice (ElevenLabs)</label>
                                     <input type="text" class="form-control mb-2" id="voice_id" name="voice_id"
@@ -528,6 +503,120 @@ include '../template/header.php';
                                         placeholder="Voice Name"
                                         value="<?= htmlspecialchars($ai['voice_name'] ?? '') ?>">
                                 </div>
+
+                                <!-- ==========================================
+                                     STARTUP ACTIONS (EDIT — โหลดค่าเดิมจาก DB)
+                                     ========================================== -->
+                                <div class="form-group mb-4">
+                                    <label>
+                                        <i class="fas fa-play-circle"></i>
+                                        Startup Actions
+                                        <span class="badge" style="font-size:11px;vertical-align:middle;margin-left:6px;background:#17a2b8;color:#fff;padding:3px 8px;border-radius:12px;">เมื่อเปิดแอป</span>
+                                    </label>
+                                    <small class="text-muted d-block mb-3">
+                                        <i class="fas fa-info-circle"></i>
+                                        เลือกว่า AI จะพูดอะไรหลังจากทักทาย — ถ้าไม่เปิดจะข้ามไปเลย
+                                    </small>
+
+                                    <div style="background:#f8f9ff;border:1px solid #d0d7ff;border-radius:12px;padding:18px 20px;">
+
+                                        <!-- Weather -->
+                                        <div style="display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid #e8ecff;">
+                                            <div style="padding-top:2px;">
+                                                <div class="form-check form-switch" style="margin:0;">
+                                                    <input class="form-check-input" type="checkbox"
+                                                           id="sa_weather" name="sa_weather" value="1"
+                                                           <?= $sa_weather ? 'checked' : '' ?>
+                                                           style="width:42px;height:22px;cursor:pointer;">
+                                                </div>
+                                            </div>
+                                            <div style="flex:1;">
+                                                <div style="font-weight:600;font-size:14px;color:#333;">
+                                                    <i class="fas fa-cloud-sun" style="color:#f5a623;margin-right:6px;"></i>
+                                                    พยากรณ์อากาศ
+                                                </div>
+                                                <div style="font-size:12px;color:#777;margin-top:3px;">
+                                                    AI จะรายงานสภาพอากาศ ณ ตำแหน่งของ user (ต้องอนุญาต Location)
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- World News -->
+                                        <div style="display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid #e8ecff;">
+                                            <div style="padding-top:2px;">
+                                                <div class="form-check form-switch" style="margin:0;">
+                                                    <input class="form-check-input" type="checkbox"
+                                                           id="sa_news_world" name="sa_news_world" value="1"
+                                                           <?= $sa_news_world ? 'checked' : '' ?>
+                                                           style="width:42px;height:22px;cursor:pointer;">
+                                                </div>
+                                            </div>
+                                            <div style="flex:1;">
+                                                <div style="font-weight:600;font-size:14px;color:#333;">
+                                                    <i class="fas fa-globe" style="color:#4a90e2;margin-right:6px;"></i>
+                                                    ข่าวระดับโลก (Top World News)
+                                                </div>
+                                                <div style="font-size:12px;color:#777;margin-top:3px;">
+                                                    AI จะเล่าข่าวสำคัญระดับโลกประจำวัน (ดึงจาก NewsAPI)
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Country News -->
+                                        <div style="display:flex;align-items:flex-start;gap:14px;padding:12px 0;">
+                                            <div style="padding-top:2px;">
+                                                <div class="form-check form-switch" style="margin:0;">
+                                                    <input class="form-check-input" type="checkbox"
+                                                           id="sa_news_country" name="sa_news_country" value="1"
+                                                           <?= $sa_news_country ? 'checked' : '' ?>
+                                                           style="width:42px;height:22px;cursor:pointer;"
+                                                           onchange="toggleCountryPicker(this)">
+                                                </div>
+                                            </div>
+                                            <div style="flex:1;">
+                                                <div style="font-weight:600;font-size:14px;color:#333;">
+                                                    <i class="fas fa-flag" style="color:#27ae60;margin-right:6px;"></i>
+                                                    ข่าวระดับประเทศ (Country News)
+                                                </div>
+                                                <div style="font-size:12px;color:#777;margin-top:3px;">
+                                                    AI จะเล่าข่าวในประเทศที่เลือก
+                                                </div>
+                                                <div id="countryPickerWrap" style="margin-top:10px;display:<?= $sa_news_country ? 'flex' : 'none' ?>;gap:10px;flex-wrap:wrap;align-items:center;">
+                                                    <div>
+                                                        <label style="font-size:12px;font-weight:600;color:#555;margin-bottom:4px;display:block;">ประเทศ</label>
+                                                        <select class="form-control form-control-sm" id="sa_country_code" name="sa_country_code" style="min-width:160px;">
+                                                            <?php
+                                                            $countries = [
+                                                                'th' => '🇹🇭 ไทย (Thailand)',
+                                                                'us' => '🇺🇸 สหรัฐฯ (US)',
+                                                                'gb' => '🇬🇧 อังกฤษ (UK)',
+                                                                'jp' => '🇯🇵 ญี่ปุ่น (Japan)',
+                                                                'cn' => '🇨🇳 จีน (China)',
+                                                                'kr' => '🇰🇷 เกาหลี (Korea)',
+                                                                'sg' => '🇸🇬 สิงคโปร์ (SG)',
+                                                                'au' => '🇦🇺 ออสเตรเลีย (AU)',
+                                                                'de' => '🇩🇪 เยอรมนี (DE)',
+                                                                'fr' => '🇫🇷 ฝรั่งเศส (FR)',
+                                                            ];
+                                                            foreach ($countries as $code => $label):
+                                                            ?>
+                                                            <option value="<?= $code ?>" <?= $sa_country_code === $code ? 'selected' : '' ?>><?= $label ?></option>
+                                                            <?php endforeach; ?>
+                                                        </select>
+                                                    </div>
+                                                    <div style="flex:1;padding-top:20px;">
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-info-circle text-primary"></i>
+                                                            AI จะพูดตามภาษาที่ตั้งไว้ใน Preferred Language ของ companion อัตโนมัติ
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                                <!-- END STARTUP ACTIONS -->
 
                                 <!-- Status -->
                                 <div class="form-group">
@@ -678,7 +767,6 @@ include '../template/header.php';
                             </div>
                         </div>
 
-                        <!-- Submit -->
                         <div class="mt-3 text-end">
                             <button type="button" id="submitEditAI" class="btn btn-success btn-lg">
                                 <i class="fas fa-save"></i> Update AI Companion
@@ -698,5 +786,10 @@ include '../template/header.php';
 
     <script src='../js/index_.js?v=<?php echo time(); ?>'></script>
     <script src='js/ai-companion.js?v=<?php echo time(); ?>'></script>
+    <script>
+    function toggleCountryPicker(checkbox) {
+        document.getElementById('countryPickerWrap').style.display = checkbox.checked ? 'flex' : 'none';
+    }
+    </script>
 </body>
 </html>
