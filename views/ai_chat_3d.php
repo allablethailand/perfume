@@ -172,13 +172,9 @@ if (session_status() == PHP_SESSION_NONE) {
             position: relative;
         }
 
-        /* Audio Wave Background */
         .audio-wave-bg {
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             z-index: 1;
             overflow: hidden;
             background: radial-gradient(ellipse at center, rgb(0 0 0) 0%, rgb(0 0 0) 70%);
@@ -186,10 +182,8 @@ if (session_status() == PHP_SESSION_NONE) {
 
         .wave-container {
             position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            bottom: 0; left: 0;
+            width: 100%; height: 100%;
             display: flex;
             align-items: flex-end;
             justify-content: center;
@@ -197,10 +191,8 @@ if (session_status() == PHP_SESSION_NONE) {
 
         .wave-svg {
             position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 40%;
+            bottom: 0; left: 0;
+            width: 100%; height: 40%;
         }
 
         .wave-path {
@@ -210,54 +202,32 @@ if (session_status() == PHP_SESSION_NONE) {
             filter: blur(2px);
         }
 
-        .wave-path-1 {
-            stroke: #00d4ff;
-            opacity: 0.3;
-        }
+        .wave-path-1 { stroke: #00d4ff; opacity: 0.3; }
+        .wave-path-2 { stroke: #667eea; opacity: 0.25; }
+        .wave-path-3 { stroke: #764ba2; opacity: 0.2; }
 
-        .wave-path-2 {
-            stroke: #667eea;
-            opacity: 0.25;
-        }
-
-        .wave-path-3 {
-            stroke: #764ba2;
-            opacity: 0.2;
-        }
-
-        /* Particle effects */
         .particles {
             position: absolute;
-            width: 100%;
-            height: 100%;
-            top: 0;
-            left: 0;
+            width: 100%; height: 100%;
+            top: 0; left: 0;
             z-index: 2;
             pointer-events: none;
         }
 
         .particle {
             position: absolute;
-            width: 2px;
-            height: 2px;
+            width: 2px; height: 2px;
             background: #00d4ff;
             border-radius: 50%;
             box-shadow: 0 0 6px rgba(0, 212, 255, 0.6);
             animation: float-particle 12s linear infinite;
-            transition: animation-duration 0.3s ease, opacity 0.3s ease;
         }
 
         @keyframes float-particle {
-            0% {
-                transform: translateY(100vh) translateX(0);
-                opacity: 0;
-            }
-            10% { opacity: 0.4; }
-            90% { opacity: 0.4; }
-            100% {
-                transform: translateY(-100px) translateX(100px);
-                opacity: 0;
-            }
+            0%   { transform: translateY(100vh) translateX(0); opacity: 0; }
+            10%  { opacity: 0.4; }
+            90%  { opacity: 0.4; }
+            100% { transform: translateY(-100px) translateX(100px); opacity: 0; }
         }
         
         .avatar-container {
@@ -276,10 +246,10 @@ if (session_status() == PHP_SESSION_NONE) {
             display: block;
         }
 
+        /* ========== Status (top-right) ========== */
         .avatar-overlay {
             position: absolute;
-            top: 20px;
-            right: 20px;
+            top: 20px; right: 20px;
             display: flex;
             gap: 15px;
             align-items: flex-start;
@@ -304,44 +274,54 @@ if (session_status() == PHP_SESSION_NONE) {
         }
 
         .status-dot {
-            width: 10px;
-            height: 10px;
+            width: 10px; height: 10px;
             border-radius: 50%;
             background: #00ff00;
             animation: pulse 2s infinite;
         }
 
-        .status-dot.speaking {
-            background: #ff6b6b;
-        }
+        .status-dot.speaking { background: #ff6b6b; }
 
         @keyframes pulse {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            50%       { opacity: 0.5; }
         }
 
+        /* ========== ✅ Subtitle — ล่างกลาง จำกัด 2 บรรทัด ========== */
         .current-message {
-            background: rgba(0, 0, 0, 0.7);
-            backdrop-filter: blur(10px);
-            padding: 15px 20px;
-            border-radius: 12px;
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 85%;
+            max-width: 680px;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 12px 20px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             color: white;
-            max-width: 600px;
-            pointer-events: auto;
-        }
+            text-align: center;
+            z-index: 20;
+            pointer-events: none;
 
-        .current-message h4 {
-            font-size: 12px;
-            opacity: 0.7;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            /* ✅ จำกัดความสูง — ไม่เกิน 2 บรรทัด */
+            max-height: 76px;
+            overflow: hidden;
         }
 
         .current-message p {
-            font-size: 14px;
+            font-size: 15px;
             line-height: 1.6;
             margin: 0;
+            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+
+            /* ✅ ตัดข้อความเกิน 2 บรรทัด */
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
 
         /* ========== Chat Input ========== */
@@ -377,9 +357,7 @@ if (session_status() == PHP_SESSION_NONE) {
             color: white;
         }
 
-        .message-input::placeholder {
-            color: rgba(255, 255, 255, 0.5);
-        }
+        .message-input::placeholder { color: rgba(255, 255, 255, 0.5); }
         
         .message-input:focus {
             outline: none;
@@ -388,8 +366,7 @@ if (session_status() == PHP_SESSION_NONE) {
         }
         
         .send-btn {
-            width: 44px;
-            height: 44px;
+            width: 44px; height: 44px;
             border-radius: 50%;
             background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
             color: #fff;
@@ -402,15 +379,8 @@ if (session_status() == PHP_SESSION_NONE) {
             transition: all 0.2s;
         }
         
-        .send-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 4px 16px rgba(102, 126, 234, 0.5);
-        }
-        
-        .send-btn:disabled {
-            background: rgba(255, 255, 255, 0.2);
-            cursor: not-allowed;
-        }
+        .send-btn:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(102, 126, 234, 0.5); }
+        .send-btn:disabled { background: rgba(255, 255, 255, 0.2); cursor: not-allowed; }
 
         /* Conversation items */
         .conversation-item {
@@ -424,39 +394,20 @@ if (session_status() == PHP_SESSION_NONE) {
             background: rgba(255, 255, 255, 0.5);
         }
         
-        .conversation-item:hover {
-            background: rgba(255, 255, 255, 0.8);
-        }
+        .conversation-item:hover { background: rgba(255, 255, 255, 0.8); }
         
         .conversation-item.active {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #fff;
         }
         
-        .conversation-title {
-            font-weight: 500;
-            margin-bottom: 4px;
-            font-size: 14px;
-        }
-        
-        .conversation-preview {
-            font-size: 12px;
-            opacity: 0.7;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        
-        .conversation-time {
-            font-size: 11px;
-            opacity: 0.5;
-            margin-top: 4px;
-        }
+        .conversation-title { font-weight: 500; margin-bottom: 4px; font-size: 14px; }
+        .conversation-preview { font-size: 12px; opacity: 0.7; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .conversation-time { font-size: 11px; opacity: 0.5; margin-top: 4px; }
         
         .delete-conv-btn {
             position: absolute;
-            top: 8px;
-            right: 8px;
+            top: 8px; right: 8px;
             background: rgba(255, 255, 255, 0.9);
             border: none;
             border-radius: 4px;
@@ -467,124 +418,54 @@ if (session_status() == PHP_SESSION_NONE) {
             color: #dc3545;
         }
         
-        .conversation-item:hover .delete-conv-btn {
-            opacity: 1;
-        }
-        
-        .conversation-item.active .delete-conv-btn {
-            background: rgba(255, 255, 255, 0.2);
-            color: #fff;
-        }
+        .conversation-item:hover .delete-conv-btn { opacity: 1; }
+        .conversation-item.active .delete-conv-btn { background: rgba(255, 255, 255, 0.2); color: #fff; }
 
-        /* Scrollbar styling */
-        .conversations-list::-webkit-scrollbar {
-            width: 6px;
-        }
+        .conversations-list::-webkit-scrollbar { width: 6px; }
+        .conversations-list::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.1); border-radius: 3px; }
+        .conversations-list::-webkit-scrollbar-thumb { background: rgba(102, 126, 234, 0.5); border-radius: 3px; }
+        .conversations-list::-webkit-scrollbar-thumb:hover { background: rgba(102, 126, 234, 0.7); }
 
-        .conversations-list::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.1);
-            border-radius: 3px;
-        }
-
-        .conversations-list::-webkit-scrollbar-thumb {
-            background: rgba(102, 126, 234, 0.5);
-            border-radius: 3px;
-        }
-
-        .conversations-list::-webkit-scrollbar-thumb:hover {
-            background: rgba(102, 126, 234, 0.7);
-        }
-
+        /* ========== Mobile ========== */
         @media (max-width: 768px) {
-            
-            .floating-menu-btn {
-        width: 56px; /* เพิ่มขนาด */
-        height: 56px;
-        font-size: 24px;
-        top: 15px;
-        left: 15px;
-    }
+            .floating-menu-btn { width: 56px; height: 56px; font-size: 24px; top: 15px; left: 15px; }
 
-    .dropdown-menu {
-        width: calc(100vw - 30px);
-        max-width: none;
-        left: 15px;
-        top: 85px;
-    }
+            .dropdown-menu { width: calc(100vw - 30px); max-width: none; left: 15px; top: 85px; }
 
-    .current-message {
-        max-width: calc(100vw - 40px);
-        padding: 12px 16px;
-        font-size: 13px;
-    }
+            /* ✅ Subtitle mobile */
+            .current-message {
+                bottom: 16px;
+                width: 92%;
+                padding: 10px 14px;
+                max-height: 68px;
+            }
 
-    .avatar-status {
-        padding: 12px 16px;
-        font-size: 13px;
-    }
+            .current-message p {
+                font-size: 13px;
+                line-height: 1.55;
+                -webkit-line-clamp: 2;
+            }
 
-    /* ✅ แก้ส่วน Input ให้ใหญ่ขึ้น */
-    .chat-input-3d {
-        padding: 15px 20px;
-    }
+            .avatar-status { padding: 12px 16px; font-size: 13px; }
 
-    .message-input {
-        font-size: 16px; /* เพิ่มจาก 14px */
-        padding: 14px 20px; /* เพิ่ม padding */
-        min-height: 50px; /* เพิ่มความสูง */
-        border-radius: 25px;
-    }
+            .chat-input-3d { padding: 15px 20px; }
 
-    .send-btn {
-        width: 50px; /* เพิ่มจาก 44px */
-        height: 50px;
-        font-size: 18px;
-    }
+            .message-input { font-size: 16px; padding: 14px 20px; min-height: 50px; border-radius: 25px; }
 
-    /* ✅ แก้ปุ่มใน Menu ให้ใหญ่ขึ้น */
-    .new-chat-btn {
-        padding: 14px;
-        font-size: 15px;
-    }
+            .send-btn { width: 50px; height: 50px; font-size: 18px; }
 
-    .menu-action-btn {
-        padding: 14px 18px;
-        font-size: 15px;
-    }
+            .new-chat-btn { padding: 14px; font-size: 15px; }
 
-    .conversation-item {
-        padding: 14px;
-        font-size: 14px;
-    }
+            .menu-action-btn { padding: 14px 18px; font-size: 15px; }
 
-    .conversation-title {
-        font-size: 15px;
-    }
+            .conversation-item { padding: 14px; font-size: 14px; }
+            .conversation-title { font-size: 15px; }
+            .conversation-preview { font-size: 13px; }
 
-    .conversation-preview {
-        font-size: 13px;
-    }
-
-    /* ✅ แก้ส่วน Status ให้ชัดเจนขึ้น */
-    .avatar-overlay {
-        top: 15px;
-        right: 15px;
-        gap: 10px;
-        flex-direction: column;
-        align-items: flex-end;
-    }
-
-    .status-indicator {
-        font-size: 13px;
-    }
-
-    .status-dot {
-        width: 12px;
-        height: 12px;
-    }
-}
+            .avatar-overlay { top: 15px; right: 15px; gap: 10px; flex-direction: column; align-items: flex-end; }
+            .status-indicator { font-size: 13px; }
+            .status-dot { width: 12px; height: 12px; }
         }
-        
     </style>
 </head>
 <body>
@@ -605,14 +486,12 @@ if (session_status() == PHP_SESSION_NONE) {
             <p style="text-align: center; color: #666; padding: 20px; font-size: 13px;">Loading...</p>
         </div>
         <div class="dropdown-footer">
-            <div class="dropdown-footer">
-    <button class="menu-action-btn" onclick="goTo2DMode()">
-        <i class="fas fa-comments"></i> 2D Mode
-    </button>
-    <button class="menu-action-btn secondary" onclick="goToPreferences()">
-        <i class="fas fa-cog"></i> Preferences
-    </button>
-</div>
+            <button class="menu-action-btn" onclick="goTo2DMode()">
+                <i class="fas fa-comments"></i> 2D Mode
+            </button>
+            <button class="menu-action-btn secondary" onclick="goToPreferences()">
+                <i class="fas fa-cog"></i> Preferences
+            </button>
         </div>
     </div>
 
@@ -632,7 +511,8 @@ if (session_status() == PHP_SESSION_NONE) {
 
             <div class="avatar-container">
                 <canvas id="avatarCanvas"></canvas>
-                
+
+                <!-- Status — บนขวา -->
                 <div class="avatar-overlay">
                     <div class="avatar-status">
                         <div class="status-indicator">
@@ -640,11 +520,11 @@ if (session_status() == PHP_SESSION_NONE) {
                             <span id="statusText">Ready to chat</span>
                         </div>
                     </div>
-                    
-                    <div class="current-message" id="currentMessage" style="display: none;">
-                        <h4>AI is saying:</h4>
-                        <p id="messageText"></p>
-                    </div>
+                </div>
+
+                <!-- ✅ Subtitle — ล่างกลาง จำกัด 2 บรรทัด -->
+                <div class="current-message" id="currentMessage" style="display: none;">
+                    <p id="messageText"></p>
                 </div>
             </div>
             
@@ -670,7 +550,6 @@ if (session_status() == PHP_SESSION_NONE) {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="app/js/ai_chat_3d.js?v=<?php echo time(); ?>"></script>
     <script>
-        // Water wave animation
         let waveAnimationFrame;
         let waveOffset = 0;
 
@@ -698,12 +577,10 @@ if (session_status() == PHP_SESSION_NONE) {
                     
                     for (let x = 0; x <= 1200; x += 15) {
                         let wave = Math.sin(x * frequency + offset);
-                        
                         if (window.isSpeaking) {
                             wave += Math.sin(x * 0.05 + offset * 2) * 0.2 * window.waveIntensity;
                             wave += (Math.random() - 0.5) * 0.1 * window.waveIntensity;
                         }
-                        
                         const edgeSoftener = Math.sin((x / 1200) * Math.PI);
                         const y = 200 + (wave * amplitude * edgeSoftener);
                         points.push(`${x},${y}`);
@@ -727,13 +604,8 @@ if (session_status() == PHP_SESSION_NONE) {
             const urlParams = new URLSearchParams(window.location.search);
             const lang = urlParams.get('lang') || 'th';
             const aiCode = urlParams.get('ai_code') || '';
-            
             let url = '?ai_chat&lang=' + lang;
-            if (aiCode) {
-                url += '&ai_code=' + aiCode;
-            }
-            
-            console.log('🔄 Switching to 2D Mode:', url);
+            if (aiCode) url += '&ai_code=' + aiCode;
             window.location.href = url;
         }
         
@@ -741,13 +613,8 @@ if (session_status() == PHP_SESSION_NONE) {
             const urlParams = new URLSearchParams(window.location.search);
             const lang = urlParams.get('lang') || 'th';
             const aiCode = urlParams.get('ai_code') || '';
-            
             let url = '?ai_edit_prompts&lang=' + lang;
-            if (aiCode) {
-                url += '&ai_code=' + aiCode;
-            }
-            
-            console.log('⚙️ Opening Preferences:', url);
+            if (aiCode) url += '&ai_code=' + aiCode;
             window.location.href = url;
         }
 
@@ -759,10 +626,8 @@ if (session_status() == PHP_SESSION_NONE) {
                 particle.style.left = Math.random() * 100 + '%';
                 particle.style.animationDelay = Math.random() * 12 + 's';
                 particle.style.animationDuration = (10 + Math.random() * 4) + 's';
-                
                 const colors = ['#00d4ff', '#4dd0e1', '#667eea', '#80deea'];
                 particle.style.background = colors[Math.floor(Math.random() * colors.length)];
-                
                 container.appendChild(particle);
             }
             
