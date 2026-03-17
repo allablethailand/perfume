@@ -176,9 +176,7 @@ include '../template/header.php';
                                     <small class="text-muted">วิดีโอที่แสดงเมื่อ AI กำลังพูด (จะ Random เล่น)</small>
                                 </div>
 
-                                <!-- ==========================================
-                                     2D EMOTION VIDEOS — TAB UI
-                                     ========================================== -->
+                                <!-- 2D EMOTION VIDEOS -->
                                 <div class="form-group mb-4">
                                     <label>
                                         <i class="fas fa-heart"></i>
@@ -189,9 +187,7 @@ include '../template/header.php';
                                         <i class="fas fa-info-circle"></i>
                                         วิดีโอสั้น/GIF แสดงอารมณ์ข้าง Avatar ใน 2D Mode — แต่ละอารมณ์อัพโหลดได้หลายไฟล์ (จะ Random เล่น)
                                     </small>
-
                                     <div class="emotion-manager-card">
-                                        <!-- Tab bar -->
                                         <div class="emotion-manager-header">
                                             <div class="emotion-tab-bar" role="tablist">
                                                 <?php $first2d = true; foreach ($emotions as $ek => $ei): ?>
@@ -207,18 +203,12 @@ include '../template/header.php';
                                                 <?php $first2d = false; endforeach; ?>
                                             </div>
                                         </div>
-
-                                        <!-- Panes -->
                                         <div class="emotion-manager-body" id="mgr2d">
                                             <?php $first2d = true; foreach ($emotions as $ek => $ei): ?>
                                             <div class="emo-pane <?= $first2d ? 'active' : '' ?>" id="pane2d-<?= $ek ?>">
                                                 <div class="emo-pane-title"><?= $ei['label'] ?></div>
                                                 <div class="emo-pane-desc"><?= $ei['desc'] ?></div>
-
-                                                <!-- Preview grid -->
                                                 <div class="emo-video-grid" id="grid2d-<?= $ek ?>"></div>
-
-                                                <!-- Drop zone -->
                                                 <div class="emo-drop-zone" id="dz2d-<?= $ek ?>">
                                                     <input type="file"
                                                            id="emotionVideos_<?= $ek ?>"
@@ -237,11 +227,8 @@ include '../template/header.php';
                                         </div>
                                     </div>
                                 </div>
-                                <!-- END 2D -->
 
-                                <!-- ==========================================
-                                     3D EMOTION VIDEOS — TAB UI
-                                     ========================================== -->
+                                <!-- 3D EMOTION VIDEOS -->
                                 <div class="form-group mb-4">
                                     <label>
                                         <i class="fas fa-cube"></i>
@@ -252,9 +239,7 @@ include '../template/header.php';
                                         <i class="fas fa-info-circle"></i>
                                         วิดีโอ/GIF อารมณ์สำหรับ 3D Mode — แต่ละอารมณ์มี <strong>Idle</strong> และ <strong>Talking</strong> แยกกัน
                                     </small>
-
                                     <div class="emotion-manager-card">
-                                        <!-- Tab bar -->
                                         <div class="emotion-manager-header">
                                             <div class="emotion-tab-bar" role="tablist">
                                                 <?php $first3d = true; foreach ($emotions as $ek => $ei): ?>
@@ -270,16 +255,12 @@ include '../template/header.php';
                                                 <?php $first3d = false; endforeach; ?>
                                             </div>
                                         </div>
-
-                                        <!-- Panes -->
                                         <div class="emotion-manager-body" id="mgr3d">
                                             <?php $first3d = true; foreach ($emotions as $ek => $ei): ?>
                                             <div class="emo-pane <?= $first3d ? 'active' : '' ?>" id="pane3d-<?= $ek ?>">
                                                 <div class="emo-pane-title"><?= $ei['label'] ?> — 3D Mode</div>
                                                 <div class="emo-pane-desc"><?= $ei['desc'] ?> — แต่ละ state จะ Random เล่น</div>
-
                                                 <div class="state-split">
-                                                    <!-- IDLE -->
                                                     <div class="state-col">
                                                         <div class="state-col-head">
                                                             <span class="state-label-text idle">
@@ -306,8 +287,6 @@ include '../template/header.php';
                                                             </div>
                                                         </div>
                                                     </div>
-
-                                                    <!-- TALKING -->
                                                     <div class="state-col" style="border-color:#c3e6cb;">
                                                         <div class="state-col-head talking-head">
                                                             <span class="state-label-text talking">
@@ -334,15 +313,14 @@ include '../template/header.php';
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div><!-- /state-split -->
+                                                </div>
                                             </div>
                                             <?php $first3d = false; endforeach; ?>
                                         </div>
                                     </div>
                                 </div>
-                                <!-- END 3D -->
 
-                                <!-- AI Voice (ElevenLabs) -->
+                                <!-- AI Voice -->
                                 <div class="form-group mb-4">
                                     <label><i class="fas fa-volume-up"></i> AI Voice (ElevenLabs)</label>
                                     <input type="text" class="form-control mb-2" id="voice_id" name="voice_id"
@@ -351,9 +329,113 @@ include '../template/header.php';
                                         placeholder="Voice Name (e.g., Rachel - Female, Multilingual)">
                                     <small class="text-muted">
                                         <i class="fas fa-info-circle"></i>
-                                        Enter ElevenLabs Voice ID and name. This voice will be used for all languages
+                                        Enter ElevenLabs Voice ID and name
                                     </small>
                                 </div>
+
+                                <!-- ==========================================
+                                     STARTUP ACTIONS
+                                     ========================================== -->
+                                <div class="form-group mb-4">
+                                    <label>
+                                        <i class="fas fa-play-circle"></i>
+                                        Startup Actions
+                                        <span class="badge badge-info" style="font-size:11px;vertical-align:middle;margin-left:6px;background:#17a2b8;color:#fff;padding:3px 8px;border-radius:12px;">เมื่อเปิดแอป</span>
+                                    </label>
+                                    <small class="text-muted d-block mb-3">
+                                        <i class="fas fa-info-circle"></i>
+                                        เลือกว่า AI จะพูดอะไรหลังจากทักทาย — ถ้าไม่เปิดจะข้ามไปเลย
+                                    </small>
+
+                                    <div style="background:#f8f9ff;border:1px solid #d0d7ff;border-radius:12px;padding:18px 20px;">
+
+                                        <!-- Weather -->
+                                        <div style="display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid #e8ecff;">
+                                            <div style="padding-top:2px;">
+                                                <div class="form-check form-switch" style="margin:0;">
+                                                    <input class="form-check-input" type="checkbox"
+                                                           id="sa_weather" name="sa_weather" value="1"
+                                                           style="width:42px;height:22px;cursor:pointer;">
+                                                </div>
+                                            </div>
+                                            <div style="flex:1;">
+                                                <div style="font-weight:600;font-size:14px;color:#333;">
+                                                    <i class="fas fa-cloud-sun" style="color:#f5a623;margin-right:6px;"></i>
+                                                    พยากรณ์อากาศ
+                                                </div>
+                                                <div style="font-size:12px;color:#777;margin-top:3px;">
+                                                    AI จะรายงานสภาพอากาศ ณ ตำแหน่งของ user (ต้องอนุญาต Location)
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- World News -->
+                                        <div style="display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid #e8ecff;">
+                                            <div style="padding-top:2px;">
+                                                <div class="form-check form-switch" style="margin:0;">
+                                                    <input class="form-check-input" type="checkbox"
+                                                           id="sa_news_world" name="sa_news_world" value="1"
+                                                           style="width:42px;height:22px;cursor:pointer;">
+                                                </div>
+                                            </div>
+                                            <div style="flex:1;">
+                                                <div style="font-weight:600;font-size:14px;color:#333;">
+                                                    <i class="fas fa-globe" style="color:#4a90e2;margin-right:6px;"></i>
+                                                    ข่าวระดับโลก (Top World News)
+                                                </div>
+                                                <div style="font-size:12px;color:#777;margin-top:3px;">
+                                                    AI จะเล่าข่าวสำคัญระดับโลกประจำวัน (ดึงจาก NewsAPI)
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Country News -->
+                                        <div style="display:flex;align-items:flex-start;gap:14px;padding:12px 0;">
+                                            <div style="padding-top:2px;">
+                                                <div class="form-check form-switch" style="margin:0;">
+                                                    <input class="form-check-input" type="checkbox"
+                                                           id="sa_news_country" name="sa_news_country" value="1"
+                                                           style="width:42px;height:22px;cursor:pointer;"
+                                                           onchange="toggleCountryPicker(this)">
+                                                </div>
+                                            </div>
+                                            <div style="flex:1;">
+                                                <div style="font-weight:600;font-size:14px;color:#333;">
+                                                    <i class="fas fa-flag" style="color:#27ae60;margin-right:6px;"></i>
+                                                    ข่าวระดับประเทศ (Country News)
+                                                </div>
+                                                <div style="font-size:12px;color:#777;margin-top:3px;">
+                                                    AI จะเล่าข่าวในประเทศที่เลือก
+                                                </div>
+                                                <div id="countryPickerWrap" style="margin-top:10px;display:none;gap:10px;flex-wrap:wrap;align-items:center;">
+                                                    <div>
+                                                        <label style="font-size:12px;font-weight:600;color:#555;margin-bottom:4px;display:block;">ประเทศ</label>
+                                                        <select class="form-control form-control-sm" id="sa_country_code" name="sa_country_code" style="min-width:160px;">
+                                                            <option value="th">🇹🇭 ไทย (Thailand)</option>
+                                                            <option value="us">🇺🇸 สหรัฐฯ (US)</option>
+                                                            <option value="gb">🇬🇧 อังกฤษ (UK)</option>
+                                                            <option value="jp">🇯🇵 ญี่ปุ่น (Japan)</option>
+                                                            <option value="cn">🇨🇳 จีน (China)</option>
+                                                            <option value="kr">🇰🇷 เกาหลี (Korea)</option>
+                                                            <option value="sg">🇸🇬 สิงคโปร์ (SG)</option>
+                                                            <option value="au">🇦🇺 ออสเตรเลีย (AU)</option>
+                                                            <option value="de">🇩🇪 เยอรมนี (DE)</option>
+                                                            <option value="fr">🇫🇷 ฝรั่งเศส (FR)</option>
+                                                        </select>
+                                                    </div>
+                                                    <div style="flex:1;padding-top:20px;">
+                                                        <small class="text-muted">
+                                                            <i class="fas fa-info-circle text-primary"></i>
+                                                            AI จะพูดตามภาษาที่ตั้งไว้ใน Preferred Language ของ companion อัตโนมัติ
+                                                        </small>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                </div>
+                                <!-- END STARTUP ACTIONS -->
 
                                 <!-- Status -->
                                 <div class="form-group">
@@ -397,12 +479,11 @@ include '../template/header.php';
                                     </li>
                                     <li class="nav-item">
                                         <button class="nav-link" data-bs-toggle="tab" data-bs-target="#kr">
-                                            <img src="https://flagcdn.com/w20/kr.png" class="flag-icon"> 한국어
+                                            <img src="https://flagcdn.com/w20/gb.png" class="flag-icon"> 한국어
                                         </button>
                                     </li>
                                 </ul>
                             </div>
-
                             <div class="card-body">
                                 <div class="tab-content">
 
@@ -510,7 +591,6 @@ include '../template/header.php';
                             </div>
                         </div>
 
-                        <!-- Submit -->
                         <div class="mt-3 text-end">
                             <button type="button" id="submitAddAI" class="btn btn-primary btn-lg">
                                 <i class="fas fa-save"></i> Create AI Companion
@@ -530,5 +610,10 @@ include '../template/header.php';
 
     <script src='../js/index_.js?v=<?php echo time(); ?>'></script>
     <script src='js/ai-companion.js?v=<?php echo time(); ?>'></script>
+    <script>
+    function toggleCountryPicker(checkbox) {
+        document.getElementById('countryPickerWrap').style.display = checkbox.checked ? 'flex' : 'none';
+    }
+    </script>
 </body>
 </html>

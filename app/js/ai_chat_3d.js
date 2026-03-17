@@ -7,6 +7,7 @@
  * ✅ ค้าง subtitle สุดท้ายจนเสียงจบแล้ว fade out
  * ✅ 3D Emotion Videos
  * ✅ FIX: speaking ดึง talking video ของ emotion ได้ถูกต้อง (pending queue)
+ * ✅ Startup actions — ควบคุมจาก admin (weather / news_world / news_country)
  */
 
 // ========== Global Variables ==========
@@ -50,6 +51,15 @@ window.waveIntensity = 0;
 let typewriterTimer = null;
 let subtitleSequenceTimers = [];
 
+// ✅ startup_actions — โหลดจาก admin config
+// ค่า default = ทุกอย่าง false (ไม่ทำอะไร) จนกว่า API จะส่งมา
+let startupActions = {
+    weather:           false,
+    news_world:        false,
+    news_country:      false,
+    news_country_code: 'th',
+};
+
 const WELCOME_MESSAGES = {
     th: "ยินดีต้อนรับกลับมานะเพื่อน",
     en: "Welcome back, my friend",
@@ -85,9 +95,9 @@ $(document).ready(function() {
             init3DAvatar();
         }
         loadConversations();
-        fetchWeatherData().then(() => {
-            setTimeout(() => { playWelcomeWithWeather(); }, 800);
-        });
+
+        // ✅ รัน startup sequence ตาม admin config
+        runStartupSequence();
     });
 
     $('#messageInput').on('input', function() {
@@ -110,6 +120,92 @@ $(document).ready(function() {
 
     $('#dropdownMenu').on('click', function(e) { e.stopPropagation(); });
 });
+
+// ========== ✅ Startup Sequence — ตาม admin config ==========
+// ลำดับ: Welcome → Weather (ถ้าเปิด) → World News (ถ้าเปิด) → Country News (ถ้าเปิด)
+async function runStartupSequence() {
+    if (isWelcomeMessagePlayed) return;
+    isWelcomeMessagePlayed = true;
+
+    if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
+        videoAvatar.play().catch(e => {});
+    }
+
+    // 1. Welcome — พูดเสมอ
+    const welcomeText = WELCOME_MESSAGES[userPreferredLanguage] || WELCOME_MESSAGES.th;
+    await speakTextWithCache(welcomeText, userPreferredLanguage, 'welcome');
+
+    await delay(600);
+
+    // 2. Weather — เฉพาะถ้า admin เปิด
+    if (startupActions.weather) {
+        await fetchAndSpeakWeather();
+        await delay(600);
+    }
+
+    // 3. World News — เฉพาะถ้า admin เปิด
+    if (startupActions.news_world) {
+        await fetchAndSpeakNews('world', null, userPreferredLanguage);
+        await delay(600);
+    }
+
+    // 4. Country News — เฉพาะถ้า admin เปิด
+    if (startupActions.news_country) {
+        const countryCode = startupActions.news_country_code || 'th';
+        await fetchAndSpeakNews('country', countryCode, userPreferredLanguage);
+    }
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// ─── Weather ─────────────────────────────────────────
+async function fetchAndSpeakWeather() {
+    return new Promise((resolve) => {
+        if (!('geolocation' in navigator)) { resolve(); return; }
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const { latitude, longitude } = pos.coords;
+                const headers = {};
+                if (jwt) headers['Authorization'] = 'Bearer ' + jwt;
+                $.ajax({
+                    url: `app/actions/get_weather.php?lang=${userPreferredLanguage}&lat=${latitude}&lon=${longitude}`,
+                    type: 'GET', headers, dataType: 'json',
+                    success: function(res) {
+                        if (res.status === 'success' && res.data && res.data.message) {
+                            speakTextWithCache(res.data.message, userPreferredLanguage, 'weather').then(resolve);
+                        } else { resolve(); }
+                    },
+                    error: function() { resolve(); }
+                });
+            },
+            () => { resolve(); }
+        );
+    });
+}
+
+// ─── News ─────────────────────────────────────────────
+async function fetchAndSpeakNews(type, countryCode, lang) {
+    return new Promise((resolve) => {
+        let url = `app/actions/get_news.php?type=${type}&lang=${lang}`;
+        if (type === 'country' && countryCode) url += `&country=${countryCode}`;
+
+        const headers = {};
+        if (jwt) headers['Authorization'] = 'Bearer ' + jwt;
+
+        $.ajax({
+            url, type: 'GET', headers, dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success' && res.message) {
+                    speakTextWithCache(res.message, lang, 'news').then(resolve);
+                } else { resolve(); }
+            },
+            error: function() { resolve(); }
+        });
+    });
+}
 
 // ========== Thinking Video ==========
 function startThinkingAnimation() {
@@ -173,60 +269,6 @@ function splitIntoSubtitleSentences(text) {
     return chunks.length > 0 ? chunks : [text];
 }
 
-// ========== Fetch Weather Data ==========
-function fetchWeatherData() {
-    return new Promise((resolve) => {
-        if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    fetchWeatherByCoordinates(position.coords.latitude, position.coords.longitude).then(resolve);
-                },
-                (error) => { weatherData = null; weatherReportPlayed = true; resolve(); }
-            );
-        } else {
-            weatherData = null; weatherReportPlayed = true; resolve();
-        }
-    });
-}
-
-function fetchWeatherByCoordinates(lat, lon) {
-    return new Promise((resolve) => {
-        const headers = {};
-        if (jwt) headers['Authorization'] = 'Bearer ' + jwt;
-        $.ajax({
-            url: `app/actions/get_weather.php?lang=${userPreferredLanguage}&lat=${lat}&lon=${lon}`,
-            type: 'GET', headers, dataType: 'json',
-            success: function(response) {
-                if (response.status === 'success') { weatherData = response.data; weatherReportPlayed = false; }
-                else { weatherData = null; weatherReportPlayed = true; }
-                resolve();
-            },
-            error: function() { weatherData = null; weatherReportPlayed = true; resolve(); }
-        });
-    });
-}
-
-// ========== Play Welcome + Weather ==========
-function playWelcomeWithWeather() {
-    if (isWelcomeMessagePlayed) return;
-    isWelcomeMessagePlayed = true;
-    const welcomeText = WELCOME_MESSAGES[userPreferredLanguage] || WELCOME_MESSAGES.th;
-    if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
-        videoAvatar.play().catch(e => {});
-    }
-    speakTextWithCache(welcomeText, userPreferredLanguage, 'welcome').then(() => {
-        if (weatherData && !weatherReportPlayed) {
-            setTimeout(() => { playWeatherReport(); }, 1000);
-        }
-    });
-}
-
-function playWeatherReport() {
-    if (weatherReportPlayed || !weatherData) return;
-    weatherReportPlayed = true;
-    speakTextWithCache(weatherData.message, userPreferredLanguage, 'weather');
-}
-
 // ========== Fetch AI Data ==========
 function fetchAICompanionData() {
     return new Promise((resolve, reject) => {
@@ -259,6 +301,17 @@ function fetchAICompanionData() {
                     EMOTION_VIDEOS_3D   = aiCompanionData.emotion_videos_3d_array  || {};
                     console.log('✅ 3D Emotion videos loaded:', Object.keys(EMOTION_VIDEOS_3D));
                     console.log('🤔 Thinking videos:', EMOTION_VIDEOS_3D['thinking'] || 'none');
+
+                    // ✅ โหลด startup_actions จาก API
+                    if (aiCompanionData.startup_actions) {
+                        const sa = (typeof aiCompanionData.startup_actions === 'string')
+                            ? JSON.parse(aiCompanionData.startup_actions)
+                            : aiCompanionData.startup_actions;
+                        startupActions = Object.assign(startupActions, sa);
+                        console.log('✅ Startup actions loaded:', startupActions);
+                    } else {
+                        console.log('ℹ️ No startup_actions — welcome only');
+                    }
 
                     if (response.preferred_language) userPreferredLanguage = response.preferred_language;
                     else if (aiCompanionData.preferred_language) userPreferredLanguage = aiCompanionData.preferred_language;
@@ -561,7 +614,6 @@ function handleVideoEnded(el) {
 
     } else if (currentVideoState === 'speaking') {
         if (isSpeaking) {
-            // ✅ FIX: ดึง emotion talking ก่อนเสมอ
             const v = getEmotionVideo3D(currentEmotion, 'talking');
             if (v) { el.muted = true; el.src = v; el.load(); el.play().catch(e => {}); }
         } else {
@@ -963,4 +1015,4 @@ function goToPreferences() {
     window.location.href = url;
 }
 
-console.log('✅ AI Chat 3D — FIX: speaking emotion video + pending queue');
+console.log('✅ AI Chat 3D — startup_actions from admin + speaking emotion fix');
