@@ -1,11 +1,8 @@
 /**
  * AI Chat 3D
- * ✅ โหลดเสียงทุก chunk พร้อมกันรอบเดียว (parallel)
- * ✅ Subtitle แสดงทีละประโยคสั้นตาม chunk เสียงที่กำลังเล่น (typewriter)
- * ✅ FIX: thinking video เล่นเฉพาะตอน user ส่งข้อความ → รอ AI → รอโหลดเสียง
- * ✅ FIX: stopThinkingAnimation() หยุด thinking ได้จริง
- * ✅ ค้าง subtitle สุดท้ายจนเสียงจบแล้ว fade out
- * ✅ 3D Emotion Videos
+ * ✅ FIX: Speaking animation ดึง talking video ของ emotion ได้ถูกต้อง
+ * ✅ FIX: handleVideoEnded ตอน speaking วนซ้ำ talking video ได้ถูก emotion
+ * ✅ FIX: playSpeakingAnimation ไม่ถูก block โดย isTransitioning
  */
 
 // ========== Global Variables ==========
@@ -31,11 +28,20 @@ let SPEAKING_VIDEO_URLS = [];
 let EMOTION_VIDEOS_3D = {};
 let currentEmotion = 'calm';
 
-// ✅ video states: 'idle' | 'thinking' | 'speaking'
+// ✅ Startup actions config — loaded from API
+let startupActions = {
+    weather:           false,
+    news_world:        false,
+    news_country:      false,
+    news_country_code: 'th',
+};
+
 let currentVideoState = 'idle';
 let isTransitioning = false;
-// ✅ flag ควบคุม thinking loop
 let isThinking = false;
+
+// ✅ เก็บ pending speaking request ไว้ถ้า isTransitioning อยู่
+let pendingSpeakingVideo = null;
 
 let lastPlayedIdleVideo = null;
 let lastPlayedSpeakingVideo = null;
@@ -82,9 +88,7 @@ $(document).ready(function() {
             init3DAvatar();
         }
         loadConversations();
-        fetchWeatherData().then(() => {
-            setTimeout(() => { playWelcomeWithWeather(); }, 800);
-        });
+        runStartupSequence();
     });
 
     $('#messageInput').on('input', function() {
@@ -108,12 +112,85 @@ $(document).ready(function() {
     $('#dropdownMenu').on('click', function(e) { e.stopPropagation(); });
 });
 
-// ========== ✅ Thinking Video — เล่นเฉพาะตอน user ส่งข้อความ ==========
+// ========== Startup Sequence ==========
+async function runStartupSequence() {
+    if (isWelcomeMessagePlayed) return;
+    isWelcomeMessagePlayed = true;
+
+    if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
+        videoAvatar.play().catch(e => {});
+    }
+
+    const welcomeText = WELCOME_MESSAGES[userPreferredLanguage] || WELCOME_MESSAGES.th;
+    await speakTextWithCache(welcomeText, userPreferredLanguage, 'welcome');
+    await delay(600);
+
+    if (startupActions.weather) {
+        await fetchAndSpeakWeather();
+        await delay(600);
+    }
+
+    if (startupActions.news_world) {
+        await fetchAndSpeakNews('world', null, userPreferredLanguage);
+        await delay(600);
+    }
+
+    if (startupActions.news_country) {
+        const countryCode = startupActions.news_country_code || 'th';
+        await fetchAndSpeakNews('country', countryCode, userPreferredLanguage);
+    }
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchAndSpeakWeather() {
+    return new Promise((resolve) => {
+        if (!('geolocation' in navigator)) { resolve(); return; }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const { latitude, longitude } = pos.coords;
+                const headers = {};
+                if (jwt) headers['Authorization'] = 'Bearer ' + jwt;
+                $.ajax({
+                    url: `app/actions/get_weather.php?lang=${userPreferredLanguage}&lat=${latitude}&lon=${longitude}`,
+                    type: 'GET', headers, dataType: 'json',
+                    success: function(res) {
+                        if (res.status === 'success' && res.data && res.data.message) {
+                            speakTextWithCache(res.data.message, userPreferredLanguage, 'weather').then(resolve);
+                        } else { resolve(); }
+                    },
+                    error: function() { resolve(); }
+                });
+            },
+            () => { resolve(); }
+        );
+    });
+}
+
+async function fetchAndSpeakNews(type, countryCode, lang) {
+    return new Promise((resolve) => {
+        let url = `app/actions/get_news.php?type=${type}&lang=${lang}`;
+        if (type === 'country' && countryCode) url += `&country=${countryCode}`;
+        const headers = {};
+        if (jwt) headers['Authorization'] = 'Bearer ' + jwt;
+        $.ajax({
+            url, type: 'GET', headers, dataType: 'json',
+            success: function(res) {
+                if (res.status === 'success' && res.message) {
+                    speakTextWithCache(res.message, lang, 'news').then(resolve);
+                } else { resolve(); }
+            },
+            error: function() { resolve(); }
+        });
+    });
+}
+
+// ========== Thinking Video ==========
 function startThinkingAnimation() {
     if (!useVideoAvatar || !videoAvatar) return;
     isThinking = true;
-
-    // ดึงวิดีโอ thinking จาก EMOTION_VIDEOS_3D['thinking'] ถ้ามี
     const thinkingUrl = getThinkingVideo();
     if (!thinkingUrl) {
         console.log('⚠️ No thinking video found, staying idle');
@@ -127,10 +204,7 @@ function stopThinkingAnimation() {
     if (!isThinking) return;
     isThinking = false;
     console.log('✅ Stopping thinking animation');
-
     if (!useVideoAvatar || !videoAvatar) return;
-
-    // ถ้าอยู่ใน thinking state → switch กลับ idle ทันที
     if (currentVideoState === 'thinking') {
         const idleUrl = getEmotionVideo3D(currentEmotion, 'idle') || getRandomIdleVideo();
         if (idleUrl) switchToVideo(idleUrl, 'idle');
@@ -138,38 +212,25 @@ function stopThinkingAnimation() {
 }
 
 function getThinkingVideo() {
-    // ดึงจาก EMOTION_VIDEOS_3D['thinking']['idle'] ถ้ามี
     const thinkingData = EMOTION_VIDEOS_3D['thinking'];
     if (thinkingData) {
-        // รองรับทั้ง { idle: [...] } และ array ตรงๆ
         const urls = thinkingData['idle'] || thinkingData['talking'] || (Array.isArray(thinkingData) ? thinkingData : null);
         if (urls && urls.length > 0) {
             return urls[Math.floor(Math.random() * urls.length)];
         }
     }
-    return null; // ไม่มี thinking video
+    return null;
 }
 
 // ========== Text Splitting ==========
 function splitIntoAudioChunks(text, maxLength = 200) {
-    let cleaned = text
-        .replace(/\*\*([^*]+)\*\*/g, '$1')
-        .replace(/\*/g, '')
-        .trim();
-
+    let cleaned = text.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*/g, '').trim();
     if (cleaned.length <= maxLength) return [cleaned];
-
     const sentences = cleaned.match(/[^.!?。！？\n]+[.!?。！？\n]*/g) || [cleaned];
-    const chunks = [];
-    let current = '';
-
+    const chunks = []; let current = '';
     for (let s of sentences) {
-        if ((current + s).length <= maxLength) {
-            current += s;
-        } else {
-            if (current) chunks.push(current.trim());
-            current = s;
-        }
+        if ((current + s).length <= maxLength) current += s;
+        else { if (current) chunks.push(current.trim()); current = s; }
     }
     if (current) chunks.push(current.trim());
     return chunks.length > 0 ? chunks : [cleaned];
@@ -177,86 +238,15 @@ function splitIntoAudioChunks(text, maxLength = 200) {
 
 function splitIntoSubtitleSentences(text) {
     if (!text) return [''];
-    let cleaned = text
-        .replace(/\*\*([^*]+)\*\*/g, '$1')
-        .replace(/\*/g, '')
-        .trim();
-
+    let cleaned = text.replace(/\*\*([^*]+)\*\*/g, '$1').replace(/\*/g, '').trim();
     const raw = cleaned.match(/[^.!?。！？\n]+[.!?。！？\n]*/g) || [cleaned];
-    const MAX = 80;
-    const chunks = [];
-
+    const MAX = 80; const chunks = [];
     for (let s of raw) {
-        s = s.trim();
-        if (!s) continue;
-        if (s.length <= MAX) {
-            chunks.push(s);
-        } else {
-            const parts = s.match(/.{1,80}(?:[,\s]|$)/g) || [s];
-            for (let p of parts) {
-                p = p.trim();
-                if (p) chunks.push(p);
-            }
-        }
+        s = s.trim(); if (!s) continue;
+        if (s.length <= MAX) { chunks.push(s); }
+        else { const parts = s.match(/.{1,80}(?:[,\s]|$)/g) || [s]; for (let p of parts) { p = p.trim(); if (p) chunks.push(p); } }
     }
     return chunks.length > 0 ? chunks : [text];
-}
-
-// ========== Fetch Weather Data ==========
-function fetchWeatherData() {
-    return new Promise((resolve) => {
-        if ('geolocation' in navigator) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    fetchWeatherByCoordinates(position.coords.latitude, position.coords.longitude).then(resolve);
-                },
-                (error) => {
-                    weatherData = null; weatherReportPlayed = true; resolve();
-                }
-            );
-        } else {
-            weatherData = null; weatherReportPlayed = true; resolve();
-        }
-    });
-}
-
-function fetchWeatherByCoordinates(lat, lon) {
-    return new Promise((resolve) => {
-        const headers = {};
-        if (jwt) headers['Authorization'] = 'Bearer ' + jwt;
-        $.ajax({
-            url: `app/actions/get_weather.php?lang=${userPreferredLanguage}&lat=${lat}&lon=${lon}`,
-            type: 'GET', headers, dataType: 'json',
-            success: function(response) {
-                if (response.status === 'success') { weatherData = response.data; weatherReportPlayed = false; }
-                else { weatherData = null; weatherReportPlayed = true; }
-                resolve();
-            },
-            error: function() { weatherData = null; weatherReportPlayed = true; resolve(); }
-        });
-    });
-}
-
-// ========== Play Welcome + Weather ==========
-function playWelcomeWithWeather() {
-    if (isWelcomeMessagePlayed) return;
-    isWelcomeMessagePlayed = true;
-    const welcomeText = WELCOME_MESSAGES[userPreferredLanguage] || WELCOME_MESSAGES.th;
-    if (useVideoAvatar && videoAvatar && videoAvatar.paused) {
-        videoAvatar.play().catch(e => {});
-    }
-    // ✅ welcome/weather ไม่เล่น thinking — ใช้ speakTextWithCache ตรงๆ
-    speakTextWithCache(welcomeText, userPreferredLanguage, 'welcome').then(() => {
-        if (weatherData && !weatherReportPlayed) {
-            setTimeout(() => { playWeatherReport(); }, 1000);
-        }
-    });
-}
-
-function playWeatherReport() {
-    if (weatherReportPlayed || !weatherData) return;
-    weatherReportPlayed = true;
-    speakTextWithCache(weatherData.message, userPreferredLanguage, 'weather');
 }
 
 // ========== Fetch AI Data ==========
@@ -290,7 +280,17 @@ function fetchAICompanionData() {
                     SPEAKING_VIDEO_URLS = aiCompanionData.talking_video_urls_array || [];
                     EMOTION_VIDEOS_3D   = aiCompanionData.emotion_videos_3d_array  || {};
                     console.log('✅ 3D Emotion videos loaded:', Object.keys(EMOTION_VIDEOS_3D));
-                    console.log('🤔 Thinking videos:', EMOTION_VIDEOS_3D['thinking'] || 'none');
+
+                    // ✅ Load startup_actions
+                    if (aiCompanionData.startup_actions) {
+                        const sa = (typeof aiCompanionData.startup_actions === 'string')
+                            ? JSON.parse(aiCompanionData.startup_actions)
+                            : aiCompanionData.startup_actions;
+                        startupActions = Object.assign(startupActions, sa);
+                        console.log('✅ Startup actions loaded:', startupActions);
+                    } else {
+                        console.log('ℹ️ No startup_actions set — skipping weather/news');
+                    }
 
                     if (response.preferred_language) userPreferredLanguage = response.preferred_language;
                     else if (aiCompanionData.preferred_language) userPreferredLanguage = aiCompanionData.preferred_language;
@@ -318,19 +318,16 @@ function autoLoginAsCompanionUser() {
         const existingJwt = sessionStorage.getItem('jwt');
         if (existingJwt) { resolve(); return; }
         if (!companionId && !aiCodeFromURL) { resolve(); return; }
-
         const params = new URLSearchParams();
         if (companionId) params.set('user_companion_id', companionId);
         if (aiCodeFromURL) params.set('ai_code', aiCodeFromURL);
-
         $.ajax({
             url: 'app/actions/get_companion_jwt.php?' + params.toString(),
             type: 'GET', dataType: 'json',
             success: function(response) {
                 if (response.status === 'success' && response.jwt) {
                     sessionStorage.setItem('jwt', response.jwt);
-                    jwt = response.jwt;
-                    isGuestMode = false;
+                    jwt = response.jwt; isGuestMode = false;
                 }
                 resolve();
             },
@@ -339,13 +336,12 @@ function autoLoginAsCompanionUser() {
     });
 }
 
-// ========== ✅ Speak with CACHE — ไม่เล่น thinking (ใช้สำหรับ welcome/weather) ==========
+// ========== Speak with CACHE ==========
 function speakTextWithCache(text, forceLangCode = null, cacheType = 'welcome') {
     return new Promise((resolve) => {
         updateStatus('Preparing voice...', false);
         let langCode = forceLangCode || detectLanguage(text);
         const audioChunks = splitIntoAudioChunks(text);
-
         preloadAllAudio(audioChunks, langCode, 'cache', cacheType).then((audioUrls) => {
             playAudioWithSubtitles(audioUrls, audioChunks, langCode, resolve);
         }).catch((error) => {
@@ -356,19 +352,16 @@ function speakTextWithCache(text, forceLangCode = null, cacheType = 'welcome') {
     });
 }
 
-// ========== ✅ Speak AI Response — เล่น thinking ขณะโหลดเสียง ==========
+// ========== Speak AI Response ==========
 function speakAIResponseDirectly(text, forceLangCode = null, emotion = 'calm') {
     currentEmotion = emotion || 'calm';
     console.log('🎭 emotion:', currentEmotion);
-
     updateStatus('Preparing voice...', false);
-    // ✅ thinking ยังวนอยู่จาก sendMessage() — ไม่ต้องเรียกซ้ำ
 
     let langCode = forceLangCode || detectLanguage(text);
     const audioChunks = splitIntoAudioChunks(text);
 
     preloadAllAudio(audioChunks, langCode, 'ai', null).then((audioUrls) => {
-        // ✅ โหลดเสียงเสร็จ — หยุด thinking แล้วเริ่มพูด
         stopThinkingAnimation();
         playAudioWithSubtitles(audioUrls, audioChunks, langCode, null);
     }).catch((error) => {
@@ -379,131 +372,85 @@ function speakAIResponseDirectly(text, forceLangCode = null, emotion = 'calm') {
     });
 }
 
-// ========== Preload ALL audio URLs พร้อมกัน (parallel) ==========
+// ========== Preload ALL audio (parallel) ==========
 function preloadAllAudio(audioChunks, langCode, mode, cacheType) {
     return new Promise((resolve, reject) => {
         const audioUrls = new Array(audioChunks.length).fill(null);
         let loadedCount = 0;
         let hasError = false;
-
         const timeoutMs = Math.min(Math.max(audioChunks.length * 15000, 30000), 120000);
-
         const timer = setTimeout(() => {
-            if (loadedCount < audioChunks.length && !hasError) {
-                hasError = true;
-                reject(new Error(`Timeout after ${timeoutMs/1000}s (${loadedCount}/${audioChunks.length})`));
-            }
+            if (!hasError) { hasError = true; reject(new Error(`Timeout ${timeoutMs/1000}s`)); }
         }, timeoutMs);
 
         audioChunks.forEach((chunk, index) => {
             let requestData, url;
-
             if (mode === 'cache') {
                 url = 'app/actions/get_or_create_tts_cache.php';
                 requestData = { text: chunk, language: langCode, cache_type: cacheType };
                 if (companionId) requestData.user_companion_id = companionId;
-                if (aiCompanionData && aiCompanionData.ai_id) requestData.ai_id = aiCompanionData.ai_id;
+                if (aiCompanionData && aiCompanionData.ai_id)    requestData.ai_id    = aiCompanionData.ai_id;
                 if (aiCompanionData && aiCompanionData.voice_id) requestData.voice_id = aiCompanionData.voice_id;
             } else {
                 url = 'app/actions/elevenlabs_tts.php';
                 requestData = { text: chunk, language: langCode };
                 if (companionId) requestData.user_companion_id = companionId;
-                if (aiCompanionData && aiCompanionData.ai_id) requestData.ai_id = aiCompanionData.ai_id;
+                if (aiCompanionData && aiCompanionData.ai_id)   requestData.ai_id   = aiCompanionData.ai_id;
                 if (aiCompanionData && aiCompanionData.user_id) requestData.user_id = aiCompanionData.user_id;
             }
 
             $.ajax({
                 url, type: 'POST',
                 data: JSON.stringify(requestData),
-                contentType: 'application/json',
-                dataType: 'json',
+                contentType: 'application/json', dataType: 'json',
                 success: function(response) {
                     if (response.status === 'success' && response.audio_url) {
                         audioUrls[index] = response.audio_url;
                         loadedCount++;
                         updateStatus(`Loading voice... ${Math.round((loadedCount / audioChunks.length) * 100)}%`, false);
-                        if (loadedCount === audioChunks.length) {
-                            clearTimeout(timer);
-                            resolve(audioUrls);
-                        }
-                    } else if (!hasError) {
-                        hasError = true; clearTimeout(timer);
-                        reject(new Error('No audio URL for: ' + chunk));
-                    }
+                        if (loadedCount === audioChunks.length) { clearTimeout(timer); resolve(audioUrls); }
+                    } else if (!hasError) { hasError = true; clearTimeout(timer); reject(new Error('No audio URL')); }
                 },
                 error: function(xhr, status, error) {
-                    if (!hasError) {
-                        hasError = true; clearTimeout(timer);
-                        reject(new Error('TTS error: ' + error));
-                    }
+                    if (!hasError) { hasError = true; clearTimeout(timer); reject(new Error('TTS error: ' + error)); }
                 }
             });
         });
     });
 }
 
-// ========== เล่น audio + subtitle ทีละประโยค ==========
+// ========== Play audio + subtitle ==========
 function playAudioWithSubtitles(audioUrls, audioChunks, langCode, onComplete) {
-    const langNames = { 'th': 'Thai', 'en': 'English', 'cn': 'Chinese', 'jp': 'Japanese', 'kr': 'Korean' };
+    const langNames = { th:'Thai', en:'English', cn:'Chinese', jp:'Japanese', kr:'Korean' };
     const subtitleMap = audioChunks.map(chunk => splitIntoSubtitleSentences(chunk));
-
-    isSpeaking = true;
-    window.isSpeaking = true;
+    isSpeaking = true; window.isSpeaking = true;
     updateStatus('Speaking in ' + (langNames[langCode] || 'English') + '...', true);
     if (useVideoAvatar) playSpeakingAnimation();
 
     playAudioSequence(audioUrls, subtitleMap, 0, () => {
-        isSpeaking = false;
-        window.isSpeaking = false;
+        isSpeaking = false; window.isSpeaking = false;
         updateStatus('Ready to chat', false);
         if (mouth) mouth.scale.y = 1;
-
         setTimeout(() => { $('#currentMessage').fadeOut(600); }, 1200);
-
         if (useVideoAvatar) stopSpeakingAnimation();
         if (onComplete) onComplete();
     });
 }
 
 function playAudioSequence(audioUrls, subtitleMap, index, onComplete) {
-    if (index >= audioUrls.length) {
-        if (onComplete) onComplete();
-        return;
-    }
-
+    if (index >= audioUrls.length) { if (onComplete) onComplete(); return; }
     const audioUrl = audioUrls[index];
-    if (!audioUrl) {
-        playAudioSequence(audioUrls, subtitleMap, index + 1, onComplete);
-        return;
-    }
+    if (!audioUrl) { playAudioSequence(audioUrls, subtitleMap, index + 1, onComplete); return; }
 
-    const sentences    = subtitleMap[index] || [''];
-    const isFirstChunk = (index === 0);
-    const isLastChunk  = (index >= audioUrls.length - 1);
+    const sentences  = subtitleMap[index] || [''];
+    const isFirst    = (index === 0);
+    const isLast     = (index >= audioUrls.length - 1);
+    const audio      = new Audio(audioUrl);
 
-    const audio = new Audio(audioUrl);
-
-    audio.oncanplaythrough = function() {
-        this.play().catch(() => {
-            playAudioSequence(audioUrls, subtitleMap, index + 1, onComplete);
-        });
-    };
-
-    audio.onplay = function() {
-        const dur = this.duration || 5;
-        playSubtitleSentences(sentences, dur, isFirstChunk);
-    };
-
-    audio.onended = function() {
-        setTimeout(() => {
-            playAudioSequence(audioUrls, subtitleMap, index + 1, onComplete);
-        }, isLastChunk ? 0 : 200);
-    };
-
-    audio.onerror = function() {
-        playAudioSequence(audioUrls, subtitleMap, index + 1, onComplete);
-    };
-
+    audio.oncanplaythrough = function() { this.play().catch(() => { playAudioSequence(audioUrls, subtitleMap, index + 1, onComplete); }); };
+    audio.onplay = function() { playSubtitleSentences(sentences, this.duration || 5, isFirst); };
+    audio.onended = function() { setTimeout(() => { playAudioSequence(audioUrls, subtitleMap, index + 1, onComplete); }, isLast ? 0 : 200); };
+    audio.onerror = function() { playAudioSequence(audioUrls, subtitleMap, index + 1, onComplete); };
     audio.load();
 }
 
@@ -517,46 +464,28 @@ function clearSubtitleTimers() {
 function playSubtitleSentences(sentences, audioDuration, isFirstChunk) {
     clearSubtitleTimers();
     if (!sentences || sentences.length === 0) return;
-
     const perMs = (audioDuration * 1000) / sentences.length;
-
     sentences.forEach((sentence, i) => {
-        const t = setTimeout(() => {
-            showSubtitleTypewriter(sentence, isFirstChunk && i === 0);
-        }, i * perMs);
+        const t = setTimeout(() => { showSubtitleTypewriter(sentence, isFirstChunk && i === 0); }, i * perMs);
         subtitleSequenceTimers.push(t);
     });
 }
 
 function showSubtitleTypewriter(text, isFirst) {
     if (typewriterTimer) { clearInterval(typewriterTimer); typewriterTimer = null; }
-
-    const $msg  = $('#currentMessage');
-    const $text = $('#messageText');
-
+    const $msg = $('#currentMessage'); const $text = $('#messageText');
     function startTyping() {
-        $text.text('');
-        $msg.stop(true).fadeIn(200);
+        $text.text(''); $msg.stop(true).fadeIn(200);
         let i = 0;
         const isAsian = /[\u0E00-\u0E7F\u4E00-\u9FFF\u3040-\u30FF\uAC00-\uD7AF]/.test(text);
         const speed = isAsian ? 35 : 25;
-
         typewriterTimer = setInterval(() => {
-            if (i < text.length) {
-                $text.text(text.substring(0, i + 1));
-                i++;
-            } else {
-                clearInterval(typewriterTimer);
-                typewriterTimer = null;
-            }
+            if (i < text.length) { $text.text(text.substring(0, i + 1)); i++; }
+            else { clearInterval(typewriterTimer); typewriterTimer = null; }
         }, speed);
     }
-
-    if (isFirst) {
-        startTyping();
-    } else {
-        $msg.stop(true).fadeOut(120, function() { startTyping(); });
-    }
+    if (isFirst) { startTyping(); }
+    else { $msg.stop(true).fadeOut(120, startTyping); }
 }
 
 function showMessage(text) {
@@ -566,7 +495,7 @@ function showMessage(text) {
     $('#currentMessage').stop(true).fadeIn(300);
 }
 
-// ========== Get emotion video ==========
+// ========== Emotion Video Helpers ==========
 function getEmotionVideo3D(emotion, state) {
     const emotionData = EMOTION_VIDEOS_3D[emotion];
     if (emotionData && emotionData[state] && emotionData[state].length > 0) {
@@ -578,14 +507,10 @@ function getEmotionVideo3D(emotion, state) {
         else lastPlayedSpeakingVideo = selected;
         return selected;
     }
+    // ✅ ถ้าไม่มี emotion talking → fallback SPEAKING_VIDEO_URLS
+    // ถ้าไม่มี emotion idle → fallback IDLE_VIDEO_URLS
     if (state === 'talking') return getRandomSpeakingVideo();
     return getRandomIdleVideo();
-}
-
-function loadSpeakingVideosIfNeeded() {
-    if (SPEAKING_VIDEO_URLS.length === 0 && aiCompanionData) {
-        SPEAKING_VIDEO_URLS = aiCompanionData.talking_video_urls_array || [];
-    }
 }
 
 function getRandomIdleVideo() {
@@ -599,7 +524,9 @@ function getRandomIdleVideo() {
 }
 
 function getRandomSpeakingVideo() {
-    loadSpeakingVideosIfNeeded();
+    if (SPEAKING_VIDEO_URLS.length === 0 && aiCompanionData) {
+        SPEAKING_VIDEO_URLS = aiCompanionData.talking_video_urls_array || [];
+    }
     if (SPEAKING_VIDEO_URLS.length === 0) return null;
     if (SPEAKING_VIDEO_URLS.length === 1) return SPEAKING_VIDEO_URLS[0];
     const available = SPEAKING_VIDEO_URLS.filter(v => v !== lastPlayedSpeakingVideo);
@@ -612,52 +539,16 @@ function getRandomSpeakingVideo() {
 // ========== Video Avatar Init ==========
 function initVideoAvatar() {
     const container = document.querySelector('.avatar-container');
-
     videoAvatar = document.createElement('video');
     videoAvatar.id = 'videoAvatar';
     videoAvatar.style.cssText = `position:absolute;width:80%;height:80%;object-fit:contain;z-index:5;opacity:1;transition:opacity 0.3s ease;`;
-    videoAvatar.muted = false;
-    videoAvatar.volume = 0.7;
-    videoAvatar.playsInline = true;
-    videoAvatar.loop = false;
-    videoAvatar.preload = 'auto';
+    videoAvatar.muted = false; videoAvatar.volume = 0.7;
+    videoAvatar.playsInline = true; videoAvatar.loop = false; videoAvatar.preload = 'auto';
 
-    videoAvatar.addEventListener('ended', function() {
-        if (currentVideoState === 'thinking') {
-            // ✅ ตรวจ flag — ถ้ายัง thinking อยู่ให้วนซ้ำ ถ้าไม่ให้กลับ idle
-            if (isThinking) {
-                const v = getThinkingVideo() || getRandomIdleVideo();
-                if (v) { this.src = v; this.load(); this.play().catch(e => {}); }
-            } else {
-                currentVideoState = 'idle';
-                const v = getRandomIdleVideo();
-                if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
-            }
-            return;
-        }
-
-        if (currentVideoState === 'idle') {
-            if (playEmotionIdleOnce) {
-                playEmotionIdleOnce = false; currentEmotion = 'calm';
-            }
-            const v = getRandomIdleVideo();
-            if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
-
-        } else if (currentVideoState === 'speaking') {
-            if (isSpeaking) {
-                const v = getEmotionVideo3D(currentEmotion, 'talking') || getRandomSpeakingVideo();
-                if (v) { this.muted = true; this.src = v; this.load(); this.play().catch(e => {}); }
-            } else {
-                currentVideoState = 'idle'; playEmotionIdleOnce = true;
-                const v = getEmotionVideo3D(currentEmotion, 'idle') || getRandomIdleVideo();
-                if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
-            }
-        }
-    });
+    videoAvatar.addEventListener('ended', function() { handleVideoEnded(this); });
 
     const initialIdleVideo = getEmotionVideo3D(currentEmotion, 'idle') || getRandomIdleVideo();
-    videoAvatar.src = initialIdleVideo;
-    currentVideoState = 'idle';
+    videoAvatar.src = initialIdleVideo; currentVideoState = 'idle';
     container.appendChild(videoAvatar);
 
     const loadTimeout = setTimeout(() => {
@@ -671,104 +562,128 @@ function initVideoAvatar() {
     videoAvatar.load();
 }
 
-function playSpeakingAnimation() {
-    if (!videoAvatar || isTransitioning || currentVideoState === 'speaking') return;
-    const videoUrl = getEmotionVideo3D(currentEmotion, 'talking');
-    if (videoUrl) switchToVideo(videoUrl, 'speaking');
+// ✅ handleVideoEnded — จุดเดียว ไม่ซ้ำ
+function handleVideoEnded(el) {
+    if (currentVideoState === 'thinking') {
+        if (isThinking) {
+            const v = getThinkingVideo() || getRandomIdleVideo();
+            if (v) { el.src = v; el.load(); el.play().catch(e => {}); }
+        } else {
+            currentVideoState = 'idle';
+            const v = getEmotionVideo3D(currentEmotion, 'idle') || getRandomIdleVideo();
+            if (v) { el.muted = false; el.volume = 0.7; el.src = v; el.load(); el.play().catch(e => {}); }
+        }
+        return;
+    }
+
+    if (currentVideoState === 'idle') {
+        if (playEmotionIdleOnce) { playEmotionIdleOnce = false; currentEmotion = 'calm'; }
+        const v = getRandomIdleVideo();
+        if (v) { el.muted = false; el.volume = 0.7; el.src = v; el.load(); el.play().catch(e => {}); }
+
+    } else if (currentVideoState === 'speaking') {
+        if (isSpeaking) {
+            // ✅ FIX: ดึง talking video ของ emotion ปัจจุบันก่อนเสมอ
+            const v = getEmotionVideo3D(currentEmotion, 'talking');
+            if (v) { el.muted = true; el.src = v; el.load(); el.play().catch(e => {}); }
+        } else {
+            // เสียงหยุดแล้ว → กลับ idle
+            currentVideoState = 'idle';
+            playEmotionIdleOnce = true;
+            const v = getEmotionVideo3D(currentEmotion, 'idle') || getRandomIdleVideo();
+            if (v) { el.muted = false; el.volume = 0.7; el.src = v; el.load(); el.play().catch(e => {}); }
+        }
+    }
 }
 
-function playIdleAnimation() {
-    if (!videoAvatar || isTransitioning || currentVideoState === 'idle') return;
-    const videoUrl = getEmotionVideo3D(currentEmotion, 'idle') || getRandomIdleVideo();
-    if (videoUrl) switchToVideo(videoUrl, 'idle');
+// ✅ FIX: playSpeakingAnimation — ถ้า isTransitioning อยู่ให้ queue ไว้แทนที่จะ return ทิ้ง
+function playSpeakingAnimation() {
+    if (!videoAvatar) return;
+    const videoUrl = getEmotionVideo3D(currentEmotion, 'talking');
+    if (!videoUrl) return;
+
+    if (isTransitioning) {
+        // queue ไว้ — switchToVideo จะ pick up ตอน transition เสร็จ
+        pendingSpeakingVideo = { url: videoUrl, state: 'speaking' };
+        console.log('⏳ Queued speaking animation (transitioning...)');
+        return;
+    }
+
+    if (currentVideoState === 'speaking') return; // already speaking
+
+    pendingSpeakingVideo = null;
+    switchToVideo(videoUrl, 'speaking');
 }
 
 function stopSpeakingAnimation() {
-    if (!videoAvatar || isTransitioning) return;
+    if (!videoAvatar) return;
+    pendingSpeakingVideo = null;
+    if (isTransitioning) return;
+
     const emotionIdleUrl = getEmotionVideo3D(currentEmotion, 'idle');
     if (emotionIdleUrl) {
         playEmotionIdleOnce = true;
         switchToVideo(emotionIdleUrl, 'idle');
     } else {
         playEmotionIdleOnce = false; currentEmotion = 'calm';
-        playIdleAnimation();
+        if (currentVideoState !== 'idle') {
+            const v = getRandomIdleVideo();
+            if (v) switchToVideo(v, 'idle');
+        }
     }
+}
+
+function playIdleAnimation() {
+    if (!videoAvatar || isTransitioning || currentVideoState === 'idle') return;
+    const v = getEmotionVideo3D(currentEmotion, 'idle') || getRandomIdleVideo();
+    if (v) switchToVideo(v, 'idle');
 }
 
 function switchToVideo(videoUrl, newState) {
     if (isTransitioning || !videoUrl) return;
     isTransitioning = true;
     const container = videoAvatar.parentElement;
-
-    const newVideo = document.createElement('video');
+    const newVideo  = document.createElement('video');
     newVideo.id = 'videoAvatar';
     newVideo.style.cssText = videoAvatar.style.cssText;
     newVideo.style.opacity = '0';
     newVideo.muted = (newState === 'speaking');
     if (newState !== 'speaking') newVideo.volume = 0.7;
-    newVideo.playsInline = true;
-    newVideo.loop = false;
-    newVideo.src = videoUrl;
+    newVideo.playsInline = true; newVideo.loop = false; newVideo.src = videoUrl;
 
-    newVideo.addEventListener('ended', function() {
-        if (currentVideoState === 'thinking') {
-            // ✅ ตรวจ flag
-            if (isThinking) {
-                const v = getThinkingVideo() || getRandomIdleVideo();
-                if (v) { this.src = v; this.load(); this.play().catch(e => {}); }
-            } else {
-                currentVideoState = 'idle';
-                const v = getRandomIdleVideo();
-                if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
-            }
-            return;
-        }
-
-        if (currentVideoState === 'idle') {
-            if (playEmotionIdleOnce) {
-                playEmotionIdleOnce = false; currentEmotion = 'calm';
-            }
-            const v = getRandomIdleVideo();
-            if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
-
-        } else if (currentVideoState === 'speaking') {
-            if (isSpeaking) {
-                const v = getEmotionVideo3D(currentEmotion, 'talking') || getRandomSpeakingVideo();
-                if (v) { this.muted = true; this.src = v; this.load(); this.play().catch(e => {}); }
-            } else {
-                currentVideoState = 'idle'; playEmotionIdleOnce = true;
-                const v = getEmotionVideo3D(currentEmotion, 'idle') || getRandomIdleVideo();
-                if (v) { this.muted = false; this.volume = 0.7; this.src = v; this.load(); this.play().catch(e => {}); }
-            }
-        }
-    });
+    newVideo.addEventListener('ended', function() { handleVideoEnded(this); });
 
     container.appendChild(newVideo);
-
     newVideo.addEventListener('canplay', function playNew() {
         newVideo.removeEventListener('canplay', playNew);
         newVideo.play().then(() => {
-            videoAvatar.style.opacity = '0';
-            newVideo.style.opacity = '1';
+            videoAvatar.style.opacity = '0'; newVideo.style.opacity = '1';
             setTimeout(() => {
                 if (videoAvatar && videoAvatar.parentElement === container) container.removeChild(videoAvatar);
                 videoAvatar = newVideo;
                 currentVideoState = newState;
                 isTransitioning = false;
+
+                // ✅ ถ้ามี pending speaking request ค้างอยู่ ให้ทำต่อ
+                if (pendingSpeakingVideo && isSpeaking) {
+                    const pending = pendingSpeakingVideo;
+                    pendingSpeakingVideo = null;
+                    switchToVideo(pending.url, pending.state);
+                }
             }, 300);
         }).catch(e => {
             if (newVideo.parentElement === container) container.removeChild(newVideo);
             isTransitioning = false;
+            pendingSpeakingVideo = null;
         });
     });
-
     newVideo.load();
 }
 
+// ========== 3D Fallback Avatar ==========
 function init3DAvatar() {
     const canvas = document.getElementById('avatarCanvas');
-    scene = new THREE.Scene();
-    scene.background = null;
+    scene = new THREE.Scene(); scene.background = null;
     camera = new THREE.PerspectiveCamera(75, canvas.clientWidth / canvas.clientHeight, 0.1, 1000);
     camera.position.z = 7;
     renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -776,10 +691,8 @@ function init3DAvatar() {
     renderer.setSize(canvas.clientWidth, canvas.clientHeight);
     scene.add(new THREE.AmbientLight(0xffffff, 0.5));
     const dLight = new THREE.DirectionalLight(0xffffff, 0.6);
-    dLight.position.set(5, 10, 7);
-    scene.add(dLight);
-    createPastelSheepCharacter();
-    animate();
+    dLight.position.set(5, 10, 7); scene.add(dLight);
+    createPastelSheepCharacter(); animate();
     window.addEventListener('resize', onWindowResize);
 }
 
@@ -789,9 +702,7 @@ function createPastelSheepCharacter() {
         new THREE.SphereGeometry(1.4, 32, 32),
         new THREE.MeshPhongMaterial({ color: 0x87CEEB, shininess: 60, emissive: 0x5dade2, emissiveIntensity: 0.15 })
     );
-    character.add(head);
-    avatar = character;
-    scene.add(avatar);
+    character.add(head); avatar = character; scene.add(avatar);
 }
 
 function animate() {
@@ -821,9 +732,7 @@ function loadConversations() {
     if (isGuestMode) {
         if (companionId) url += '&user_companion_id=' + companionId;
         else if (aiCodeFromURL) url += '&ai_code=' + aiCodeFromURL;
-    } else if (jwt) {
-        headers['Authorization'] = 'Bearer ' + jwt;
-    }
+    } else if (jwt) { headers['Authorization'] = 'Bearer ' + jwt; }
     $.ajax({
         url, type: 'GET', headers, dataType: 'json',
         success: function(response) {
@@ -845,11 +754,9 @@ function loadConversations() {
 }
 
 function displayConversations(conversations) {
-    const $list = $('#conversationsList');
-    $list.empty();
+    const $list = $('#conversationsList'); $list.empty();
     if (conversations.length === 0) {
-        $list.html('<p style="text-align: center; color: #666; padding: 20px; font-size: 13px;">No conversations yet</p>');
-        return;
+        $list.html('<p style="text-align:center;color:#666;padding:20px;font-size:13px;">No conversations yet</p>'); return;
     }
     conversations.forEach(function(conv) {
         const isActive = conv.conversation_id === currentConversationId ? 'active' : '';
@@ -873,12 +780,10 @@ function loadConversation(conversationId) {
     sessionStorage.setItem('last_conversation_id', conversationId);
     $('.conversation-item').removeClass('active');
     $(`.conversation-item[data-id="${conversationId}"]`).addClass('active');
-
     let url = 'app/actions/get_chat_data.php?action=get_history&conversation_id=' + conversationId;
     const headers = {};
     if (isGuestMode && companionId) url += '&user_companion_id=' + companionId;
     else if (jwt) headers['Authorization'] = 'Bearer ' + jwt;
-
     $.ajax({
         url, type: 'GET', headers, dataType: 'json',
         success: function(response) {
@@ -888,8 +793,7 @@ function loadConversation(conversationId) {
             }
         }
     });
-    $('#dropdownMenu').removeClass('show');
-    $('#menuToggle').removeClass('active');
+    $('#dropdownMenu').removeClass('show'); $('#menuToggle').removeClass('active');
 }
 
 // ========== Send Message ==========
@@ -904,10 +808,8 @@ function sendMessage() {
 
     const hasCompanion = companionId && companionId > 0;
     const hasAICode = aiCodeFromURL && aiCodeFromURL.trim() !== '';
-
     if (!hasCompanion && !hasAICode) {
-        Swal.fire({ icon: 'error', title: 'Cannot Send Message', text: 'Missing companion or AI code.' });
-        return;
+        Swal.fire({ icon: 'error', title: 'Cannot Send Message', text: 'Missing companion or AI code.' }); return;
     }
 
     if (useVideoAvatar && videoAvatar && videoAvatar.paused) videoAvatar.play().catch(e => {});
@@ -916,20 +818,18 @@ function sendMessage() {
     $('#sendBtn').prop('disabled', true);
     $('#messageInput').val('').css('height', 'auto');
     updateStatus('Thinking...', false);
-
-    // ✅ เริ่ม thinking ทันทีที่กด send
     startThinkingAnimation();
 
     const headers = { 'Content-Type': 'application/json' };
     const requestData = {
-        conversation_id: currentConversationId,
-        message: message,
+        conversation_id:    currentConversationId,
+        message:            message,
         preferred_language: userPreferredLanguage || 'th'
     };
 
     if (isGuestMode) {
         if (hasCompanion) requestData.user_companion_id = companionId;
-        if (hasAICode) requestData.ai_code = aiCodeFromURL;
+        if (hasAICode)    requestData.ai_code = aiCodeFromURL;
     } else if (jwt) {
         headers['Authorization'] = 'Bearer ' + jwt;
         if (hasCompanion) requestData.user_companion_id = companionId;
@@ -946,14 +846,13 @@ function sendMessage() {
                     loadConversations();
                 }
                 if (response.user_companion_id) { companionId = response.user_companion_id; sessionStorage.setItem('user_companion_id', companionId); }
-                // ✅ thinking ยังวนอยู่ — speakAIResponseDirectly จะหยุดเองเมื่อโหลดเสียงเสร็จ
                 speakAIResponseDirectly(
                     response.ai_message,
                     response.language_used || requestData.preferred_language,
                     response.ai_emotion || 'calm'
                 );
             } else {
-                stopThinkingAnimation(); // ✅ หยุด thinking ถ้า error
+                stopThinkingAnimation();
                 Swal.fire('Error', response.message, 'error');
                 updateStatus('Ready to chat', false);
             }
@@ -961,7 +860,7 @@ function sendMessage() {
             $('#sendBtn').prop('disabled', false);
         },
         error: function() {
-            stopThinkingAnimation(); // ✅ หยุด thinking ถ้า error
+            stopThinkingAnimation();
             Swal.fire('Error', 'Failed to send message', 'error');
             updateStatus('Ready to chat', false);
             $('#messageInput').prop('disabled', false).focus();
@@ -970,7 +869,7 @@ function sendMessage() {
     });
 }
 
-// ========== Utility Functions ==========
+// ========== Utility ==========
 function detectLanguage(text) {
     if (/[\u0E00-\u0E7F]/.test(text)) return 'th';
     if (/[\u4E00-\u9FFF]/.test(text)) return 'cn';
@@ -1011,8 +910,8 @@ function updateStatus(text, speaking) {
 function createNewChat() {
     currentConversationId = 0;
     sessionStorage.removeItem('last_conversation_id');
-    currentEmotion = 'calm';
-    isThinking = false; // ✅ reset flag
+    currentEmotion = 'calm'; isThinking = false;
+    pendingSpeakingVideo = null;
     clearSubtitleTimers();
     $('.conversation-item').removeClass('active');
     $('#messageInput').val('').focus();
@@ -1022,11 +921,9 @@ function createNewChat() {
     isSpeaking = false; window.isSpeaking = false;
     updateStatus('Ready to chat', false);
     if (useVideoAvatar && currentVideoState !== 'idle') {
-        const v = getRandomIdleVideo();
-        if (v) switchToVideo(v, 'idle');
+        const v = getRandomIdleVideo(); if (v) switchToVideo(v, 'idle');
     }
-    $('#dropdownMenu').removeClass('show');
-    $('#menuToggle').removeClass('active');
+    $('#dropdownMenu').removeClass('show'); $('#menuToggle').removeClass('active');
 }
 
 function deleteConversation(conversationId, event) {
@@ -1059,34 +956,31 @@ function handleKeyPress(event) {
 }
 
 function formatTimeAgo(timestamp) {
-    const date = new Date(timestamp);
-    const now  = new Date();
+    const date = new Date(timestamp); const now = new Date();
     const diff = Math.floor((now - date) / 1000);
     if (diff < 60)     return 'Just now';
-    if (diff < 3600)   return Math.floor(diff / 60)    + 'm ago';
-    if (diff < 86400)  return Math.floor(diff / 3600)  + 'h ago';
+    if (diff < 3600)   return Math.floor(diff / 60)   + 'm ago';
+    if (diff < 86400)  return Math.floor(diff / 3600) + 'h ago';
     if (diff < 604800) return Math.floor(diff / 86400) + 'd ago';
     return date.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' });
 }
 
 function escapeHtml(text) {
     if (!text) return '';
-    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    const map = { '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' };
     return text.replace(/[&<>"']/g, m => map[m]);
 }
 
 function goTo2DMode() {
-    const urlParams = new URLSearchParams(window.location.search);
     let url = '?ai_chat&lang=' + (urlParams.get('lang') || 'th');
     if (aiCodeFromURL) url += '&ai_code=' + aiCodeFromURL;
     window.location.href = url;
 }
 
 function goToPreferences() {
-    const urlParams = new URLSearchParams(window.location.search);
     let url = '?ai_edit_prompts&lang=' + (urlParams.get('lang') || 'th');
     if (aiCodeFromURL) url += '&ai_code=' + aiCodeFromURL;
     window.location.href = url;
 }
 
-console.log('✅ AI Chat 3D — Thinking flag-based + Parallel preload + Typewriter subtitle');
+console.log('✅ AI Chat 3D — FIX: speaking emotion video + pending queue');
