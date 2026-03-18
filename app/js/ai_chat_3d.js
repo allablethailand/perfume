@@ -1,15 +1,3 @@
-/**
- * AI Chat 3D
- * ✅ โหลดเสียงทุก chunk พร้อมกันรอบเดียว (parallel)
- * ✅ Subtitle แสดงทีละประโยคสั้นตาม chunk เสียงที่กำลังเล่น (typewriter)
- * ✅ FIX: thinking video เล่นเฉพาะตอน user ส่งข้อความ → รอ AI → รอโหลดเสียง
- * ✅ FIX: stopThinkingAnimation() หยุด thinking ได้จริง
- * ✅ ค้าง subtitle สุดท้ายจนเสียงจบแล้ว fade out
- * ✅ 3D Emotion Videos
- * ✅ FIX: speaking ดึง talking video ของ emotion ได้ถูกต้อง (pending queue)
- * ✅ Startup actions — ควบคุมจาก admin (weather / news_world / news_country)
- */
-
 // ========== Global Variables ==========
 const urlParams = new URLSearchParams(window.location.search);
 const aiCodeFromURL = urlParams.get('ai_code') || '';
@@ -52,13 +40,17 @@ let typewriterTimer = null;
 let subtitleSequenceTimers = [];
 
 // ✅ startup_actions — โหลดจาก admin config
-// ค่า default = ทุกอย่าง false (ไม่ทำอะไร) จนกว่า API จะส่งมา
 let startupActions = {
     weather:           false,
     news_world:        false,
     news_country:      false,
     news_country_code: 'th',
 };
+
+// ✅ Startup Queue — โหลดข้อมูลรอไว้ก่อน พูดเมื่อว่าง
+let startupQueue = [];
+let startupQueueRunning = false;
+let startupDataReady = false;
 
 const WELCOME_MESSAGES = {
     th: "ยินดีต้อนรับกลับมานะเพื่อน",
@@ -95,14 +87,19 @@ $(document).ready(function() {
             init3DAvatar();
         }
         loadConversations();
-
-        // ✅ รัน startup sequence ตาม admin config
         runStartupSequence();
     });
 
     $('#messageInput').on('input', function() {
         this.style.height = 'auto';
         this.style.height = (this.scrollHeight) + 'px';
+    });
+
+    // ✅ พอ user คลิกออกจาก input ลอง drain queue
+    $('#messageInput').on('blur', function() {
+        if (startupDataReady && startupQueue.length > 0 && !startupQueueRunning) {
+            setTimeout(tryDrainStartupQueue, 1000);
+        }
     });
 
     $('#menuToggle').on('click', function(e) {
@@ -121,8 +118,7 @@ $(document).ready(function() {
     $('#dropdownMenu').on('click', function(e) { e.stopPropagation(); });
 });
 
-// ========== ✅ Startup Sequence — ตาม admin config ==========
-// ลำดับ: Welcome → Weather (ถ้าเปิด) → World News (ถ้าเปิด) → Country News (ถ้าเปิด)
+// ========== Startup Sequence ==========
 async function runStartupSequence() {
     if (isWelcomeMessagePlayed) return;
     isWelcomeMessagePlayed = true;
@@ -131,39 +127,86 @@ async function runStartupSequence() {
         videoAvatar.play().catch(e => {});
     }
 
-    // 1. Welcome — พูดเสมอ
+    // 1. Welcome — พูดทันที
     const welcomeText = WELCOME_MESSAGES[userPreferredLanguage] || WELCOME_MESSAGES.th;
     await speakTextWithCache(welcomeText, userPreferredLanguage, 'welcome');
 
-    await delay(600);
+    await delay(400);
 
-    // 2. Weather — เฉพาะถ้า admin เปิด
+    // 2. โหลด weather/news ไปรอใน queue ก่อน (background) แล้วค่อยพูดเมื่อว่าง
+    buildStartupQueue().then(() => {
+        startupDataReady = true;
+        tryDrainStartupQueue();
+    });
+}
+
+// ─── สร้าง queue โดยดึงข้อมูลล่วงหน้า ──────────────────────────
+async function buildStartupQueue() {
+    startupQueue = [];
+
     if (startupActions.weather) {
-        await fetchAndSpeakWeather();
-        await delay(600);
+        const text = await fetchWeatherText();
+        if (text) startupQueue.push({ text, lang: userPreferredLanguage, type: 'weather' });
+        await delay(100);
     }
 
-    // 3. World News — เฉพาะถ้า admin เปิด
     if (startupActions.news_world) {
-        await fetchAndSpeakNews('world', null, userPreferredLanguage);
+        const text = await fetchNewsText('world', null, userPreferredLanguage);
+        if (text) startupQueue.push({ text, lang: userPreferredLanguage, type: 'news_world' });
+        await delay(100);
+    }
+
+    if (startupActions.news_country) {
+        const cc = startupActions.news_country_code || 'th';
+        const text = await fetchNewsText('country', cc, userPreferredLanguage);
+        if (text) startupQueue.push({ text, lang: userPreferredLanguage, type: 'news_country' });
+    }
+
+    console.log(`✅ Startup queue built: ${startupQueue.length} items`);
+}
+
+// ─── Drain queue — พูดทีละชิ้นเมื่อว่าง ─────────────────────────
+async function tryDrainStartupQueue() {
+    if (startupQueueRunning || startupQueue.length === 0) return;
+    startupQueueRunning = true;
+
+    while (startupQueue.length > 0) {
+        await waitForIdleWindow();
+        const item = startupQueue.shift();
+        if (!item) break;
+        console.log(`🔊 Startup queue speaking: ${item.type}`);
+        await speakTextWithCache(item.text, item.lang, item.type);
         await delay(600);
     }
 
-    // 4. Country News — เฉพาะถ้า admin เปิด
-    if (startupActions.news_country) {
-        const countryCode = startupActions.news_country_code || 'th';
-        await fetchAndSpeakNews('country', countryCode, userPreferredLanguage);
-    }
+    startupQueueRunning = false;
+    console.log('✅ Startup queue drained');
+}
+
+// ─── รอช่องว่าง: user ไม่พิม + ไม่ focus + AI ไม่พูด/คิด ────────
+function waitForIdleWindow() {
+    return new Promise(resolve => {
+        const check = () => {
+            const typing  = $('#messageInput').val().trim().length > 0;
+            const focused = document.activeElement === document.getElementById('messageInput');
+            if (!typing && !focused && !isSpeaking && !isThinking) {
+                resolve();
+            } else {
+                setTimeout(check, 800);
+            }
+        };
+        check();
+    });
 }
 
 function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// ─── Weather ─────────────────────────────────────────
-async function fetchAndSpeakWeather() {
+// ─── Fetch Weather (คืน text เท่านั้น ไม่พูดเอง) ─────────────────
+function fetchWeatherText() {
     return new Promise((resolve) => {
-        if (!('geolocation' in navigator)) { resolve(); return; }
+        if (!('geolocation' in navigator)) { resolve(null); return; }
 
         navigator.geolocation.getCurrentPosition(
             (pos) => {
@@ -173,36 +216,26 @@ async function fetchAndSpeakWeather() {
                 $.ajax({
                     url: `app/actions/get_weather.php?lang=${userPreferredLanguage}&lat=${latitude}&lon=${longitude}`,
                     type: 'GET', headers, dataType: 'json',
-                    success: function(res) {
-                        if (res.status === 'success' && res.data && res.data.message) {
-                            speakTextWithCache(res.data.message, userPreferredLanguage, 'weather').then(resolve);
-                        } else { resolve(); }
-                    },
-                    error: function() { resolve(); }
+                    success: (res) => resolve(res.status === 'success' ? res.data?.message : null),
+                    error:   ()    => resolve(null),
                 });
             },
-            () => { resolve(); }
+            () => resolve(null)
         );
     });
 }
 
-// ─── News ─────────────────────────────────────────────
-async function fetchAndSpeakNews(type, countryCode, lang) {
+// ─── Fetch News (คืน text เท่านั้น ไม่พูดเอง) ────────────────────
+function fetchNewsText(type, countryCode, lang) {
     return new Promise((resolve) => {
         let url = `app/actions/get_news.php?type=${type}&lang=${lang}`;
         if (type === 'country' && countryCode) url += `&country=${countryCode}`;
-
         const headers = {};
         if (jwt) headers['Authorization'] = 'Bearer ' + jwt;
-
         $.ajax({
             url, type: 'GET', headers, dataType: 'json',
-            success: function(res) {
-                if (res.status === 'success' && res.message) {
-                    speakTextWithCache(res.message, lang, 'news').then(resolve);
-                } else { resolve(); }
-            },
-            error: function() { resolve(); }
+            success: (res) => resolve(res.status === 'success' ? res.message : null),
+            error:   ()    => resolve(null),
         });
     });
 }
@@ -302,7 +335,6 @@ function fetchAICompanionData() {
                     console.log('✅ 3D Emotion videos loaded:', Object.keys(EMOTION_VIDEOS_3D));
                     console.log('🤔 Thinking videos:', EMOTION_VIDEOS_3D['thinking'] || 'none');
 
-                    // ✅ โหลด startup_actions จาก API
                     if (aiCompanionData.startup_actions) {
                         const sa = (typeof aiCompanionData.startup_actions === 'string')
                             ? JSON.parse(aiCompanionData.startup_actions)
@@ -593,7 +625,6 @@ function initVideoAvatar() {
     videoAvatar.load();
 }
 
-// ✅ handleVideoEnded — จุดเดียว ไม่ duplicate
 function handleVideoEnded(el) {
     if (currentVideoState === 'thinking') {
         if (isThinking) {
@@ -624,7 +655,6 @@ function handleVideoEnded(el) {
     }
 }
 
-// ✅ FIX: playSpeakingAnimation — queue ถ้า isTransitioning อยู่
 function playSpeakingAnimation() {
     if (!videoAvatar) return;
     const videoUrl = getEmotionVideo3D(currentEmotion, 'talking');
@@ -657,6 +687,11 @@ function stopSpeakingAnimation() {
             const v = getRandomIdleVideo();
             if (v) switchToVideo(v, 'idle');
         }
+    }
+
+    // ✅ หลัง AI พูดเสร็จ ลอง drain startup queue ถ้ายังมีค้างอยู่
+    if (startupDataReady && startupQueue.length > 0 && !startupQueueRunning) {
+        setTimeout(tryDrainStartupQueue, 1200);
     }
 }
 
@@ -692,7 +727,6 @@ function switchToVideo(videoUrl, newState) {
                 currentVideoState = newState;
                 isTransitioning = false;
 
-                // ✅ ถ้ามี pending speaking ค้างอยู่และยังพูดอยู่ → execute ต่อ
                 if (pendingSpeakingVideo && isSpeaking) {
                     const pending = pendingSpeakingVideo;
                     pendingSpeakingVideo = null;
@@ -1015,4 +1049,4 @@ function goToPreferences() {
     window.location.href = url;
 }
 
-console.log('✅ AI Chat 3D — startup_actions from admin + speaking emotion fix');
+console.log('✅ AI Chat 3D — startup queue + idle window + news detail');

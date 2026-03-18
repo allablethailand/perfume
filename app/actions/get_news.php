@@ -1,17 +1,23 @@
 <?php
 /**
- * get_news.php
- * ดึงข่าวจาก RSS Feed หลายแหล่ง (ฟรี ไม่ต้อง API key)
- * → แปลด้วย Google Translate (ฟรี)
- * ✅ Filter title ที่เป็น error/garbage ออก
- * ✅ Fallback หลายแหล่งถ้าแหล่งแรก fail
+ * get_news.php  (PATCHED)
+ * ✅ ดึงข่าว TOP 1 พร้อม detail (ย่อยจาก description/content)
+ * ✅ Pre-cache ทุกประเทศ/ภาษา — TTL = หมดเที่ยงคืน (วันต่อวัน)
+ * ✅ Filter title/description ที่เป็น garbage
+ * ✅ Fallback หลาย feed
  */
 
 header('Content-Type: application/json; charset=utf-8');
 date_default_timezone_set('Asia/Bangkok');
 
-define('CACHE_DIR', __DIR__ . '/../../../../cache/news/');
-define('CACHE_TTL', 1800);
+define('CACHE_DIR', __DIR__ . '/../../cache/news/');
+
+// ✅ TTL = หมดเที่ยงคืน (ไม่ใช่ fixed 30 นาที)
+function getCacheTTL() {
+    $now      = time();
+    $midnight = mktime(0, 0, 0, date('n'), date('j') + 1); // เที่ยงคืนคืนนี้
+    return $midnight - $now; // วินาทีที่เหลือถึงเที่ยงคืน
+}
 
 $type    = $_GET['type']    ?? 'world';
 $country = $_GET['country'] ?? 'th';
@@ -20,22 +26,18 @@ $lang    = $_GET['lang']    ?? 'th';
 $gtLangMap = ['th'=>'th','en'=>'en','cn'=>'zh-CN','jp'=>'ja','kr'=>'ko'];
 $gtLang    = $gtLangMap[$lang] ?? 'th';
 
-
-// ─── RSS Feed map ─────────────────────────────────────────────────
-// แต่ละประเทศมีหลาย feed — ลองตามลำดับจนกว่าจะได้ข่าว
+// ─── RSS Feed map ──────────────────────────────────────────
 $feedMap = [
     'world' => [
         'https://feeds.bbci.co.uk/news/world/rss.xml',
         'https://www.theguardian.com/world/rss',
         'https://rss.nytimes.com/services/xml/rss/nyt/World.xml',
         'https://www.aljazeera.com/xml/rss/all.xml',
-        'https://abcnews.go.com/abcnews/internationalheadlines',
     ],
     'th' => [
         'https://www.bangkokpost.com/rss/data/topstories.xml',
         'https://www.nationthailand.com/rss',
         'https://feeds.bbci.co.uk/news/world/asia/rss.xml',
-        // Google News search keyword fallback
         'https://news.google.com/rss/search?q=Thailand+news&hl=en&gl=TH&ceid=TH:en',
     ],
     'us' => [
@@ -76,34 +78,105 @@ $feedMap = [
         'https://www.france24.com/en/rss',
         'https://news.google.com/rss/search?q=France+news&hl=en&gl=FR&ceid=FR:en',
     ],
+    'in' => [
+        'https://feeds.feedburner.com/ndtvnews-top-stories',
+        'https://news.google.com/rss/search?q=India+news&hl=en&gl=IN&ceid=IN:en',
+    ],
+    'id' => [
+        'https://news.google.com/rss/search?q=Indonesia+news&hl=en&gl=ID&ceid=ID:en',
+    ],
+    'my' => [
+        'https://news.google.com/rss/search?q=Malaysia+news&hl=en&gl=MY&ceid=MY:en',
+    ],
 ];
 
-// Default fallback สำหรับประเทศที่ไม่มีใน map
 $countryNamesEN = [
     'th'=>'Thailand',  'us'=>'United States', 'gb'=>'United Kingdom',
     'jp'=>'Japan',     'cn'=>'China',         'kr'=>'South Korea',
     'sg'=>'Singapore', 'au'=>'Australia',     'de'=>'Germany',
     'fr'=>'France',    'in'=>'India',         'id'=>'Indonesia',
     'my'=>'Malaysia',  'ph'=>'Philippines',   'vn'=>'Vietnam',
-    'mm'=>'Myanmar',   'kh'=>'Cambodia',
 ];
 
-// ─── Cache ────────────────────────────────────────────────────────
+// ─── Cache ────────────────────────────────────────────────
 if (!is_dir(CACHE_DIR)) { @mkdir(CACHE_DIR, 0755, true); }
-$cacheKey  = md5("rss2_{$type}_{$country}_{$lang}");
+$cacheKey  = md5("news_v3_{$type}_{$country}_{$lang}");
 $cacheFile = CACHE_DIR . $cacheKey . '.json';
 
-if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < CACHE_TTL) {
+$cacheTTL = getCacheTTL();
+if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTTL) {
     echo file_get_contents($cacheFile);
     exit;
 }
 
-// ─── เลือก feed URLs ──────────────────────────────────────────────
+// ─── Fetch RSS ────────────────────────────────────────────
+function fetchRSS($url) {
+    $ctx = stream_context_create(['http' => [
+        'timeout'         => 10,
+        'ignore_errors'   => true,
+        'follow_location' => true,
+        'max_redirects'   => 3,
+        'header'          => "User-Agent: Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 Chrome/120\r\n"
+                           . "Accept: application/rss+xml, application/xml, text/xml, */*\r\n"
+                           . "Accept-Language: en-US,en;q=0.9\r\n",
+    ]]);
+    return @file_get_contents($url, false, $ctx);
+}
+
+$errorPatterns = [
+    'feed.*not.*available','unavailable','^error$','access denied',
+    'forbidden','^404$','not found','javascript.*required',
+    'enable javascript','please enable','subscribe to','sign in to','log in to',
+];
+
+function isValidTitle($title, $errorPatterns) {
+    if (empty($title) || strlen($title) < 8) return false;
+    $lower = mb_strtolower($title);
+    foreach ($errorPatterns as $p) { if (preg_match('/'.$p.'/iu', $lower)) return false; }
+    return true;
+}
+
+// ✅ ดึง description/content ออกจาก RSS item
+function extractDescription($item) {
+    // ลอง field ต่างๆ ตามลำดับ
+    $raw = '';
+    if (!empty((string)($item->description ?? '')))        $raw = (string)$item->description;
+    elseif (!empty((string)($item->summary ?? '')))        $raw = (string)$item->summary;
+    elseif (!empty((string)($item->content ?? '')))        $raw = (string)$item->content;
+
+    if (empty($raw)) {
+        // ลอง namespace content:encoded
+        $content = $item->children('content', true);
+        if (!empty($content->encoded)) $raw = (string)$content->encoded;
+    }
+
+    if (empty($raw)) return '';
+
+    // ตัด HTML tags ออก
+    $text = strip_tags($raw);
+    // ตัด whitespace
+    $text = preg_replace('/\s+/', ' ', trim($text));
+    // ตัดพวก "Read more..." / "Continue reading..." ท้ายประโยค
+    $text = preg_replace('/\s*(read more|continue reading|full story|more\.\.\.).*$/iu', '.', $text);
+    // ไม่เอายาวเกิน 300 ตัวอักษร — ตัดที่ประโยคสุดท้ายที่ครบ
+    if (mb_strlen($text) > 300) {
+        $short = mb_substr($text, 0, 300);
+        // หาตำแหน่งจบประโยคสุดท้าย
+        $lastDot = max(
+            mb_strrpos($short, '.'),
+            mb_strrpos($short, '!'),
+            mb_strrpos($short, '?')
+        );
+        $text = $lastDot > 100 ? mb_substr($short, 0, $lastDot + 1) : $short . '...';
+    }
+    return $text;
+}
+
+// ─── เลือก feed ──────────────────────────────────────────
 if ($type === 'world') {
     $feedUrls = $feedMap['world'];
 } else {
     $feedUrls = $feedMap[$country] ?? [];
-    // ถ้าไม่มี map → fallback Google News search
     if (empty($feedUrls)) {
         $kw = $countryNamesEN[$country] ?? strtoupper($country);
         $feedUrls = [
@@ -113,47 +186,11 @@ if ($type === 'world') {
     }
 }
 
-// ─── Fetch + Parse RSS ────────────────────────────────────────────
-function fetchRSS($url) {
-    $ctx = stream_context_create([
-        'http' => [
-            'timeout'         => 10,
-            'ignore_errors'   => true,
-            'follow_location' => true,
-            'max_redirects'   => 3,
-            'header'          => implode("\r\n", [
-                "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120",
-                "Accept: application/rss+xml, application/xml, text/xml, */*",
-                "Accept-Language: en-US,en;q=0.9",
-                "Cache-Control: no-cache",
-            ]) . "\r\n",
-        ]
-    ]);
-    return @file_get_contents($url, false, $ctx);
-}
-
-function isValidTitle($title, $errorPatterns) {
-    if (empty($title) || strlen($title) < 8) return false;
-    $lower = mb_strtolower($title);
-    foreach ($errorPatterns as $pattern) {
-        if (preg_match('/' . $pattern . '/iu', $lower)) return false;
-    }
-    return true;
-}
-
-// ✅ ประกาศ $errorPatterns ตรงนี้ ก่อน loop — ให้ scope ถูกต้อง
-$errorPatterns = [
-    'feed.*not.*available', 'ฟีดนี้ไม่', 'this feed.*not',
-    'unavailable', '^error$', 'access denied', 'forbidden',
-    '^404$', 'not found', 'javascript.*required',
-    'enable javascript', 'please enable', 'subscribe to',
-    'sign in to', 'log in to',
-];
-
-$headlines = [];
+// ─── Parse — ดึงแค่ข่าวแรกที่ valid ──────────────────────
+$topNews = null; // ['title' => ..., 'description' => ...]
 
 foreach ($feedUrls as $feedUrl) {
-    if (count($headlines) >= 5) break;
+    if ($topNews) break;
 
     $raw = fetchRSS($feedUrl);
     if (!$raw || strlen($raw) < 100) continue;
@@ -163,75 +200,73 @@ foreach ($feedUrls as $feedUrl) {
     if (!$xml) continue;
 
     $items = [];
-    if (isset($xml->channel->item))  $items = $xml->channel->item;  // RSS 2.0
-    elseif (isset($xml->entry))       $items = $xml->entry;          // Atom
+    if (isset($xml->channel->item)) $items = $xml->channel->item;
+    elseif (isset($xml->entry))      $items = $xml->entry;
 
     foreach ($items as $item) {
-        if (count($headlines) >= 5) break;
-
         $title = trim((string)($item->title ?? ''));
-        // ตัด " - Source" ท้าย
         $title = preg_replace('/\s*[-–|]\s*[^-–|]{2,60}$/', '', $title);
         $title = trim($title);
 
-        if (isValidTitle($title, $errorPatterns)) {
-            $headlines[] = $title;
-        }
+        if (!isValidTitle($title, $errorPatterns)) continue;
+
+        $desc = extractDescription($item);
+
+        // ✅ ต้องมี description ด้วย ถ้าไม่มีข้ามไปข่าวถัดไป
+        if (empty($desc) || mb_strlen($desc) < 20) continue;
+
+        $topNews = ['title' => $title, 'description' => $desc];
+        break;
     }
 }
 
-if (empty($headlines)) {
-    error_log("get_news.php: No valid headlines | type=$type country=$country feeds=" . implode(',', $feedUrls));
+if (!$topNews) {
     echo json_encode(['status'=>'error','message'=>'No news available']);
     exit;
 }
 
-// ─── Google Translate (ฟรี) — sl=auto detect ภาษา source เอง ────
+// ─── Google Translate ─────────────────────────────────────
 function translateText($text, $targetLang) {
-    if ($targetLang === 'en') return $text; // ไม่ต้องแปลถ้า target เป็น EN
-
+    if ($targetLang === 'en') return $text;
     $url = 'https://translate.googleapis.com/translate_a/single?' . http_build_query([
-        'client' => 'gtx',
-        'sl'     => 'auto',  // ✅ auto detect — รองรับ JP, KR, CN, TH ฯลฯ
-        'tl'     => $targetLang,
-        'dt'     => 't',
-        'q'      => $text,
+        'client'=>'gtx','sl'=>'auto','tl'=>$targetLang,'dt'=>'t','q'=>$text,
     ]);
-    $ctx = stream_context_create([
-        'http' => ['timeout'=>8, 'ignore_errors'=>true, 'header'=>"User-Agent: Mozilla/5.0\r\n"]
-    ]);
-    $response = @file_get_contents($url, false, $ctx);
-    if (!$response) return $text;
-    $result = json_decode($response, true);
-    if (!$result || !isset($result[0])) return $text;
-    $translated = '';
-    foreach ($result[0] as $part) { if (isset($part[0])) $translated .= $part[0]; }
-    return $translated ?: $text;
+    $ctx = stream_context_create(['http'=>['timeout'=>8,'ignore_errors'=>true,'header'=>"User-Agent: Mozilla/5.0\r\n"]]);
+    $res = @file_get_contents($url, false, $ctx);
+    if (!$res) return $text;
+    $r = json_decode($res, true);
+    if (!$r || !isset($r[0])) return $text;
+    $out = '';
+    foreach ($r[0] as $part) { if (isset($part[0])) $out .= $part[0]; }
+    return $out ?: $text;
 }
 
-// ─── แปล headlines ───────────────────────────────────────────────
-$translatedHeadlines = [];
-foreach ($headlines as $h) {
-    // ✅ ไม่ต้องระบุ sourceLang — Google auto detect เอง
-    $translatedHeadlines[] = translateText($h, $gtLang);
-    usleep(150000);
-}
+// ─── แปล ─────────────────────────────────────────────────
+$translatedTitle = translateText($topNews['title'], $gtLang);
+usleep(200000);
+$translatedDesc  = translateText($topNews['description'], $gtLang);
 
-// ─── Build message ────────────────────────────────────────────────
+// ─── Build message — title + detail ──────────────────────
 $countryNameEN = $countryNamesEN[$country] ?? strtoupper($country);
-$introEN = ($type === 'country')
-    ? "Here are today's top headlines from {$countryNameEN}."
-    : "Here are today's top world headlines.";
-$intro   = translateText($introEN, $gtLang);
-$message = $intro . ' ' . implode(' ', $translatedHeadlines);
+if ($type === 'country') {
+    $introEN = "Top news from {$countryNameEN} today:";
+} else {
+    $introEN = "Top world news today:";
+}
+$intro = translateText($introEN, $gtLang);
+
+// รวม intro + title + detail เป็นประโยคเดียวกัน
+$message = $intro . ' ' . $translatedTitle . '. ' . $translatedDesc;
 
 $response = [
-    'status'    => 'success',
-    'message'   => $message,
-    'headlines' => $translatedHeadlines,
-    'type'      => $type,
-    'country'   => $country,
-    'lang'      => $lang,
+    'status'      => 'success',
+    'message'     => $message,
+    'title'       => $translatedTitle,
+    'description' => $translatedDesc,
+    'type'        => $type,
+    'country'     => $country,
+    'lang'        => $lang,
+    'cached_until'=> date('Y-m-d H:i:s', mktime(0,0,0,date('n'),date('j')+1)),
 ];
 
 @file_put_contents($cacheFile, json_encode($response, JSON_UNESCAPED_UNICODE));
