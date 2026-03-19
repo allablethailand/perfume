@@ -263,21 +263,62 @@ body { background:var(--bg) !important; color:var(--text) !important; font-famil
     z-index: 400;
     pointer-events: none;
 }
+
+/* ── AI Stat Cards ────────────────────────────── */
+.ai-stat-card { display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
+.ai-stat-icon { width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:1.1rem; margin-bottom:2px; }
+.ai-stat-val  { font-size:1.7rem; font-weight:700; line-height:1; font-family:var(--mono); color:var(--accent); letter-spacing:-.02em; }
+.ai-stat-label{ font-size:.72rem; color:var(--muted); }
 </style>
 </head>
 
 <?php
-$counts = [
-    'comment' => "SELECT COUNT(*) AS n FROM mb_comments",
-    'user'    => "SELECT COUNT(*) AS n FROM mb_user WHERE del=0",
-];
-$c = [];
-foreach ($counts as $key => $sql) {
-    $stmt = $conn->prepare($sql);
-    $stmt->execute();
-    $c[$key] = (int)$stmt->get_result()->fetch_assoc()['n'];
-    $stmt->close();
+// AI Chat Stats
+$chat_stats = ['total_conv' => 0, 'total_msg' => 0, 'guest_users' => 0, 'member_users' => 0];
+$s = $conn->query("
+    SELECT
+        COUNT(DISTINCT c.conversation_id) AS total_conv,
+        COALESCE(SUM(c.message_count), 0) AS total_msg,
+        COUNT(DISTINCT CASE WHEN u.login_method = 'guest' THEN uc.user_id END) AS guest_users,
+        COUNT(DISTINCT CASE WHEN u.login_method != 'guest' AND u.login_method IS NOT NULL THEN uc.user_id END) AS member_users
+    FROM ai_chat_conversations c
+    INNER JOIN user_ai_companions uc ON c.user_companion_id = uc.user_companion_id
+    LEFT JOIN mb_user u ON uc.user_id = u.user_id
+    WHERE c.is_active = 1
+");
+if ($s && $row = $s->fetch_assoc()) $chat_stats = $row;
+
+// Conversations per day (last 30 days)
+$chat_daily = [];
+$d = $conn->query("
+    SELECT DATE(updated_at) AS d, COUNT(*) AS n
+    FROM ai_chat_conversations
+    WHERE is_active = 1 AND updated_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
+    GROUP BY DATE(updated_at)
+    ORDER BY d ASC
+");
+if ($d) { while ($r = $d->fetch_assoc()) $chat_daily[$r['d']] = (int)$r['n']; }
+// fill missing dates
+$chat_labels = []; $chat_values = [];
+for ($i = 29; $i >= 0; $i--) {
+    $date = date('Y-m-d', strtotime("-$i days"));
+    $chat_labels[] = date('d/m', strtotime($date));
+    $chat_values[] = $chat_daily[$date] ?? 0;
 }
+
+// Top AI Companions by conversations
+$top_ai = [];
+$t = $conn->query("
+    SELECT ai.ai_name_th AS name, ai.ai_avatar_url AS avatar, COUNT(c.conversation_id) AS total
+    FROM ai_chat_conversations c
+    INNER JOIN user_ai_companions uc ON c.user_companion_id = uc.user_companion_id
+    INNER JOIN ai_companions ai ON uc.ai_id = ai.ai_id
+    WHERE c.is_active = 1
+    GROUP BY ai.ai_id
+    ORDER BY total DESC
+    LIMIT 5
+");
+if ($t) { while ($r = $t->fetch_assoc()) $top_ai[] = $r; }
 ?>
 
 <body>
@@ -466,64 +507,84 @@ $username = $_SESSION['fullname'] ?? 'Admin';
 
   </div>
 
-  <!-- Content Performance -->
-  <p class="sec-label">Content Performance</p>
-  <div class="cgrid cgrid-3">
+  <!-- AI Chat Overview -->
+  <p class="sec-label">AI Companion Chat Overview</p>
 
-    <div class="ccard" style="animation-delay:.3s">
+  <!-- Stat Cards -->
+  <div class="cgrid cgrid-3" style="margin-bottom:14px;">
+    <div class="ccard ai-stat-card" style="animation-delay:.3s">
+      <div class="ai-stat-icon" style="background:rgba(245,99,10,0.1); color:var(--accent);">💬</div>
+      <div class="ai-stat-val"><?= number_format((int)$chat_stats['total_conv']) ?></div>
+      <div class="ai-stat-label">Total Conversations</div>
+    </div>
+    <div class="ccard ai-stat-card" style="animation-delay:.36s">
+      <div class="ai-stat-icon" style="background:rgba(62,207,207,0.1); color:#3ecfcf;">📨</div>
+      <div class="ai-stat-val" style="color:#3ecfcf;"><?= number_format((int)$chat_stats['total_msg']) ?></div>
+      <div class="ai-stat-label">Total Messages</div>
+    </div>
+    <div class="ccard ai-stat-card" style="animation-delay:.42s">
+      <div class="ai-stat-icon" style="background:rgba(124,107,255,0.1); color:#7c6bff;">👥</div>
+      <div class="ai-stat-val" style="color:#7c6bff;">
+        <?= number_format((int)$chat_stats['guest_users']) ?>
+        <span style="font-size:.85rem; font-weight:400; color:var(--muted);"> / <?= number_format((int)$chat_stats['member_users']) ?></span>
+      </div>
+      <div class="ai-stat-label">Guest / Member Users</div>
+    </div>
+  </div>
+
+  <!-- Chart + Top AI -->
+  <div class="cgrid cgrid-2">
+    <div class="ccard" style="animation-delay:.48s">
       <div class="ch-row">
         <div class="ch-left">
-          <p class="ch-title">Top Projects</p>
-          <p class="ch-sub">โปรเจกต์ยอดนิยม</p>
-        </div>
-        <div class="card-filter">
-          <button class="cfbtn" data-section="top_projects" data-days="1">วันนี้</button>
-          <button class="cfbtn" data-section="top_projects" data-days="7">7d</button>
-          <button class="cfbtn active" data-section="top_projects" data-days="30">30d</button>
-          <button class="cfbtn" data-section="top_projects" data-days="90">90d</button>
-          <button class="cfbtn" data-section="top_projects" data-days="365">1y</button>
+          <p class="ch-title">Conversations / Day</p>
+          <p class="ch-sub">จำนวนการสนทนา 30 วันล่าสุด</p>
         </div>
       </div>
-      <div class="ccanvas"><canvas id="topProjectsChart"></canvas></div>
+      <div class="ccanvas h260"><canvas id="chatDailyChart"></canvas></div>
     </div>
 
-    <div class="ccard" style="animation-delay:.36s">
+    <div class="ccard" style="animation-delay:.54s">
       <div class="ch-row">
         <div class="ch-left">
-          <p class="ch-title">Top Blogs</p>
-          <p class="ch-sub">บทความยอดนิยม</p>
-        </div>
-        <div class="card-filter">
-          <button class="cfbtn" data-section="top_blogs" data-days="1">วันนี้</button>
-          <button class="cfbtn" data-section="top_blogs" data-days="7">7d</button>
-          <button class="cfbtn active" data-section="top_blogs" data-days="30">30d</button>
-          <button class="cfbtn" data-section="top_blogs" data-days="90">90d</button>
-          <button class="cfbtn" data-section="top_blogs" data-days="365">1y</button>
+          <p class="ch-title">Top AI Companions</p>
+          <p class="ch-sub">AI ที่มีการสนทนาสูงสุด</p>
         </div>
       </div>
-      <div class="ccanvas"><canvas id="topBlogsChart"></canvas></div>
-    </div>
-
-    <div class="ccard" style="animation-delay:.42s">
-      <div class="ch-row">
-        <div class="ch-left">
-          <p class="ch-title">Top News</p>
-          <p class="ch-sub">ข่าวสารยอดนิยม</p>
+      <?php if (empty($top_ai)): ?>
+      <p style="color:var(--muted); font-size:.82rem; text-align:center; padding:40px 0;">ยังไม่มีข้อมูล</p>
+      <?php else: ?>
+      <?php $max_ai = max(array_column($top_ai, 'total')) ?: 1; ?>
+      <div style="display:flex; flex-direction:column; gap:14px; padding-top:4px;">
+        <?php foreach ($top_ai as $ai): ?>
+        <div style="display:flex; align-items:center; gap:10px;">
+          <?php if (!empty($ai['avatar'])): ?>
+          <img src="<?= htmlspecialchars($ai['avatar']) ?>" style="width:34px;height:34px;border-radius:50%;object-fit:cover;flex-shrink:0;border:1.5px solid var(--border2);">
+          <?php else: ?>
+          <div style="width:34px;height:34px;border-radius:50%;background:var(--surface3);flex-shrink:0;"></div>
+          <?php endif; ?>
+          <div style="flex:1; min-width:0;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+              <span style="font-size:.82rem; font-weight:500; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px;"><?= htmlspecialchars($ai['name']) ?></span>
+              <span style="font-size:.78rem; font-family:var(--mono); color:var(--accent); flex-shrink:0;"><?= number_format((int)$ai['total']) ?></span>
+            </div>
+            <div style="height:5px; background:var(--surface3); border-radius:3px; overflow:hidden;">
+              <div style="height:100%; width:<?= round($ai['total']/$max_ai*100) ?>%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:3px; transition:width .5s;"></div>
+            </div>
+          </div>
         </div>
-        <div class="card-filter">
-          <button class="cfbtn" data-section="top_news" data-days="1">วันนี้</button>
-          <button class="cfbtn" data-section="top_news" data-days="7">7d</button>
-          <button class="cfbtn active" data-section="top_news" data-days="30">30d</button>
-          <button class="cfbtn" data-section="top_news" data-days="90">90d</button>
-          <button class="cfbtn" data-section="top_news" data-days="365">1y</button>
-        </div>
+        <?php endforeach; ?>
       </div>
-      <div class="ccanvas"><canvas id="topNewsChart"></canvas></div>
+      <?php endif; ?>
     </div>
-
   </div>
 
 </div><!-- /db-wrap -->
+
+<script>
+const chatLabels = <?= json_encode($chat_labels) ?>;
+const chatValues = <?= json_encode($chat_values) ?>;
+</script>
 
 <script src="js/index_.js?v=<?= time(); ?>"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -865,30 +926,9 @@ function renderSection(section, data) {
       },{ indexAxis:'y', scales:{x:{beginAtZero:true,grid:gridOpts,ticks:{color:'#9a8e84'}},y:{grid:{display:false},ticks:{color:'#9a8e84'}}}, plugins:{legend:{display:false},tooltip:cTip('top_products',data)} });
       break;
 
-    case 'top_projects':
-      mkChart('topProjectsChart','bar',{
-        labels: data.top_projects?.labels ?? [],
-        datasets:[{ label:'Views', data:data.top_projects?.views??[], backgroundColor:PAL.slice(0,(data.top_projects?.views??[]).length), borderRadius:5, borderSkipped:false }]
-      },{ indexAxis:'y', scales:{x:{beginAtZero:true,grid:gridOpts,ticks:{color:'#9a8e84'}},y:{grid:{display:false},ticks:{color:'#9a8e84'}}}, plugins:{legend:{display:false},tooltip:cTip('top_projects',data)} });
-      break;
-
-    case 'top_blogs':
-      mkChart('topBlogsChart','bar',{
-        labels: data.top_blogs?.labels ?? [],
-        datasets:[{ label:'Views', data:data.top_blogs?.views??[], backgroundColor:PAL.slice(0,(data.top_blogs?.views??[]).length), borderRadius:5, borderSkipped:false }]
-      },{ indexAxis:'y', scales:{x:{beginAtZero:true,grid:gridOpts,ticks:{color:'#9a8e84'}},y:{grid:{display:false},ticks:{color:'#9a8e84'}}}, plugins:{legend:{display:false},tooltip:cTip('top_blogs',data)} });
-      break;
-
-    case 'top_news':
-      mkChart('topNewsChart','bar',{
-        labels: data.top_news?.labels ?? [],
-        datasets:[{ label:'Views', data:data.top_news?.views??[], backgroundColor:PAL.slice(0,(data.top_news?.views??[]).length), borderRadius:5, borderSkipped:false }]
-      },{ indexAxis:'y', scales:{x:{beginAtZero:true,grid:gridOpts,ticks:{color:'#9a8e84'}},y:{grid:{display:false},ticks:{color:'#9a8e84'}}}, plugins:{legend:{display:false},tooltip:cTip('top_news',data)} });
-      break;
-
     case 'all':
       ['daily_users','source','region','device','os_browser',
-       'top_pages','top_products','top_projects','top_blogs','top_news']
+       'top_pages','top_products']
         .forEach(s => renderSection(s, data));
       break;
   }
@@ -970,6 +1010,39 @@ function fetchSection(section, days) {
 // ══════════════════════════════════════════════════════════════
 //  Init
 // ══════════════════════════════════════════════════════════════
+// ── AI Chat Daily Chart ───────────────────────────────────────
+(function(){
+  const el = document.getElementById('chatDailyChart');
+  if (!el || typeof chatLabels === 'undefined') return;
+  new Chart(el.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: chatLabels,
+      datasets: [{
+        label: 'Conversations',
+        data: chatValues,
+        backgroundColor: ctx => {
+          const g = ctx.chart.ctx.createLinearGradient(0,0,0,260);
+          g.addColorStop(0,'rgba(124,107,255,0.7)');
+          g.addColorStop(1,'rgba(124,107,255,0.15)');
+          return g;
+        },
+        borderRadius: 5,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration:550, easing:'easeOutQuart' },
+      scales: {
+        y: { beginAtZero:true, grid:gridOpts, ticks:{color:'#9a8e84', precision:0} },
+        x: { grid:{display:false}, ticks:{color:'#9a8e84', maxTicksLimit:10} }
+      },
+      plugins: { legend:{ display:false } }
+    }
+  });
+})();
+
 document.addEventListener('DOMContentLoaded', () => {
 
   document.querySelectorAll('.cfbtn[data-section]').forEach(btn => {
