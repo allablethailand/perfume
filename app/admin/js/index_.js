@@ -145,7 +145,7 @@ const buildTabSidebar = () => {
                 });
             }
             sidebarContent += `
-                <a href="../index.php" class="sidebar-link" data-href="">
+                <a href="../../" class="sidebar-link" data-href="">
                     <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSOOsYx7wMj95KKEFnurggK71qvR0qXutgKQQ&s" alt="Role control Icon" class="submenu-image" style="width: 18px; height: 18px; margin-right: 6px; margin-left:3px;">
                     <span style="padding-left:1em;">log out</span>
                 </a>
