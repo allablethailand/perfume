@@ -389,15 +389,39 @@ function displayMessages(messages) {
         $c.html('<div class="empty-state"><h3>No messages yet</h3><p>Start the conversation!</p></div>');
         return;
     }
-    messages.forEach(function(msg) { appendMessage(msg.role, msg.message, msg.timestamp); });
+    messages.forEach(function(msg) {
+        appendMessage(msg.role, msg.message, msg.timestamp, msg.chat_id, msg.feedback);
+    });
 }
 
-function appendMessage(role, text, timestamp) {
+function appendMessage(role, text, timestamp, chatId, prevFeedback) {
     const $c     = $('#chatMessages');
     $c.find('.empty-state').remove();
     const isUser = role === 'user';
     const time   = timestamp ? formatTime(timestamp) : 'Now';
     const label  = isUser ? 'U' : 'AI';
+
+    const ICON_LIKE    = `<svg viewBox="0 0 24 24"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>`;
+    const ICON_DISLIKE = `<svg viewBox="0 0 24 24"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z"/><path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>`;
+
+    let feedbackHtml = '';
+    if (!isUser && chatId) {
+        const hasFeedback   = prevFeedback === 0 || prevFeedback === 1;
+        const likeActive    = (prevFeedback === 1) ? 'fb-active' : '';
+        const dislikeActive = (prevFeedback === 0) ? 'fb-active' : '';
+        const doneClass     = hasFeedback ? 'fb-done' : '';
+
+        feedbackHtml = `
+        <div class="msg-feedback ${doneClass}" data-chat-id="${chatId}">
+            <button class="fb-btn fb-like ${likeActive}"
+                onclick="submitFeedback(${chatId}, 1, this)"
+                title="ชอบคำตอบนี้">${ICON_LIKE}</button>
+            <span class="fb-divider"></span>
+            <button class="fb-btn fb-dislike ${dislikeActive}"
+                onclick="submitFeedback(${chatId}, 0, this)"
+                title="ไม่ชอบคำตอบนี้">${ICON_DISLIKE}</button>
+        </div>`;
+    }
 
     const $msg = $(`
         <div class="message ${isUser ? 'user' : 'assistant'}">
@@ -409,10 +433,31 @@ function appendMessage(role, text, timestamp) {
             <div class="message-content">
                 <div class="message-text">${escapeHtml(text)}</div>
                 <div class="message-time">${time}</div>
+                ${feedbackHtml}
             </div>
         </div>
     `);
     $c.append($msg);
+}
+
+function submitFeedback(chatId, value, btn) {
+    const $wrap = $(btn).closest('.msg-feedback');
+    const $btns = $wrap.find('.fb-btn');
+
+    $.ajax({
+        url:         'app/actions/chat_feedback.php',
+        type:        'POST',
+        contentType: 'application/json',
+        data:        JSON.stringify({ chat_id: chatId, feedback: value }),
+        dataType:    'json',
+        success: function(r) {
+            if (r.status === 'success') {
+                $btns.removeClass('fb-active');
+                $(btn).addClass('fb-active');
+                $wrap.addClass('fb-done');
+            }
+        }
+    });
 }
 
 // =============================================
@@ -457,7 +502,7 @@ function sendMessage() {
             $('#typingIndicator').removeClass('active');
 
             if (r.status === 'success') {
-                appendMessage('assistant', r.ai_message, null);
+                appendMessage('assistant', r.ai_message, null, r.ai_chat_id || null);
                 scrollToBottom();
                 $('#chatHeader').show();
 
