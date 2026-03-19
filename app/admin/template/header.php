@@ -114,7 +114,7 @@ function getTranslation($key, $lang, $translations) {
                     <a href="<?php echo $path_admin; ?>profile.php?lang=<?php echo $lang; ?>">
                         <?php echo getTranslation('profile', $lang, $translations); ?>
                     </a>
-                    <a href="<?php echo $new_path; ?>index.php?lang=<?php echo $lang; ?>">
+                    <a href="<?php echo $path_admin; ?>logout.php">
                         <?php echo getTranslation('logout', $lang, $translations); ?>
                     </a>
                 </div>
