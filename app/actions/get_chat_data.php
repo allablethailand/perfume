@@ -380,30 +380,33 @@ try {
         }
         $check_stmt->close();
         
-        // ดึงประวัติ
+        // ดึงประวัติ พร้อม feedback
         $history_stmt = $conn->prepare("
-            SELECT 
-                chat_id,
-                role,
-                message_text,
-                ai_model_used,
-                created_at
-            FROM ai_chat_history 
-            WHERE conversation_id = ? 
-            ORDER BY created_at ASC
+            SELECT
+                h.chat_id,
+                h.role,
+                h.message_text,
+                h.ai_model_used,
+                h.created_at,
+                f.feedback
+            FROM ai_chat_history h
+            LEFT JOIN ai_chat_feedback f ON f.chat_id = h.chat_id
+            WHERE h.conversation_id = ?
+            ORDER BY h.created_at ASC
         ");
         $history_stmt->bind_param('i', $conversation_id);
         $history_stmt->execute();
         $history_result = $history_stmt->get_result();
-        
+
         $messages = [];
         while ($row = $history_result->fetch_assoc()) {
             $messages[] = [
-                'chat_id' => $row['chat_id'],
-                'role' => $row['role'],
-                'message' => $row['message_text'],
+                'chat_id'    => $row['chat_id'],
+                'role'       => $row['role'],
+                'message'    => $row['message_text'],
                 'model_used' => $row['ai_model_used'],
-                'timestamp' => $row['created_at']
+                'timestamp'  => $row['created_at'],
+                'feedback'   => isset($row['feedback']) ? (int)$row['feedback'] : null,
             ];
         }
         $history_stmt->close();

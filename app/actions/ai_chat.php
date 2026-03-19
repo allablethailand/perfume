@@ -621,6 +621,7 @@ try {
         $ai_message, $ai_emotion, $ai_model, $tokens_used, $response_time
     );
     $ai_chat_stmt->execute();
+    $ai_chat_id = $conn->insert_id;
     $ai_chat_stmt->close();
 
     $update_conv_stmt = $conn->prepare("
@@ -678,6 +679,7 @@ try {
         'guest_mode'        => $is_guest_mode,
         'conversation_id'   => $conversation_id,
         'user_companion_id' => $user_companion_id,
+        'ai_chat_id'        => $ai_chat_id,
         'ai_message'        => $ai_message,
         'ai_emotion'        => $ai_emotion,
         'ai_name'           => $ai_name,

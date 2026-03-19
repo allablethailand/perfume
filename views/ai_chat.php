@@ -247,6 +247,35 @@ if (session_status() == PHP_SESSION_NONE) {
         .conversation-item:hover .delete-conv-btn { opacity: 1; }
         .conversation-item.active .delete-conv-btn { background: rgba(255,255,255,0.2); color: #fff; }
 
+        /* ── Feedback buttons ── */
+        .msg-feedback {
+            display: flex; align-items: center; gap: 8px;
+            margin-top: 8px; opacity: 0; transition: opacity 0.15s;
+        }
+        .message-content:hover .msg-feedback,
+        .msg-feedback.fb-done { opacity: 1; }
+
+        .fb-btn {
+            background: none; border: none; padding: 0;
+            cursor: pointer; line-height: 1;
+            transition: all 0.15s ease;
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 11px; font-weight: 500; letter-spacing: .02em;
+            color: #bbb;
+        }
+        .fb-btn svg {
+            width: 14px; height: 14px;
+            stroke: currentColor; fill: none;
+            stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+            transition: all 0.15s ease;
+        }
+        .fb-btn:hover { color: #111; }
+        .fb-btn:hover svg { stroke: #111; }
+        .fb-btn.fb-active { color: #111; }
+        .fb-btn.fb-active svg { stroke: #111; fill: #111; }
+        .fb-btn.fb-active.fb-dislike svg { fill: none; stroke: #111; }
+        .fb-divider { width: 1px; height: 12px; background: #e0e0e0; }
+
         @media (max-width: 968px) {
             .chat-container { grid-template-columns: 1fr; }
             .chat-sidebar { display: none; }
