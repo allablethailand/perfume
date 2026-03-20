@@ -5,21 +5,53 @@ require_once '../../lib/connect.php';
 
 date_default_timezone_set('Asia/Bangkok');
 
-$days = isset($_GET['days']) ? max(1, (int)$_GET['days']) : 1;
-$search = trim($_GET['search'] ?? '');
-$page = max(1, (int)($_GET['page'] ?? 1));
+$days        = isset($_GET['days']) ? max(1, (int)$_GET['days']) : 1;
+$search      = trim($_GET['search']   ?? '');
+$date_filter = trim($_GET['date']     ?? '');
+$prov_filter = trim($_GET['province'] ?? '');
+$city_filter = trim($_GET['city']     ?? '');
+$page  = max(1, (int)($_GET['page'] ?? 1));
 $limit = 50;
 $offset = ($page - 1) * $limit;
 
 // Build WHERE
-$whereBase = "s.started_at >= DATE_SUB(NOW(), INTERVAL ? DAY)";
-$params = [$days];
-$types  = 'i';
+if ($date_filter !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $date_filter)) {
+    $whereBase = "DATE(s.started_at) = ?";
+    $params    = [$date_filter];
+    $types     = 's';
+} else {
+    $whereBase = "s.started_at >= DATE_SUB(NOW(), INTERVAL ? DAY)";
+    $params    = [$days];
+    $types     = 'i';
+}
 
 if ($search !== '') {
     $whereBase .= " AND s.ip_address LIKE ?";
-    $params[] = "%$search%";
-    $types   .= 's';
+    $params[]   = "%$search%";
+    $types     .= 's';
+}
+if ($prov_filter !== '') {
+    $whereBase .= " AND s.province = ?";
+    $params[]   = $prov_filter;
+    $types     .= 's';
+}
+if ($city_filter !== '') {
+    $whereBase .= " AND s.city = ?";
+    $params[]   = $city_filter;
+    $types     .= 's';
+}
+
+// Dropdown options: จังหวัด
+$provRows = $conn->query("SELECT DISTINCT province FROM analytics_sessions WHERE province != '' ORDER BY province")->fetch_all(MYSQLI_ASSOC);
+// Dropdown options: อำเภอ (filtered by province if selected)
+if ($prov_filter !== '') {
+    $st = $conn->prepare("SELECT DISTINCT city FROM analytics_sessions WHERE city != '' AND province = ? ORDER BY city");
+    $st->bind_param('s', $prov_filter);
+    $st->execute();
+    $cityRows = $st->get_result()->fetch_all(MYSQLI_ASSOC);
+    $st->close();
+} else {
+    $cityRows = $conn->query("SELECT DISTINCT city FROM analytics_sessions WHERE city != '' ORDER BY city")->fetch_all(MYSQLI_ASSOC);
 }
 
 // Count total IPs
@@ -213,7 +245,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font
     <div class="sum-card">
       <div class="sum-label">Unique IPs</div>
       <div class="sum-val"><?= number_format($summary['unique_ips'] ?? 0) ?></div>
-      <div class="sum-sub">ใน <?= $days === 1 ? 'วันนี้' : "$days วันที่ผ่านมา" ?></div>
+      <div class="sum-sub"><?= $date_filter !== '' ? "วันที่ $date_filter" : ($days === 1 ? 'วันนี้' : "$days วันที่ผ่านมา") ?></div>
     </div>
     <div class="sum-card">
       <div class="sum-label">Total Sessions</div>
@@ -233,20 +265,89 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font
   </div>
 
   <!-- Toolbar -->
-  <div class="toolbar">
-    <form method="get" style="display:contents;">
+  <?php
+    // helper: build query string preserving current filters
+    function buildQS($overrides = []) {
+        global $days, $search, $date_filter, $prov_filter, $city_filter;
+        $base = [
+            'days'     => $days,
+            'search'   => $search,
+            'date'     => $date_filter,
+            'province' => $prov_filter,
+            'city'     => $city_filter,
+        ];
+        $merged = array_merge($base, $overrides);
+        $parts  = [];
+        foreach ($merged as $k => $v) {
+            if ($v !== '' && $v !== null) $parts[] = $k . '=' . urlencode($v);
+        }
+        return $parts ? '?' . implode('&', $parts) : '?';
+    }
+  ?>
+  <form method="get" id="filterForm">
+    <div class="toolbar" style="flex-wrap:wrap;gap:10px;">
+      <!-- Search IP -->
       <input type="hidden" name="days" value="<?= $days ?>">
       <div class="search-wrap">
-        <input type="text" name="search" placeholder="ค้นหา IP..." value="<?= htmlspecialchars($search) ?>" onchange="this.form.submit()">
+        <input type="text" name="search" placeholder="ค้นหา IP..." value="<?= htmlspecialchars($search) ?>" onchange="document.getElementById('filterForm').submit()">
       </div>
-    </form>
-    <div class="filter-pills">
-      <?php foreach ([1=>'วันนี้', 3=>'3d', 7=>'7d', 30=>'30d', 90=>'90d'] as $d => $label): ?>
-        <a class="pill <?= $days==$d?'active':'' ?>" href="?days=<?= $d ?><?= $search?"&search=".urlencode($search):'' ?>"><?= $label ?></a>
-      <?php endforeach; ?>
+
+      <!-- Date picker -->
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:.72rem;color:var(--muted);white-space:nowrap;">เลือกวันที่:</label>
+        <input type="date" name="date" value="<?= htmlspecialchars($date_filter) ?>"
+               style="padding:6px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--surface);font-size:.78rem;color:var(--text);font-family:var(--mono);cursor:pointer;"
+               onchange="document.getElementById('filterForm').submit()">
+        <?php if ($date_filter !== ''): ?>
+          <a href="<?= buildQS(['date'=>'','page'=>1]) ?>" style="font-size:.7rem;color:var(--muted);text-decoration:none;" title="ล้างวันที่">✕</a>
+        <?php endif; ?>
+      </div>
+
+      <!-- Province dropdown -->
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:.72rem;color:var(--muted);white-space:nowrap;">จังหวัด:</label>
+        <select name="province" onchange="document.getElementById('filterForm').submit()"
+                style="padding:6px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--surface);font-size:.78rem;color:var(--text);font-family:var(--font);cursor:pointer;max-width:160px;">
+          <option value="">ทั้งหมด</option>
+          <?php foreach ($provRows as $r): ?>
+            <option value="<?= htmlspecialchars($r['province']) ?>" <?= $prov_filter === $r['province'] ? 'selected' : '' ?>>
+              <?= htmlspecialchars($r['province']) ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+
+      <!-- City/District dropdown -->
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:.72rem;color:var(--muted);white-space:nowrap;">อำเภอ:</label>
+        <select name="city" onchange="document.getElementById('filterForm').submit()"
+                style="padding:6px 10px;border-radius:8px;border:1px solid var(--border2);background:var(--surface);font-size:.78rem;color:var(--text);font-family:var(--font);cursor:pointer;max-width:160px;">
+          <option value="">ทั้งหมด</option>
+          <?php foreach ($cityRows as $r): ?>
+            <option value="<?= htmlspecialchars($r['city']) ?>" <?= $city_filter === $r['city'] ? 'selected' : '' ?>>
+              <?= htmlspecialchars($r['city']) ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+
+      <!-- Day range pills (hidden when date is active) -->
+      <?php if ($date_filter === ''): ?>
+      <div class="filter-pills">
+        <?php foreach ([1=>'วันนี้', 3=>'3d', 7=>'7d', 30=>'30d', 90=>'90d'] as $d => $label): ?>
+          <a class="pill <?= $days==$d?'active':'' ?>" href="<?= buildQS(['days'=>$d,'date'=>'','page'=>1]) ?>"><?= $label ?></a>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
+
+      <!-- Clear all filters -->
+      <?php if ($prov_filter !== '' || $city_filter !== '' || $date_filter !== '' || $search !== ''): ?>
+        <a href="?days=<?= $days ?>" class="pill" style="background:var(--surface3);color:var(--red);border-color:rgba(232,72,85,.3);">✕ ล้างฟีลเตอร์</a>
+      <?php endif; ?>
+
+      <span class="result-info">พบ <?= number_format($totalIPs) ?> IP (หน้า <?= $page ?>/<?= $totalPages ?>)</span>
     </div>
-    <span class="result-info">พบ <?= number_format($totalIPs) ?> IP (หน้า <?= $page ?>/<?= $totalPages ?>)</span>
-  </div>
+  </form>
 
   <!-- Table -->
   <div class="table-wrap">
@@ -312,15 +413,15 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font
   <!-- Pagination -->
   <?php if ($totalPages > 1): ?>
   <div class="pagination">
-    <a class="ppage <?= $page<=1?'disabled':'' ?>" href="?days=<?= $days ?>&page=<?= $page-1 ?><?= $search?"&search=".urlencode($search):'' ?>">← Prev</a>
+    <a class="ppage <?= $page<=1?'disabled':'' ?>" href="<?= buildQS(['page'=>$page-1]) ?>">← Prev</a>
     <?php
     $start = max(1, $page-2); $end = min($totalPages, $page+2);
-    if ($start > 1) { echo '<a class="ppage" href="?days='.$days.'&page=1'.($search?"&search=".urlencode($search):'').'">1</a>'; if ($start>2) echo '<span class="pinfo">…</span>'; }
+    if ($start > 1) { echo '<a class="ppage" href="'.buildQS(['page'=>1]).'">1</a>'; if ($start>2) echo '<span class="pinfo">…</span>'; }
     for ($p = $start; $p <= $end; $p++):
-    ?><a class="ppage <?= $p==$page?'active':'' ?>" href="?days=<?= $days ?>&page=<?= $p ?><?= $search?"&search=".urlencode($search):'' ?>"><?= $p ?></a><?php endfor;
-    if ($end < $totalPages) { if ($end<$totalPages-1) echo '<span class="pinfo">…</span>'; echo '<a class="ppage" href="?days='.$days.'&page='.$totalPages.($search?"&search=".urlencode($search):'').'">'. $totalPages .'</a>'; }
+    ?><a class="ppage <?= $p==$page?'active':'' ?>" href="<?= buildQS(['page'=>$p]) ?>"><?= $p ?></a><?php endfor;
+    if ($end < $totalPages) { if ($end<$totalPages-1) echo '<span class="pinfo">…</span>'; echo '<a class="ppage" href="'.buildQS(['page'=>$totalPages]).'">'. $totalPages .'</a>'; }
     ?>
-    <a class="ppage <?= $page>=$totalPages?'disabled':'' ?>" href="?days=<?= $days ?>&page=<?= $page+1 ?><?= $search?"&search=".urlencode($search):'' ?>">Next →</a>
+    <a class="ppage <?= $page>=$totalPages?'disabled':'' ?>" href="<?= buildQS(['page'=>$page+1]) ?>">Next →</a>
   </div>
   <?php endif; ?>
 
