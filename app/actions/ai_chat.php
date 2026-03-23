@@ -369,9 +369,25 @@ try {
     // ========================================
     $emotion_instruction  = "\n\n=== RESPONSE FORMAT — CRITICAL ===\n";
     $emotion_instruction .= "You MUST output ONLY a raw JSON object. No other text before or after it.\n\n";
-    $emotion_instruction .= "Required format:\n";
-    $emotion_instruction .= '{"message": "your reply here", "emotion": "one_of_the_emotions_below"}';
-    $emotion_instruction .= "\n\nAllowed emotion values (lowercase, pick exactly one):\n";
+    $emotion_instruction .= "Required format (3 fields, all required):\n";
+    $emotion_instruction .= '{"message": "clean reply for display", "tts_message": "reply with natural [tags] for voice", "emotion": "one_of_the_emotions_below"}';
+    $emotion_instruction .= "\n\n--- FIELD DEFINITIONS ---\n";
+    $emotion_instruction .= "'message'     : The clean reply shown to the user. NO tags. NO emojis. Plain text only.\n";
+    $emotion_instruction .= "'tts_message' : The same reply, but with natural spoken-language tags inserted where appropriate.\n";
+    $emotion_instruction .= "                These tags are read by the text-to-speech engine — the user never sees them.\n";
+    $emotion_instruction .= "                Use them naturally, like a human would pause, laugh, or sigh when speaking.\n\n";
+    $emotion_instruction .= "Allowed TTS tags (insert inline in tts_message only):\n";
+    $emotion_instruction .= "  [laughs]   — a natural laugh or chuckle\n";
+    $emotion_instruction .= "  [sighs]    — a gentle sigh (relief, sadness, exhaustion)\n";
+    $emotion_instruction .= "  [whispers] — spoken in a soft, hushed voice\n";
+    $emotion_instruction .= "  [excited]  — burst of excitement or enthusiasm\n";
+    $emotion_instruction .= "  ...        — ellipsis pause (hesitation, thinking, trailing off)\n\n";
+    $emotion_instruction .= "TTS tag examples:\n";
+    $emotion_instruction .= "  \"วันนี้อากาศดีจัง [laughs] ไปเดินเล่นกันไหมล่ะ...\"\n";
+    $emotion_instruction .= "  \"ฉันเสียใจมาก [sighs] หวังว่าเธอจะโอเคนะ\"\n";
+    $emotion_instruction .= "  \"[excited] โอ้โห! นั่นเจ๋งมากเลย!\"\n\n";
+    $emotion_instruction .= "--- EMOTION FIELD ---\n";
+    $emotion_instruction .= "Allowed emotion values (lowercase, pick exactly one):\n";
     $emotion_instruction .= "happy | sad | excited | calm | thinking | surprised | empathetic\n\n";
     $emotion_instruction .= "Emotion guide:\n";
     $emotion_instruction .= "- happy: positive, good news, compliments\n";
@@ -385,8 +401,9 @@ try {
     $emotion_instruction .= "- Output ONLY the JSON object. Nothing before it, nothing after it.\n";
     $emotion_instruction .= "- Do NOT wrap in ```json or ``` or any markdown.\n";
     $emotion_instruction .= "- Do NOT add explanations, preamble, or trailing text.\n";
-    $emotion_instruction .= "- The 'message' field MUST be in {$preferred_language_name} ({$preferred_language}). No other language is allowed.\n";
-    $emotion_instruction .= "- The 'message' field must contain ZERO emojis. Plain text only.\n";
+    $emotion_instruction .= "- Both 'message' and 'tts_message' MUST be in {$preferred_language_name} ({$preferred_language}). No other language is allowed.\n";
+    $emotion_instruction .= "- The 'message' field must contain ZERO emojis and ZERO tags. Plain text only.\n";
+    $emotion_instruction .= "- The 'tts_message' field must contain ZERO emojis. Only the allowed tags above.\n";
     $emotion_instruction .= "- The 'emotion' field must be one of the 7 values above, exactly as written.\n";
 
     // ========================================
@@ -594,11 +611,17 @@ try {
 
     $parsed_response = json_decode($cleaned, true);
 
+    $tts_message = '';
+
     if (json_last_error() === JSON_ERROR_NONE && is_array($parsed_response) && isset($parsed_response['message'])) {
         $ai_message  = trim($parsed_response['message']);
         $raw_emotion = strtolower(trim($parsed_response['emotion'] ?? 'calm'));
         $ai_emotion  = in_array($raw_emotion, $valid_emotions) ? $raw_emotion : 'calm';
-        error_log("✅ [AI Emotion] Parsed OK — emotion: {$ai_emotion}");
+
+        // Parse tts_message — fallback to ai_message if not present
+        $tts_message = isset($parsed_response['tts_message']) ? trim($parsed_response['tts_message']) : $ai_message;
+
+        error_log("✅ [AI Emotion] Parsed OK — emotion: {$ai_emotion}, tts_message: " . (empty($tts_message) ? 'empty' : 'ok'));
     } else {
         // Fallback: ถ้า parse ไม่ได้เลย ใช้ raw text แต่ strip markdown/json ออก
         error_log("⚠️ [AI Emotion] JSON parse failed, fallback to raw. Error: " . json_last_error_msg());
@@ -608,16 +631,22 @@ try {
         if (empty($ai_message)) {
             $ai_message = $ai_message_raw;
         }
-        $ai_emotion = 'calm';
+        $ai_emotion  = 'calm';
+        $tts_message = $ai_message; // fallback: same as display
     }
 
     // ========================================
-    // FINAL SAFETY: ลบ emoji ออกจาก ai_message เสมอ ไม่ว่า AI จะส่งอะไรมา
+    // FINAL SAFETY: ลบ emoji ออกจาก ai_message และ tts_message เสมอ ไม่ว่า AI จะส่งอะไรมา
     // ========================================
     $ai_message = stripEmojis($ai_message);
     if (empty(trim($ai_message))) {
-        // กรณี message กลายเป็นว่างหลัง strip (ไม่น่าเกิด แต่ป้องกันไว้)
         $ai_message = stripEmojis($ai_message_raw);
+    }
+
+    // tts_message: strip emoji แต่เก็บ TTS tags ไว้ ([laughs], [sighs], etc.)
+    $tts_message = stripEmojis($tts_message);
+    if (empty(trim($tts_message))) {
+        $tts_message = $ai_message; // fallback to clean display text
     }
 
     // บันทึกคำตอบ AI
@@ -691,6 +720,7 @@ try {
         'user_companion_id' => $user_companion_id,
         'ai_chat_id'        => $ai_chat_id,
         'ai_message'        => $ai_message,
+        'tts_message'       => $tts_message,
         'ai_emotion'        => $ai_emotion,
         'ai_name'           => $ai_name,
         'language_used'     => $preferred_language,
