@@ -408,22 +408,28 @@ function speakTextWithCache(text, forceLangCode = null, cacheType = 'welcome') {
 }
 
 // ========== Speak AI Response ==========
-function speakAIResponseDirectly(text, forceLangCode = null, emotion = 'calm') {
+// ttsText = text WITH [laughs]/[sighs] tags sent to ElevenLabs (never shown to user)
+// text    = clean display text shown in subtitle/chat
+function speakAIResponseDirectly(text, ttsText = null, forceLangCode = null, emotion = 'calm') {
     currentEmotion = emotion || 'calm';
     console.log('🎭 emotion:', currentEmotion);
     updateStatus('Preparing voice...', false);
 
-    let langCode = forceLangCode || detectLanguage(text);
-    const audioChunks = splitIntoAudioChunks(text);
+    const displayText = text;
+    const voiceText   = ttsText || text; // fallback to clean text if no tts_message
 
-    preloadAllAudio(audioChunks, langCode, 'ai', null).then((audioUrls) => {
+    let langCode = forceLangCode || detectLanguage(displayText);
+    const ttsChunks     = splitIntoAudioChunks(voiceText);   // with tags → ElevenLabs
+    const displayChunks = splitIntoAudioChunks(displayText); // clean → subtitle
+
+    preloadAllAudio(ttsChunks, langCode, 'ai', null).then((audioUrls) => {
         stopThinkingAnimation();
-        playAudioWithSubtitles(audioUrls, audioChunks, langCode, null);
+        playAudioWithSubtitles(audioUrls, displayChunks, langCode, null);
     }).catch((error) => {
         console.error('❌ AI audio preload failed:', error);
         stopThinkingAnimation();
-        showMessage(text);
-        fallbackToGoogleTTS(text, langCode);
+        showMessage(displayText);
+        fallbackToGoogleTTS(displayText, langCode);
     });
 }
 
@@ -912,6 +918,7 @@ function sendMessage() {
                 if (response.user_companion_id) { companionId = response.user_companion_id; sessionStorage.setItem('user_companion_id', companionId); }
                 speakAIResponseDirectly(
                     response.ai_message,
+                    response.tts_message || response.ai_message,
                     response.language_used || requestData.preferred_language,
                     response.ai_emotion || 'calm'
                 );
