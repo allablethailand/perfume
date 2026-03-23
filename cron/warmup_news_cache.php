@@ -5,11 +5,11 @@
  * ✅ TTL หมดเที่ยงคืน (วันต่อวัน)
  */
 
-require_once $_SERVER['DOCUMENT_ROOT'] . '/perfume/lib/connect.php';
+require_once dirname(__DIR__) . '/lib/connect.php';
 
 $countries   = ['th','us','gb','jp','cn','kr','sg','au','de','fr','in','id','my'];
 $langs       = ['th','en','cn','jp','kr'];
-$newsScript  = $_SERVER['DOCUMENT_ROOT'] . '/perfume/app/actions/get_news.php';
+$newsScript  = dirname(__DIR__) . '/app/actions/get_news.php';
 $results     = [];
 
 // ─── Warm up news (world) ─────────────────────────────────
