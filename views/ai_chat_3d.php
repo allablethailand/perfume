@@ -466,9 +466,145 @@ if (session_status() == PHP_SESSION_NONE) {
             .status-indicator { font-size: 13px; }
             .status-dot { width: 12px; height: 12px; }
         }
+
+        /* ========== Monster Loading Overlay ========== */
+        #monsterOverlay {
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+
+        #monsterOverlay.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .monster-overlay-inner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .monster-spinner {
+            width: 40px;
+            height: 40px;
+            border: 2px solid rgba(255,255,255,0.15);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: monster-spin 0.8s linear infinite;
+        }
+
+        @keyframes monster-spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .monster-loading-label {
+            color: rgba(255,255,255,0.45);
+            font-size: 13px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+
+        #monsterReadyContent {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .monster-ready-mark {
+            width: 48px;
+            height: 48px;
+            border: 1.5px solid #fff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 20px;
+        }
+
+        .monster-ready-title {
+            color: #fff;
+            font-size: 18px;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            margin: 0;
+        }
+
+        .monster-ready-sub {
+            color: rgba(255,255,255,0.35);
+            font-size: 12px;
+            letter-spacing: 0.08em;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            margin: -12px 0 0;
+        }
+
+        #monsterStartBtn {
+            margin-top: 8px;
+            padding: 12px 40px;
+            background: #fff;
+            color: #000;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            cursor: pointer;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            transition: opacity 0.2s ease;
+        }
+
+        #monsterStartBtn:hover {
+            opacity: 0.8;
+        }
     </style>
 </head>
 <body>
+
+    <!-- Monster Loading Overlay -->
+    <div id="monsterOverlay">
+        <div class="monster-overlay-inner">
+            <!-- Loading state -->
+            <div id="monsterLoadingContent">
+                <div style="display:flex;flex-direction:column;align-items:center;gap:20px;">
+                    <div class="monster-spinner"></div>
+                    <span class="monster-loading-label">กำลังเตรียม Monster</span>
+                </div>
+            </div>
+            <!-- Ready state -->
+            <div id="monsterReadyContent">
+                <div class="monster-ready-mark">✓</div>
+                <p class="monster-ready-title">Monster พร้อมแล้ว</p>
+                <p class="monster-ready-sub">ระบบโหลดเสร็จสมบูรณ์</p>
+                <button id="monsterStartBtn" onclick="dismissMonsterOverlay()">เริ่มคุย</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        setTimeout(function() {
+            document.getElementById('monsterLoadingContent').style.display = 'none';
+            var ready = document.getElementById('monsterReadyContent');
+            ready.style.display = 'flex';
+        }, 1500);
+
+        function dismissMonsterOverlay() {
+            var overlay = document.getElementById('monsterOverlay');
+            overlay.classList.add('fade-out');
+            setTimeout(function() { overlay.style.display = 'none'; }, 500);
+        }
+    </script>
+
     <!-- Floating Menu Button -->
     <button class="floating-menu-btn" id="menuToggle">
         <i class="fas fa-bars"></i>
