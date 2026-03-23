@@ -52,6 +52,16 @@ function stripEmojis(string $text): string {
     return trim($cleaned ?? $text);
 }
 
+// ========================================
+// Helper: ลบ TTS emotion tags ออกจาก display text
+// ([laughs], [sighs], [whispers], [excited])
+// ========================================
+function stripTTSTags(string $text): string {
+    $cleaned = preg_replace('/\[(laughs|sighs|whispers|excited)\]/i', '', $text);
+    $cleaned = preg_replace('/  +/', ' ', $cleaned);
+    return trim($cleaned ?? $text);
+}
+
 $input                  = json_decode(file_get_contents('php://input'), true);
 $conversation_id        = isset($input['conversation_id'])    ? intval($input['conversation_id'])       : 0;
 $user_message           = isset($input['message'])            ? trim($input['message'])                  : '';
@@ -638,9 +648,9 @@ try {
     // ========================================
     // FINAL SAFETY: ลบ emoji ออกจาก ai_message และ tts_message เสมอ ไม่ว่า AI จะส่งอะไรมา
     // ========================================
-    $ai_message = stripEmojis($ai_message);
+    $ai_message = stripTTSTags(stripEmojis($ai_message));
     if (empty(trim($ai_message))) {
-        $ai_message = stripEmojis($ai_message_raw);
+        $ai_message = stripTTSTags(stripEmojis($ai_message_raw));
     }
 
     // tts_message: strip emoji แต่เก็บ TTS tags ไว้ ([laughs], [sighs], etc.)
