@@ -58,6 +58,15 @@ $user_message           = isset($input['message'])            ? trim($input['mes
 $dump_prompt            = isset($input['dump_prompt'])        ? (bool)$input['dump_prompt']              : false;
 $user_companion_id_input = isset($input['user_companion_id']) ? intval($input['user_companion_id'])      : 0;
 $ai_code_input          = isset($input['ai_code'])            ? strtoupper(trim($input['ai_code']))      : '';
+$preferred_language     = isset($input['preferred_language'])  ? strtolower(trim($input['preferred_language'])) : 'th';
+
+// Validate preferred_language — fallback to 'th' if invalid
+$valid_languages = ['th', 'en', 'cn', 'jp', 'kr'];
+if (!in_array($preferred_language, $valid_languages)) {
+    $preferred_language = 'th';
+}
+$language_names = ['th' => 'Thai', 'en' => 'English', 'cn' => 'Chinese', 'jp' => 'Japanese', 'kr' => 'Korean'];
+$preferred_language_name = $language_names[$preferred_language];
 
 if (empty($user_message)) {
     echo json_encode(['status' => 'error', 'message' => 'Message cannot be empty']);
@@ -342,10 +351,11 @@ try {
     // Language & Tone - ห้าม emoji อย่างเด็ดขาด
     // ========================================
     $language_instruction  = "\n\n=== LANGUAGE & TONE ===\n";
-    $language_instruction .= "LANGUAGE RULES:\n";
-    $language_instruction .= "1. Mirror the user's language. If they write Thai, respond Thai. If English, respond English.\n";
-    $language_instruction .= "2. If the user explicitly asks for a specific language, honor that.\n";
-    $language_instruction .= "3. You are fluent in Thai, English, Chinese, Japanese, and Korean.\n\n";
+    $language_instruction .= "LANGUAGE RULES — NON-NEGOTIABLE:\n";
+    $language_instruction .= "1. You MUST always respond in {$preferred_language_name} ({$preferred_language}) regardless of what language the user writes in.\n";
+    $language_instruction .= "2. Even if the user writes in English, Thai, Chinese, Japanese, or Korean — you ALWAYS reply in {$preferred_language_name}.\n";
+    $language_instruction .= "3. Do NOT switch language under any circumstances, even if the user asks you to.\n";
+    $language_instruction .= "4. You are fluent in Thai, English, Chinese, Japanese, and Korean.\n\n";
     $language_instruction .= "TONE & FORMAT RULES — NON-NEGOTIABLE:\n";
     $language_instruction .= "- ZERO emojis. Do not use any emoji, emoticon, Unicode symbol, or pictograph. Not even one.\n";
     $language_instruction .= "- This includes but is not limited to: smiley faces, hearts, stars, flowers, animals, flags, hands.\n";
@@ -375,7 +385,7 @@ try {
     $emotion_instruction .= "- Output ONLY the JSON object. Nothing before it, nothing after it.\n";
     $emotion_instruction .= "- Do NOT wrap in ```json or ``` or any markdown.\n";
     $emotion_instruction .= "- Do NOT add explanations, preamble, or trailing text.\n";
-    $emotion_instruction .= "- The 'message' field must be in the user's language.\n";
+    $emotion_instruction .= "- The 'message' field MUST be in {$preferred_language_name} ({$preferred_language}). No other language is allowed.\n";
     $emotion_instruction .= "- The 'message' field must contain ZERO emojis. Plain text only.\n";
     $emotion_instruction .= "- The 'emotion' field must be one of the 7 values above, exactly as written.\n";
 
@@ -683,6 +693,7 @@ try {
         'ai_message'        => $ai_message,
         'ai_emotion'        => $ai_emotion,
         'ai_name'           => $ai_name,
+        'language_used'     => $preferred_language,
         'tokens_used'       => $tokens_used,
         'response_time_ms'  => $response_time,
         'model_used'        => $ai_model,
