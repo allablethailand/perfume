@@ -13,10 +13,12 @@ date_default_timezone_set('Asia/Bangkok');
 define('CACHE_DIR', __DIR__ . '/../../cache/news/');
 
 // ✅ TTL = หมดเที่ยงคืน (ไม่ใช่ fixed 30 นาที)
-function getCacheTTL() {
-    $now      = time();
-    $midnight = mktime(0, 0, 0, date('n'), date('j') + 1); // เที่ยงคืนคืนนี้
-    return $midnight - $now; // วินาทีที่เหลือถึงเที่ยงคืน
+if (!function_exists('getCacheTTL')) {
+    function getCacheTTL() {
+        $now      = time();
+        $midnight = mktime(0, 0, 0, date('n'), date('j') + 1); // เที่ยงคืนคืนนี้
+        return $midnight - $now; // วินาทีที่เหลือถึงเที่ยงคืน
+    }
 }
 
 $type    = $_GET['type']    ?? 'world';
