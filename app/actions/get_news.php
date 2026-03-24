@@ -10,7 +10,7 @@
 header('Content-Type: application/json; charset=utf-8');
 date_default_timezone_set('Asia/Bangkok');
 
-define('CACHE_DIR', __DIR__ . '/../../cache/news/');
+defined('CACHE_DIR') || define('CACHE_DIR', __DIR__ . '/../../cache/news/');
 
 // ✅ TTL = หมดเที่ยงคืน (ไม่ใช่ fixed 30 นาที)
 if (!function_exists('getCacheTTL')) {
@@ -112,6 +112,7 @@ if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTTL) {
 }
 
 // ─── Fetch RSS ────────────────────────────────────────────
+if (!function_exists('fetchRSS')) {
 function fetchRSS($url) {
     $ctx = stream_context_create(['http' => [
         'timeout'         => 10,
@@ -124,6 +125,7 @@ function fetchRSS($url) {
     ]]);
     return @file_get_contents($url, false, $ctx);
 }
+}
 
 $errorPatterns = [
     'feed.*not.*available','unavailable','^error$','access denied',
@@ -131,14 +133,17 @@ $errorPatterns = [
     'enable javascript','please enable','subscribe to','sign in to','log in to',
 ];
 
+if (!function_exists('isValidTitle')) {
 function isValidTitle($title, $errorPatterns) {
     if (empty($title) || strlen($title) < 8) return false;
     $lower = mb_strtolower($title);
     foreach ($errorPatterns as $p) { if (preg_match('/'.$p.'/iu', $lower)) return false; }
     return true;
 }
+}
 
 // ✅ ดึง description/content ออกจาก RSS item
+if (!function_exists('extractDescription')) {
 function extractDescription($item) {
     // ลอง field ต่างๆ ตามลำดับ
     $raw = '';
@@ -172,6 +177,7 @@ function extractDescription($item) {
         $text = $lastDot > 100 ? mb_substr($short, 0, $lastDot + 1) : $short . '...';
     }
     return $text;
+}
 }
 
 // ─── เลือก feed ──────────────────────────────────────────
@@ -228,6 +234,7 @@ if (!$topNews) {
 }
 
 // ─── Google Translate ─────────────────────────────────────
+if (!function_exists('translateText')) {
 function translateText($text, $targetLang) {
     if ($targetLang === 'en') return $text;
     $url = 'https://translate.googleapis.com/translate_a/single?' . http_build_query([
@@ -241,6 +248,7 @@ function translateText($text, $targetLang) {
     $out = '';
     foreach ($r[0] as $part) { if (isset($part[0])) $out .= $part[0]; }
     return $out ?: $text;
+}
 }
 
 // ─── แปล ─────────────────────────────────────────────────
