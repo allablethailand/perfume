@@ -108,7 +108,7 @@ $cacheFile = CACHE_DIR . $cacheKey . '.json';
 $cacheTTL = getCacheTTL();
 if (file_exists($cacheFile) && (time() - filemtime($cacheFile)) < $cacheTTL) {
     echo file_get_contents($cacheFile);
-    exit;
+    return;
 }
 
 // ─── Fetch RSS ────────────────────────────────────────────
@@ -230,7 +230,7 @@ foreach ($feedUrls as $feedUrl) {
 
 if (!$topNews) {
     echo json_encode(['status'=>'error','message'=>'No news available']);
-    exit;
+    return;
 }
 
 // ─── Google Translate ─────────────────────────────────────
