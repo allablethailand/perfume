@@ -397,6 +397,9 @@ try {
     $emotion_instruction .= "  \"ฉันเสียใจมาก [sighs] หวังว่าเธอจะโอเคนะ\"\n";
     $emotion_instruction .= "  \"[excited] โอ้โห! นั่นเจ๋งมากเลย!\"\n\n";
     $emotion_instruction .= "--- EMOTION FIELD ---\n";
+    $emotion_instruction .= "CRITICAL: The 'emotion' field represents YOUR emotional state for THIS SPECIFIC MESSAGE ONLY.\n";
+    $emotion_instruction .= "It must reflect exactly what you are expressing RIGHT NOW in this response — not the overall conversation mood.\n";
+    $emotion_instruction .= "Each message has its own independent emotion. Do NOT average or carry over emotion from previous messages.\n\n";
     $emotion_instruction .= "Allowed emotion values (lowercase, pick exactly one):\n";
     $emotion_instruction .= "happy | sad | excited | calm | thinking | surprised | empathetic\n\n";
     $emotion_instruction .= "Emotion guide:\n";
@@ -407,6 +410,10 @@ try {
     $emotion_instruction .= "- thinking: analyzing, complex questions\n";
     $emotion_instruction .= "- surprised: unexpected questions or facts\n";
     $emotion_instruction .= "- empathetic: supporting user feelings, sensitive topics\n\n";
+    $emotion_instruction .= "SPECIAL RULE — User-directed emotions:\n";
+    $emotion_instruction .= "If the user explicitly asks you to express, feel, or show a specific emotion (e.g. 'make a sad face', 'be happy', 'act surprised', 'look angry'),\n";
+    $emotion_instruction .= "you MUST set the emotion field to that requested emotion (map to the closest allowed value).\n";
+    $emotion_instruction .= "Your message and tts_message must also reflect that emotional state naturally.\n\n";
     $emotion_instruction .= "ABSOLUTE RULES — violation breaks the app:\n";
     $emotion_instruction .= "- Output ONLY the JSON object. Nothing before it, nothing after it.\n";
     $emotion_instruction .= "- Do NOT wrap in ```json or ``` or any markdown.\n";
