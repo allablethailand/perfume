@@ -5,8 +5,7 @@ require __DIR__ . '/../vendor/autoload.php';
 use Dotenv\Dotenv;
 
 // โหลด .env
-$dotenv = Dotenv::createImmutable(__DIR__ . '/../');
-$dotenv->load();
+require_once __DIR__ . '/env_boot.php';
 
 // ตรวจว่ารันผ่าน CLI (cron) หรือ web
 $isCLI = (php_sapi_name() === 'cli');

@@ -8,8 +8,7 @@ use Dotenv\Dotenv;
 
 require_once(__DIR__ . '/../../lib/connect.php');
 
-$dotenv = Dotenv::createImmutable(__DIR__ . '/../../');
-$dotenv->load();
+require_once __DIR__ . '/../../lib/env_boot.php';
 
 global $conn;
 
