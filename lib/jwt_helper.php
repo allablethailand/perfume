@@ -13,8 +13,7 @@ use Firebase\JWT\Key;
 use Dotenv\Dotenv;
 
 // โหลด .env file
-$dotenv = Dotenv::createImmutable(__DIR__ . '/../');
-$dotenv->load();
+require_once __DIR__ . '/env_boot.php';
 
 // JWT Configuration - ใช้จาก .env
 define('JWT_SECRET_KEY', $_ENV['JWT_SECRET_KEY']);

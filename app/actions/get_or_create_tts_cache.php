@@ -67,8 +67,7 @@ if (!$voice_id && $ai_id > 0) {
 }
 
 if (!$voice_id) {
-    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../../');
-    $dotenv->load();
+    require_once __DIR__ . '/../../lib/env_boot.php';
     $voice_id = $_ENV['ELEVENLABS_VOICE_ID'] ?? 'UdFuclGJ1KL5tAeoBeE0';
 }
 
@@ -134,8 +133,7 @@ error_log("❌ TTS Cache MISS | type=$cache_type | ai_id=$ai_id | voice=$voice_i
 error_log("📂 ttsCacheDir : $ttsCacheDir");
 error_log("🌐 ttsCacheUrl : $ttsCacheUrl");
 
-$dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/../../');
-$dotenv->load();
+require_once __DIR__ . '/../../lib/env_boot.php';
 $ELEVENLABS_API_KEY = $_ENV['ELEVENLABS_API_KEY'] ?? '';
 
 $langMap        = ['th' => 'th', 'en' => 'en', 'cn' => 'zh', 'jp' => 'ja', 'kr' => 'ko'];
