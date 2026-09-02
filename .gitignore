@@ -28,8 +28,7 @@ error_log
 access_log
 
 # Uploads (ถ้าไม่ต้องการเก็บไฟล์ที่ user อัพโหลด)
-public/uploads/
-public/img/uploads/
+public/
 
 # IDE
 .vscode/
@@ -41,3 +40,8 @@ public/img/uploads/
 cache/
 temp/
 tmp/
+# 2026-09-02 — กุญแจ service account เคยโหลดผ่านเว็บได้ (prod = trandar.com/perfume/)
+# ย้ายไปเก็บนอกรากเว็บแล้ว: /home/cloudpanel/secrets/gcp_keys/
+keydata*/
+spatial-vision-*.json
+test_api.php
