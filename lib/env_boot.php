@@ -15,8 +15,14 @@ if (!isset($GLOBALS['__perfume_env_loaded'])) {
     $envDir = null;
     foreach ([
         getenv('PERFUME_ENV_DIR') ?: null,        // ตั้งค่าเองได้ ถ้าอยากเก็บที่อื่น
-        dirname(__DIR__, 4) . '/secrets/perfume', // นอกรากเว็บทั้งหมด — ที่ที่ควรอยู่
+        // ไล่ขึ้นไปทีละชั้นจนกว่าจะเจอ secrets/perfume — กันเรื่องที่ prod กับ dev วางโฟลเดอร์ลึกไม่เท่ากัน
+        // (prod จริงคือ origami_website/trandar/perfume ลึกกว่า local หนึ่งชั้น)
+        dirname(__DIR__, 1) . '/secrets/perfume',
+        dirname(__DIR__, 2) . '/secrets/perfume',
         dirname(__DIR__, 3) . '/secrets/perfume',
+        dirname(__DIR__, 4) . '/secrets/perfume',
+        dirname(__DIR__, 5) . '/secrets/perfume',
+        dirname(__DIR__, 6) . '/secrets/perfume',
         dirname(__DIR__),                         // ที่เดิม (รากเว็บ) — ใช้บนเครื่องพัฒนา
     ] as $candidate) {
         if ($candidate && is_file(rtrim($candidate, "/" . DIRECTORY_SEPARATOR) . "/.env")) {
